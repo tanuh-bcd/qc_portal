@@ -401,7 +401,7 @@ const MRMCStudyContent = () => {
     setSelectedArbiter(null);
 
     if (selectedInstitutions.length > 0) {
-      const institutionIds = selectedInstitutions.map((i) => i.id);
+      const institutionIds = selectedInstitutions.map((i) => i.qc_id);
 
       // Fetch subjects for selected institutions
       fetchSubjects(institutionIds);
@@ -441,7 +441,7 @@ const MRMCStudyContent = () => {
         .join('&');
 
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || ''}/api/v1/admin/users/clinicians?${params}`,
+        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/users/clinicians?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -483,7 +483,7 @@ const MRMCStudyContent = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || ''}/api/v1/admin/mrmc-studies/participants`,
+        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/mrmc-studies/participants`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const contentType = response.headers.get('content-type');
@@ -508,7 +508,7 @@ const MRMCStudyContent = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || ''}/api/v1/auth/hospitals`,
+        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/auth/hospitals`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const contentType = response.headers.get('content-type');
@@ -536,7 +536,7 @@ const MRMCStudyContent = () => {
       const token = localStorage.getItem('token');
       const params = institutionIds.map((id) => `institution_id=${id}`).join('&');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || ''}/api/v1/admin/subjects?${params}`,
+        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/subjects?${params}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const contentType = response.headers.get('content-type');
@@ -556,7 +556,7 @@ const MRMCStudyContent = () => {
     }
   };
 
-  // Calls POST /api/v1/admin/subjects/case-data with the selected subject IDs.
+  // Calls POST /api/v1/qc/admin/subjects/case-data with the selected subject IDs.
   // Backend returns { patient_session_id, ethnicity, age, state, machine, brand,
   // institution } per subject (null for anything missing) — mapped here to the
   // field names StratificationTable expects.
@@ -565,7 +565,7 @@ const MRMCStudyContent = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || ''}/api/v1/admin/subjects/case-data`,
+        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/subjects/case-data`,
         {
           method: 'POST',
           headers: {
@@ -632,7 +632,7 @@ const MRMCStudyContent = () => {
     setCreating(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/admin/mrmc-studies`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/mrmc-studies`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -640,7 +640,7 @@ const MRMCStudyContent = () => {
         },
         body: JSON.stringify({
           name: `MRMC Study - ${new Date().toLocaleString()}`,
-          institution_ids: selectedInstitutions.map((i) => i.id),
+          institution_ids: selectedInstitutions.map((i) => i.qc_id),
           subject_ids: Array.from(includedSubjectIds),
           reader_user_ids: selectedReaders.map((u) => u.id),
           arbiter_user_id: selectedArbiter.id
@@ -732,7 +732,8 @@ const MRMCStudyContent = () => {
                 selected={selectedInstitutions}
                 onChange={setSelectedInstitutions}
                 placeholder="Select institutions *"
-                getLabel={(o) => o.name}
+                getLabel={(o) => o.qc_name}
+                getId={(o) => o.qc_id}
               />
             )}
 

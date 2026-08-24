@@ -26,15 +26,15 @@ INSTITUTE_QUESTIONS = (
 
 
 def _get_hospital_name(app_db, hospital_id):
-    hospital = app_db.query(Hospital).filter(Hospital.id == hospital_id).first()
-    return hospital.name if hospital else None
+    hospital = app_db.query(Hospital).filter(Hospital.qc_id == hospital_id).first()
+    return hospital.qc_name if hospital else None
 
 
 def _get_attachment_flags(assessment):
     att_types = set()
     if assessment:
         for att in assessment.attachments:
-            att_types.add(att.file_type)
+            att_types.add(att.qc_file_type)
 
     all_4_mammo = all(t in att_types for t in ('mammo_cc_left', 'mammo_cc_right', 'mammo_mlo_left', 'mammo_mlo_right'))
     has_mammo_reading = 'mammo_reading' in att_types
@@ -67,25 +67,25 @@ def get_hospital_summary(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     hospitals = app_db.query(Hospital).filter(
-        ~Hospital.name.in_(('Test', 'Tanuh Foundation'))
-    ).order_by(Hospital.name).all()
+        ~Hospital.qc_name.in_(('Test', 'Tanuh Foundation'))
+    ).order_by(Hospital.qc_name).all()
     if not hospitals:
         return []
 
-    valid_names = [h.name for h in hospitals]
+    valid_names = [h.qc_name for h in hospitals]
     params = {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_names)}
 
     session_hosp_rows = q_db.execute(text("""
-        SELECT s.session_id, sd_inst.answer AS hospital_name
-        FROM session_table s
+        SELECT s.qc_session_id, sd_inst.answer AS hospital_name
+        FROM qc_session_table s
         JOIN (
-            SELECT session_id, MIN(answer) AS answer
-            FROM session_data_table
-            WHERE question IN :inst_questions
-              AND answer IN :valid_names
-            GROUP BY session_id
-        ) sd_inst ON s.session_id = sd_inst.session_id
-        WHERE s.snehita_lifetime_risk IS NOT NULL
+            SELECT qc_session_id, MIN(qc_answer) AS answer
+            FROM qc_session_data_table
+            WHERE qc_question IN :inst_questions
+              AND qc_answer IN :valid_names
+            GROUP BY qc_session_id
+        ) sd_inst ON s.qc_session_id = sd_inst.qc_session_id
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
     """), params).fetchall()
 
     subject_counts = {}
@@ -98,8 +98,8 @@ def get_hospital_summary(
     assessment_counts = {}
     all_ids = list(hospital_by_session.keys())
     if all_ids:
-        assessed_rows = app_db.query(DoctorAssessment.patient_session_id).filter(
-            DoctorAssessment.patient_session_id.in_(all_ids)
+        assessed_rows = app_db.query(DoctorAssessment.qc_patient_session_id).filter(
+            DoctorAssessment.qc_patient_session_id.in_(all_ids)
         ).all()
         for r in assessed_rows:
             hname = hospital_by_session.get(r[0])
@@ -109,26 +109,26 @@ def get_hospital_summary(
     result = []
     for h in hospitals:
         result.append({
-            "hospital_name": h.name,
-            "short_name": h.short_name,
-            "state": h.state,
-            "subject_count": subject_counts.get(h.name, 0),
-            "assessment_count": assessment_counts.get(h.name, 0),
+            "hospital_name": h.qc_name,
+            "qc_short_name": h.qc_short_name,
+            "qc_state": h.qc_state,
+            "subject_count": subject_counts.get(h.qc_name, 0),
+            "assessment_count": assessment_counts.get(h.qc_name, 0),
         })
 
     return result
 
 
 SORT_COLUMN_MAP = {
-    "date": "s.session_start_time",
-    "risk": "FIELD(s.risk_category, 'Baseline Risk', 'Evident Risk', 'Significant Risk', 'High Risk')",
+    "date": "s.qc_session_start_time",
+    "risk": "FIELD(s.qc_risk_category, 'Baseline Risk', 'Evident Risk', 'Significant Risk', 'High Risk')",
     "assessment": None,
 }
 
 
 def _build_order_clause(sort_param):
     if not sort_param:
-        return "s.session_start_time DESC"
+        return "s.qc_session_start_time DESC"
 
     clauses = []
     for part in sort_param.split(","):
@@ -147,7 +147,7 @@ def _build_order_clause(sort_param):
         if col:
             clauses.append(f"{col} {direction}")
 
-    return ", ".join(clauses) if clauses else "s.session_start_time DESC"
+    return ", ".join(clauses) if clauses else "s.qc_session_start_time DESC"
 
 
 @router.get("/sessions", response_model=List[PatientSessionListItem])
@@ -167,35 +167,35 @@ def get_patient_sessions(
             valid_names = [hospital_name]
         else:
             valid_names = [
-                h.name for h in
-                app_db.query(Hospital.name).filter(
-                    ~Hospital.name.in_(('Test', 'Tanuh Foundation'))
+                h.qc_name for h in
+                app_db.query(Hospital.qc_name).filter(
+                    ~Hospital.qc_name.in_(('Test', 'Tanuh Foundation'))
                 ).all()
             ]
         if not valid_names:
             return []
 
         rows = q_db.execute(text(f"""
-            SELECT s.session_id, s.session_start_time, s.snehita_lifetime_risk,
-                   pid.answer AS patient_id, s.risk_category,
+            SELECT s.qc_session_id, s.qc_session_start_time, s.qc_snehita_lifetime_risk,
+                   pid.answer AS patient_id, s.qc_risk_category,
                    hosp.answer AS hospital_name
-            FROM session_table s
+            FROM qc_session_table s
             JOIN (
-                SELECT session_id, MIN(answer) AS answer
-                FROM session_data_table
-                WHERE question IN ('Institute Name', 'Institute Name:',
+                SELECT qc_session_id, MIN(qc_answer) AS answer
+                FROM qc_session_data_table
+                WHERE qc_question IN ('Institute Name', 'Institute Name:',
                                    'Enter the Hospital ID(If any, else leave):', 'Q45')
-                  AND answer IN :valid_names
-                GROUP BY session_id
-            ) hosp ON s.session_id = hosp.session_id
+                  AND qc_answer IN :valid_names
+                GROUP BY qc_session_id
+            ) hosp ON s.qc_session_id = hosp.qc_session_id
             LEFT JOIN (
-                SELECT session_id, MIN(answer) AS answer
-                FROM session_data_table
-                WHERE question IN ('Enter your Patient ID(if any, else leave):',
+                SELECT qc_session_id, MIN(qc_answer) AS answer
+                FROM qc_session_data_table
+                WHERE qc_question IN ('Enter your Patient ID(if any, else leave):',
                                    'Enter your subject ID:', 'Q44')
-                GROUP BY session_id
-            ) pid ON s.session_id = pid.session_id
-            WHERE s.snehita_lifetime_risk IS NOT NULL
+                GROUP BY qc_session_id
+            ) pid ON s.qc_session_id = pid.qc_session_id
+            WHERE s.qc_snehita_lifetime_risk IS NOT NULL
             ORDER BY {order_clause}
         """), {"valid_names": tuple(valid_names)}).fetchall()
     else:
@@ -208,16 +208,16 @@ def get_patient_sessions(
             raise HTTPException(status_code=400, detail="Hospital not found")
 
         rows = q_db.execute(text(f"""
-            SELECT s.session_id, s.session_start_time, s.snehita_lifetime_risk,
-                   pid.answer AS patient_id, s.risk_category,
+            SELECT s.qc_session_id, s.qc_session_start_time, s.qc_snehita_lifetime_risk,
+                   pid.answer AS patient_id, s.qc_risk_category,
                    NULL AS hospital_name
-            FROM session_table s
-            JOIN session_data_table sd ON s.session_id = sd.session_id
-            LEFT JOIN session_data_table pid ON s.session_id = pid.session_id
-              AND pid.question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
-            WHERE sd.question IN :q1
-              AND sd.answer = :hospital_name
-              AND s.snehita_lifetime_risk IS NOT NULL
+            FROM qc_session_table s
+            JOIN qc_session_data_table sd ON s.qc_session_id = sd.qc_session_id
+            LEFT JOIN qc_session_data_table pid ON s.qc_session_id = pid.qc_session_id
+              AND pid.qc_question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
+            WHERE sd.qc_question IN :q1
+              AND sd.qc_answer = :hospital_name
+              AND s.qc_snehita_lifetime_risk IS NOT NULL
             ORDER BY {order_clause}
         """), {"q1": INSTITUTE_QUESTIONS, "hospital_name": hospital_name}).fetchall()
 
@@ -225,18 +225,18 @@ def get_patient_sessions(
     for row in rows:
         session_id = row[0]
         assessment = app_db.query(DoctorAssessment).filter(
-            DoctorAssessment.patient_session_id == session_id
+            DoctorAssessment.qc_patient_session_id == session_id
         ).options(joinedload(DoctorAssessment.attachments)).first()
 
         flags = _get_attachment_flags(assessment)
         result.append({
-            "id": session_id,
+            "qc_id": session_id,
             "patient_id": row[3] or "",
             "hospital_name": row[5] or None,
-            "consent_scanned_url": None,
-            "consent_timestamp": row[1],
+            "qc_consent_scanned_url": None,
+            "qc_consent_timestamp": row[1],
             "snehita_risk": row[2],
-            "risk_category": row[4] or "",
+            "qc_risk_category": row[4] or "",
             **flags,
         })
 
@@ -268,43 +268,43 @@ def get_patient_session_detail(
         raise HTTPException(status_code=400, detail="User hospital ID not found")
 
     session_row = q_db.execute(text(
-        "SELECT session_id, session_start_time, snehita_lifetime_risk, risk_category FROM session_table WHERE session_id = :sid"
+        "SELECT qc_session_id, qc_session_start_time, qc_snehita_lifetime_risk, qc_risk_category FROM qc_session_table WHERE qc_session_id = :sid"
     ), {"sid": session_id}).fetchone()
 
     patient_id_row = q_db.execute(text(
-        "SELECT answer FROM session_data_table WHERE session_id = :sid AND question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44') LIMIT 1"
+        "SELECT qc_answer FROM qc_session_data_table WHERE qc_session_id = :sid AND qc_question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44') LIMIT 1"
     ), {"sid": session_id}).fetchone()
 
     if not session_row:
         raise HTTPException(status_code=404, detail="Session not found")
 
     response_rows = q_db.execute(text(
-        "SELECT session_data_id, question, answer, created_at FROM session_data_table WHERE session_id = :sid ORDER BY created_at ASC"
+        "SELECT qc_session_data_id, qc_question, qc_answer, qc_created_at FROM qc_session_data_table WHERE qc_session_id = :sid ORDER BY qc_created_at ASC"
     ), {"sid": session_id}).fetchall()
 
     responses = []
     for r in response_rows:
         raw_question = r[1] or ""
         responses.append({
-            "id": abs(hash(r[0])) % 2147483647,
-            "question": _Q_TEXT_MAP.get(raw_question, raw_question),
-            "answer": r[2] or "",
-            "created_at": r[3],
+            "qc_id": abs(hash(r[0])) % 2147483647,
+            "qc_question": _Q_TEXT_MAP.get(raw_question, raw_question),
+            "qc_answer": r[2] or "",
+            "qc_created_at": r[3],
         })
 
     assessment = app_db.query(DoctorAssessment).filter(
-        DoctorAssessment.patient_session_id == session_id
+        DoctorAssessment.qc_patient_session_id == session_id
     ).options(joinedload(DoctorAssessment.attachments)).first()
 
     flags = _get_attachment_flags(assessment)
 
     return {
-        "id": session_id,
+        "qc_id": session_id,
         "patient_id": (patient_id_row[0] if patient_id_row else "") or "",
-        "consent_scanned_url": None,
-        "consent_timestamp": session_row[1],
+        "qc_consent_scanned_url": None,
+        "qc_consent_timestamp": session_row[1],
         "snehita_risk": session_row[2],
-        "risk_category": session_row[3] or "",
+        "qc_risk_category": session_row[3] or "",
         "responses": responses,
         "assessment": assessment,
         **flags,

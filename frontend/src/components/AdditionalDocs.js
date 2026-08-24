@@ -22,7 +22,7 @@ const AdditionalDocs = ({ sessionId, existingAttachments = [], onView, readOnly 
 
   const nextSuffix = (prefix) => {
     const allKeys = [
-      ...existingAttachments.map(a => a.file_type),
+      ...existingAttachments.map(a => a.qc_file_type),
       ...slots.map(s => s.fileType),
     ].filter(k => k.startsWith(prefix));
     const nums = allKeys.map(k => {
@@ -53,19 +53,19 @@ const AdditionalDocs = ({ sessionId, existingAttachments = [], onView, readOnly 
       {existingAttachments.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
           {existingAttachments.map(att => (
-            <div key={att.id} style={{
+            <div key={att.qc_id} style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 12px', borderRadius: 8,
               background: '#e8f7f8', border: '1px solid #c8e0e2',
             }}>
               <span style={{ fontSize: 12, fontWeight: 600, color: '#14868C', minWidth: 160 }}>
-                {getCategoryLabel(att.file_type)}
+                {getCategoryLabel(att.qc_file_type)}
               </span>
               <span style={{
                 flex: 1, fontSize: 12, color: '#333',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {att.file_name}
+                {att.qc_file_name}
               </span>
               {onView && (
                 <button

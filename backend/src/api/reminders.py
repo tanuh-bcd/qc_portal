@@ -34,8 +34,8 @@ def require_reminder_operator(
     email = current_user.get("email", "").strip().lower()
     authorized = _configured_emails(settings.REMINDER_OPERATOR_EMAILS)
     active_user = db.query(User).filter(
-        User.email == email,
-        User.is_active.is_(True),
+        User.qc_email == email,
+        User.qc_is_active.is_(True),
     ).first()
     if email not in authorized or not active_user:
         raise HTTPException(

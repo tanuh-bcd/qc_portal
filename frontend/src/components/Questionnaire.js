@@ -200,15 +200,15 @@ function Questionnaire({ onSubmit, isSubmitting }) {
              const showSub = subQuestions && (!condition || condition.key !== key || formDataEn[key] === condition.value);
              
              responses.push({
-               question: questionDataEn.question,
-               answer: Array.isArray(formDataEn[key]) ? formDataEn[key].join(', ') : String(formDataEn[key])
+               qc_question: questionDataEn.question,
+               qc_answer: Array.isArray(formDataEn[key]) ? formDataEn[key].join(', ') : String(formDataEn[key])
              });
 
              // Extra handling for 'Other' specify text fields
              if (key === 'Q43' && formDataEn['q43_other_specify']) {
                 responses.push({
-                    question: "Other cancer specify",
-                    answer: String(formDataEn['q43_other_specify'])
+                    qc_question: "Other cancer specify",
+                    qc_answer: String(formDataEn['q43_other_specify'])
                 });
              }
 

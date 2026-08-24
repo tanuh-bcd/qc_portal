@@ -105,7 +105,7 @@ def start_session(request: Request, db: Session = Depends(get_questionnaire_db))
 
     try:
         db.execute(
-            text("INSERT INTO session_table (session_id, ip_address, session_start_time) VALUES (:sid, :ip, :ts)"),
+            text("INSERT INTO qc_session_table (qc_session_id, qc_ip_address, qc_session_start_time) VALUES (:sid, :ip, :ts)"),
             {"sid": session_id, "ip": ip_address, "ts": now},
         )
         db.commit()
@@ -123,7 +123,7 @@ async def upload_public_consent(
     db: Session = Depends(get_questionnaire_db)
 ):
     session = db.execute(
-        text("SELECT session_id FROM session_table WHERE session_id = :sid"),
+        text("SELECT qc_session_id FROM qc_session_table WHERE qc_session_id = :sid"),
         {"sid": session_id}
     ).fetchone()
     if not session:
@@ -142,7 +142,7 @@ async def upload_public_consent(
     gcs_url = f"gs://{settings.GCP_STORAGE_BUCKET}/{blob_name}"
 
     db.execute(
-        text("UPDATE session_table SET consent_url = :url WHERE session_id = :sid"),
+        text("UPDATE qc_session_table SET qc_consent_url = :url WHERE qc_session_id = :sid"),
         {"url": gcs_url, "sid": session_id},
     )
     db.commit()
@@ -168,7 +168,7 @@ def submit_questionnaire(
         raise HTTPException(status_code=400, detail="Session ID and form data are required.")
 
     session_row = db.execute(
-        text("SELECT session_id FROM session_table WHERE session_id = :sid"),
+        text("SELECT qc_session_id FROM qc_session_table WHERE qc_session_id = :sid"),
         {"sid": session_id},
     ).fetchone()
     if not session_row:
@@ -186,7 +186,7 @@ def submit_questionnaire(
             question_text = _QUESTION_TEXT_MAP.get(key, key)
             db.execute(
                 text(
-                    "INSERT INTO session_data_table (session_data_id, session_id, question, answer, created_at) "
+                    "INSERT INTO qc_session_data_table (qc_session_data_id, qc_session_id, qc_question, qc_answer, qc_created_at) "
                     "VALUES (:did, :sid, :q, :a, :ts)"
                 ),
                 {"did": data_id, "sid": session_id, "q": question_text, "a": answer, "ts": now},
@@ -199,7 +199,7 @@ def submit_questionnaire(
 
         db.execute(
             text(
-                "UPDATE session_table SET session_end_time = :end, snehita_lifetime_risk = :risk, risk_category = :cat WHERE session_id = :sid"
+                "UPDATE qc_session_table SET qc_session_end_time = :end, qc_snehita_lifetime_risk = :risk, qc_risk_category = :cat WHERE qc_session_id = :sid"
             ),
             {"end": datetime.datetime.utcnow(), "risk": str(risk_decimal), "cat": risk_cat, "sid": session_id},
         )

@@ -10,7 +10,7 @@ class TestAssessmentSubmission:
 
     def _get_valid_session_id(self, client):
         """Get a real session ID from bcd_questionnaire via the public endpoint."""
-        res = client.post("/api/session/start")
+        res = client.post("/api/v1/qc/session/start")
         assert res.status_code == 200
         data = res.json()
         assert data["success"] is True
@@ -50,7 +50,7 @@ class TestAssessmentSubmission:
             }
         })
 
-        res = client.post("/api/v1/patient/assessment", data={
+        res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": session_id,
             "questionnaire_feedback": "Looks correct",
             "is_questionnaire_correct": "true",
@@ -69,10 +69,10 @@ class TestAssessmentSubmission:
 
         assert res.status_code == 200
         data = res.json()
-        assert data["patient_session_id"] == session_id
-        assert data["recommendation_followup"] == "Routine screening in 12 months"
-        assert data["doctor_risk_class"] == "Baseline Risk"
-        assert data["doctor_case_notes"] == "No abnormalities detected"
+        assert data["qc_patient_session_id"] == session_id
+        assert data["qc_recommendation_followup"] == "Routine screening in 12 months"
+        assert data["qc_doctor_risk_class"] == "Baseline Risk"
+        assert data["qc_doctor_case_notes"] == "No abnormalities detected"
 
     def test_submit_high_risk_assessment(self, client, seed_hospital_and_user):
         """Submit assessment with high-risk findings — masses, calcification, lymph nodes."""
@@ -113,7 +113,7 @@ class TestAssessmentSubmission:
             }
         })
 
-        res = client.post("/api/v1/patient/assessment", data={
+        res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": session_id,
             "questionnaire_feedback": "",
             "is_questionnaire_correct": "true",
@@ -132,8 +132,8 @@ class TestAssessmentSubmission:
 
         assert res.status_code == 200
         data = res.json()
-        assert data["doctor_risk_class"] == "High Risk"
-        cf = data.get("clinical_findings")
+        assert data["qc_doctor_risk_class"] == "High Risk"
+        cf = data.get("qc_clinical_findings")
         if isinstance(cf, str):
             cf = json.loads(cf)
         assert cf["right"]["masses"] is True
@@ -163,28 +163,28 @@ class TestAssessmentSubmission:
         }
 
         # First submission
-        res1 = client.post("/api/v1/patient/assessment", data=base_data,
+        res1 = client.post("/api/v1/qc/patient/assessment", data=base_data,
                            headers={"Authorization": f"Bearer {token}"})
         assert res1.status_code == 200
-        assessment_id = res1.json()["id"]
+        assessment_id = res1.json()["qc_id"]
 
         # Update
         base_data["recommendation_followup"] = "Updated recommendation"
         base_data["doctor_risk_class"] = "Evident Risk"
         base_data["doctor_case_notes"] = "Updated notes after review"
 
-        res2 = client.post("/api/v1/patient/assessment", data=base_data,
+        res2 = client.post("/api/v1/qc/patient/assessment", data=base_data,
                            headers={"Authorization": f"Bearer {token}"})
         assert res2.status_code == 200
-        assert res2.json()["id"] == assessment_id
-        assert res2.json()["recommendation_followup"] == "Updated recommendation"
-        assert res2.json()["doctor_risk_class"] == "Evident Risk"
+        assert res2.json()["qc_id"] == assessment_id
+        assert res2.json()["qc_recommendation_followup"] == "Updated recommendation"
+        assert res2.json()["qc_doctor_risk_class"] == "Evident Risk"
 
     def test_assessment_invalid_session(self, client, seed_hospital_and_user):
         """Submit assessment for a non-existent session — should fail."""
         token = get_token("Clinician", "doctor@test.com")
 
-        res = client.post("/api/v1/patient/assessment", data={
+        res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": "non-existent-uuid-12345",
             "is_questionnaire_correct": "false",
             "mammo_birads": "",
@@ -200,7 +200,7 @@ class TestAssessmentSubmission:
 
     def test_assessment_no_auth(self, client):
         """Submit assessment without authentication — should fail."""
-        res = client.post("/api/v1/patient/assessment", data={
+        res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": "any-session-id",
             "is_questionnaire_correct": "false",
             "mammo_birads": "",
@@ -251,7 +251,7 @@ class TestAssessmentSubmission:
             }
         }
 
-        res = client.post("/api/v1/patient/assessment", data={
+        res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": session_id,
             "is_questionnaire_correct": "true",
             "mammo_birads": "3",
@@ -269,7 +269,7 @@ class TestAssessmentSubmission:
 
         assert res.status_code == 200
         data = res.json()
-        cf = data.get("clinical_findings")
+        cf = data.get("qc_clinical_findings")
         if isinstance(cf, str):
             cf = json.loads(cf)
 
@@ -289,7 +289,7 @@ class TestUploadUrlGeneration:
         """Generate a signed URL for file upload."""
         token = get_token("Clinician", "doctor@test.com")
 
-        res = client.post("/api/v1/patient/upload-url", data={
+        res = client.post("/api/v1/qc/patient/upload-url", data={
             "file_type": "mammo_cc_left",
             "file_name": "test_dicom.dcm",
             "session_id": "test-session-123",
@@ -305,7 +305,7 @@ class TestUploadUrlGeneration:
 
     def test_upload_url_no_auth(self, client):
         """Generating upload URL without auth should fail."""
-        res = client.post("/api/v1/patient/upload-url", data={
+        res = client.post("/api/v1/qc/patient/upload-url", data={
             "file_type": "mammo_cc_left",
             "file_name": "test.dcm",
             "session_id": "test-session",
@@ -317,7 +317,7 @@ class TestUploadUrlGeneration:
         session_id = self._create_session(client)
         token = get_token("Clinician", "doctor@test.com")
 
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
             "file_type": "mammo_cc_left",
             "file_name": "cc_left_scan.dcm",
@@ -329,5 +329,5 @@ class TestUploadUrlGeneration:
         assert res.json()["success"] is True
 
     def _create_session(self, client):
-        res = client.post("/api/session/start")
+        res = client.post("/api/v1/qc/session/start")
         return res.json()["sessionId"]

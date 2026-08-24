@@ -52,30 +52,30 @@ AGE_QUESTIONS = ('What is your current age? (Please enter a number - years)', 'Q
 def _get_institute_filter(valid_names):
     return f"""
     JOIN (
-        SELECT session_id, MAX(answer) as answer
-        FROM session_data_table
-        WHERE question IN :inst_questions
-          AND answer IN :valid_names
-        GROUP BY session_id
-    ) sd_inst ON s.session_id = sd_inst.session_id
+        SELECT qc_session_id, MAX(qc_answer) as answer
+        FROM qc_session_data_table
+        WHERE qc_question IN :inst_questions
+          AND qc_answer IN :valid_names
+        GROUP BY qc_session_id
+    ) sd_inst ON s.qc_session_id = sd_inst.qc_session_id
     """
 
 RISK_CASE = """
-    SUM(CASE WHEN s.snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
-    SUM(CASE WHEN s.snehita_lifetime_risk >= 0.4004 AND s.snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low_risk,
-    SUM(CASE WHEN s.snehita_lifetime_risk >= 0.574 AND s.snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate_risk,
-    SUM(CASE WHEN s.snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high_risk
+    SUM(CASE WHEN s.qc_snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
+    SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.4004 AND s.qc_snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low_risk,
+    SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.574 AND s.qc_snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate_risk,
+    SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high_risk
 """
 
 
 @router.get("/")
 def get_stats(db: Session = Depends(get_questionnaire_db), app_db: Session = Depends(get_db)):
     EXCLUDED_NAMES = ('Test', 'Tanuh Foundation')
-    hospital_rows = app_db.query(Hospital.name, Hospital.short_name).filter(
-        ~Hospital.name.in_(EXCLUDED_NAMES)
+    hospital_rows = app_db.query(Hospital.qc_name, Hospital.qc_short_name).filter(
+        ~Hospital.qc_name.in_(EXCLUDED_NAMES)
     ).all()
-    valid_hospitals = [h.name for h in hospital_rows]
-    hospital_short_names = {h.name: h.short_name or h.name for h in hospital_rows}
+    valid_hospitals = [h.qc_name for h in hospital_rows]
+    hospital_short_names = {h.qc_name: h.qc_short_name or h.qc_name for h in hospital_rows}
     if not valid_hospitals:
         return {"totalSubjects": 0, "institutionsEmpanelled": 0, "statesCount": 0,
                 "riskBins": [], "hospitalBins": [], "ageBins": [], "monthBins": []}
@@ -84,16 +84,16 @@ def get_stats(db: Session = Depends(get_questionnaire_db), app_db: Session = Dep
     params = {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_hospitals)}
 
     total_res = db.execute(text(f"""
-        SELECT COUNT(DISTINCT s.session_id) as total
-        FROM session_table s {inst_filter}
-        WHERE s.snehita_lifetime_risk IS NOT NULL
+        SELECT COUNT(DISTINCT s.qc_session_id) as total
+        FROM qc_session_table s {inst_filter}
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
     """), params).fetchone()
     total_subjects = total_res[0] if total_res else 0
 
     risk_res = db.execute(text(f"""
         SELECT {RISK_CASE}
-        FROM session_table s {inst_filter}
-        WHERE s.snehita_lifetime_risk IS NOT NULL
+        FROM qc_session_table s {inst_filter}
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
     """), params).fetchone()
 
     risk_bins = [
@@ -105,12 +105,12 @@ def get_stats(db: Session = Depends(get_questionnaire_db), app_db: Session = Dep
 
     hosp_rows = db.execute(text(f"""
         SELECT sd_inst.answer as institute,
-            SUM(CASE WHEN s.snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.4004 AND s.snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.574 AND s.snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high
-        FROM session_table s {inst_filter}
-        WHERE s.snehita_lifetime_risk IS NOT NULL
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.4004 AND s.qc_snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.574 AND s.qc_snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high
+        FROM qc_session_table s {inst_filter}
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
         GROUP BY sd_inst.answer
     """), params).fetchall()
 
@@ -122,22 +122,22 @@ def get_stats(db: Session = Depends(get_questionnaire_db), app_db: Session = Dep
     age_rows = db.execute(text(f"""
         SELECT
             CASE
-                WHEN CAST(sd_age.answer AS UNSIGNED) BETWEEN 18 AND 29 THEN '18-29'
-                WHEN CAST(sd_age.answer AS UNSIGNED) BETWEEN 30 AND 39 THEN '30-39'
-                WHEN CAST(sd_age.answer AS UNSIGNED) BETWEEN 40 AND 49 THEN '40-49'
-                WHEN CAST(sd_age.answer AS UNSIGNED) BETWEEN 50 AND 59 THEN '50-59'
-                WHEN CAST(sd_age.answer AS UNSIGNED) BETWEEN 60 AND 69 THEN '60-69'
+                WHEN CAST(sd_age.qc_answer AS UNSIGNED) BETWEEN 18 AND 29 THEN '18-29'
+                WHEN CAST(sd_age.qc_answer AS UNSIGNED) BETWEEN 30 AND 39 THEN '30-39'
+                WHEN CAST(sd_age.qc_answer AS UNSIGNED) BETWEEN 40 AND 49 THEN '40-49'
+                WHEN CAST(sd_age.qc_answer AS UNSIGNED) BETWEEN 50 AND 59 THEN '50-59'
+                WHEN CAST(sd_age.qc_answer AS UNSIGNED) BETWEEN 60 AND 69 THEN '60-69'
                 ELSE '70+'
             END as age_group,
-            SUM(CASE WHEN s.snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.4004 AND s.snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.574 AND s.snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high
-        FROM session_table s
-        JOIN session_data_table sd_age ON s.session_id = sd_age.session_id
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.4004 AND s.qc_snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.574 AND s.qc_snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high
+        FROM qc_session_table s
+        JOIN qc_session_data_table sd_age ON s.qc_session_id = sd_age.qc_session_id
         {inst_filter}
-        WHERE s.snehita_lifetime_risk IS NOT NULL
-          AND sd_age.question IN :age_questions
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
+          AND sd_age.qc_question IN :age_questions
         GROUP BY age_group
         ORDER BY age_group ASC
     """), {**params, "age_questions": AGE_QUESTIONS}).fetchall()
@@ -154,14 +154,14 @@ def get_stats(db: Session = Depends(get_questionnaire_db), app_db: Session = Dep
 
     month_rows = db.execute(text(f"""
         SELECT
-            DATE_FORMAT(COALESCE(s.session_end_time, s.session_start_time), '%b %Y') as month_year,
-            DATE_FORMAT(COALESCE(s.session_end_time, s.session_start_time), '%Y-%m') as sort_key,
-            SUM(CASE WHEN s.snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.4004 AND s.snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.574 AND s.snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate,
-            SUM(CASE WHEN s.snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high
-        FROM session_table s {inst_filter}
-        WHERE s.snehita_lifetime_risk IS NOT NULL
+            DATE_FORMAT(COALESCE(s.qc_session_end_time, s.qc_session_start_time), '%b %Y') as month_year,
+            DATE_FORMAT(COALESCE(s.qc_session_end_time, s.qc_session_start_time), '%Y-%m') as sort_key,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk < 0.4004 THEN 1 ELSE 0 END) as no_risk,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.4004 AND s.qc_snehita_lifetime_risk < 0.574 THEN 1 ELSE 0 END) as low,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.574 AND s.qc_snehita_lifetime_risk < 0.795 THEN 1 ELSE 0 END) as moderate,
+            SUM(CASE WHEN s.qc_snehita_lifetime_risk >= 0.795 THEN 1 ELSE 0 END) as high
+        FROM qc_session_table s {inst_filter}
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
         GROUP BY month_year, sort_key
         ORDER BY sort_key ASC
     """), params).fetchall()
@@ -172,12 +172,12 @@ def get_stats(db: Session = Depends(get_questionnaire_db), app_db: Session = Dep
     ]
 
     inst_res = app_db.execute(text(
-        "SELECT COUNT(*) FROM hospitals WHERE name NOT IN ('Test', 'Tanuh Foundation')"
+        "SELECT COUNT(*) FROM qc_hospitals WHERE qc_name NOT IN ('Test', 'Tanuh Foundation')"
     )).fetchone()
     institutions_empanelled = inst_res[0] if inst_res else 0
 
     states_res = app_db.execute(text(
-        "SELECT COUNT(DISTINCT state) FROM hospitals WHERE name NOT IN ('Test', 'Tanuh Foundation') AND state IS NOT NULL AND state != ''"
+        "SELECT COUNT(DISTINCT qc_state) FROM qc_hospitals WHERE qc_name NOT IN ('Test', 'Tanuh Foundation') AND qc_state IS NOT NULL AND qc_state != ''"
     )).fetchone()
     states_count = states_res[0] if states_res else 0
 
@@ -198,36 +198,36 @@ def get_hospital_locations(
     db: Session = Depends(get_questionnaire_db),
 ):
     EXCLUDED = ("Test", "Tanuh Foundation")
-    hospitals = app_db.query(Hospital).filter(~Hospital.name.in_(EXCLUDED)).all()
-    valid_names = [h.name for h in hospitals]
+    hospitals = app_db.query(Hospital).filter(~Hospital.qc_name.in_(EXCLUDED)).all()
+    valid_names = [h.qc_name for h in hospitals]
     if not valid_names:
         return []
 
     subject_rows = db.execute(text("""
-        SELECT sd.answer AS institute, COUNT(DISTINCT s.session_id) AS subjects
-        FROM session_table s
-        JOIN session_data_table sd ON s.session_id = sd.session_id
-        WHERE sd.question IN :inst_questions
-          AND sd.answer IN :valid_names
-          AND s.snehita_lifetime_risk IS NOT NULL
-        GROUP BY sd.answer
+        SELECT sd.qc_answer AS institute, COUNT(DISTINCT s.qc_session_id) AS subjects
+        FROM qc_session_table s
+        JOIN qc_session_data_table sd ON s.qc_session_id = sd.qc_session_id
+        WHERE sd.qc_question IN :inst_questions
+          AND sd.qc_answer IN :valid_names
+          AND s.qc_snehita_lifetime_risk IS NOT NULL
+        GROUP BY sd.qc_answer
     """), {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_names)}).fetchall()
     subject_counts = {r[0]: int(r[1]) for r in subject_rows}
 
     locations = []
     for h in hospitals:
-        result = _geocode_pincode(h.pincode or "", h.state or "")
+        result = _geocode_pincode(h.qc_pincode or "", h.qc_state or "")
         if not result:
             continue
         city = result[2] if len(result) > 2 else ""
         locations.append({
-            "id": h.id,
-            "name": h.name,
-            "short_name": h.short_name or h.name,
+            "qc_id": h.qc_id,
+            "qc_name": h.qc_name,
+            "qc_short_name": h.qc_short_name or h.qc_name,
             "city": city,
-            "state": h.state or "",
+            "qc_state": h.qc_state or "",
             "latitude": result[0],
             "longitude": result[1],
-            "subjects": subject_counts.get(h.name, 0),
+            "subjects": subject_counts.get(h.qc_name, 0),
         })
     return locations

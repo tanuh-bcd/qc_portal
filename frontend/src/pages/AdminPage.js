@@ -154,7 +154,7 @@ const AdminContent = ({ hospitalName }) => {
 
   const fetchHospitals = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/auth/hospitals`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/auth/hospitals`);
       const contentType = response.headers.get("content-type");
       if (response.ok && contentType && contentType.indexOf("application/json") !== -1) {
         const data = await response.json();
@@ -178,7 +178,7 @@ const AdminContent = ({ hospitalName }) => {
   const fetchRoles = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/admin/roles`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/roles`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const contentType = response.headers.get("content-type");
@@ -217,25 +217,25 @@ const AdminContent = ({ hospitalName }) => {
     }
     setLoading(true);
     try {
-      const role = roles.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+      const role = roles.find(r => r.qc_name.toLowerCase() === roleName.toLowerCase());
       if (!role) {
-        const availableRoles = roles.map(r => r.name).join(', ');
+        const availableRoles = roles.map(r => r.qc_name).join(', ');
         throw new Error(`Role "${roleName}" not found in the available roles: ${availableRoles}`);
       }
 
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/admin/users`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          email: formData.email,
+          qc_email: formData.email,
           password: formData.password,
-          full_name: formData.fullName,
-          hospital_id: formData.hospitalId,
-          role_id: role.id
+          qc_full_name: formData.fullName,
+          qc_hospital_id: formData.hospitalId,
+          qc_role_id: role.qc_id
         })
       });
 
@@ -282,21 +282,21 @@ const AdminContent = ({ hospitalName }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/admin/hospitals`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/hospitals`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          name: hospitalForm.name,
-          short_name: hospitalForm.shortName,
-          contact_person: hospitalForm.contactPerson,
-          email: hospitalForm.email,
-          address: hospitalForm.address,
-          pincode: hospitalForm.pincode,
-          state: hospitalForm.state,
-          type: hospitalForm.modalityType
+          qc_name: hospitalForm.name,
+          qc_short_name: hospitalForm.shortName,
+          qc_contact_person: hospitalForm.contactPerson,
+          qc_email: hospitalForm.email,
+          qc_address: hospitalForm.address,
+          qc_pincode: hospitalForm.pincode,
+          qc_state: hospitalForm.state,
+          qc_type: hospitalForm.modalityType
         })
       });
 
@@ -341,19 +341,19 @@ const AdminContent = ({ hospitalName }) => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/admin/machines`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/machines`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          hospital_id: machineForm.hospitalId,
-          hospital_short_name: machineForm.hospitalShortName,
-          machine: machineForm.machineName,
-          make: machineForm.machineMake,
-          technology: machineForm.machineTechnology,
-          no_of_machines: Number(machineForm.noOfMachines)
+          qc_hospital_id: machineForm.hospitalId,
+          qc_hospital_short_name: machineForm.hospitalShortName,
+          qc_machine: machineForm.machineName,
+          qc_make: machineForm.machineMake,
+          qc_technology: machineForm.machineTechnology,
+          qc_no_of_machines: Number(machineForm.noOfMachines)
         })
       });
 
@@ -528,7 +528,7 @@ const AdminContent = ({ hospitalName }) => {
                 onChange={(e) => setDoctorForm({ ...doctorForm, hospitalId: e.target.value })}
               >
                 <option value="">Select Institution</option>
-                {hospitals.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                {hospitals.map(h => <option key={h.qc_id} value={h.qc_id}>{h.qc_name}</option>)}
               </select>
             </div>
             <button
@@ -587,7 +587,7 @@ const AdminContent = ({ hospitalName }) => {
                 onChange={(e) => setStaffForm({ ...staffForm, hospitalId: e.target.value })}
               >
                 <option value="">Select Institution</option>
-                {hospitals.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                {hospitals.map(h => <option key={h.qc_id} value={h.qc_id}>{h.qc_name}</option>)}
               </select>
             </div>
             <button
@@ -749,7 +749,7 @@ const AdminContent = ({ hospitalName }) => {
                   onChange={(e) => setAdminForm({ ...adminForm, hospitalId: e.target.value })}
                 >
                   <option value="">Select Institution</option>
-                  {hospitals.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  {hospitals.map(h => <option key={h.qc_id} value={h.qc_id}>{h.qc_name}</option>)}
                 </select>
               </div>
               <button
@@ -779,16 +779,16 @@ const AdminContent = ({ hospitalName }) => {
                 value={machineForm.hospitalId}
                 onChange={(e) => {
                   const selectedId = e.target.value;
-                  const selectedHospital = hospitals.find(h => h.id === selectedId);
+                  const selectedHospital = hospitals.find(h => h.qc_id === selectedId);
                   setMachineForm({
                     ...machineForm,
                     hospitalId: selectedId,
-                    hospitalShortName: selectedHospital ? selectedHospital.short_name : ''
+                    hospitalShortName: selectedHospital ? selectedHospital.qc_short_name : ''
                   });
                 }}
               >
                 <option value="">Select Institute</option>
-                {hospitals.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                {hospitals.map(h => <option key={h.qc_id} value={h.qc_id}>{h.qc_name}</option>)}
               </select>
             </div>
             <div style={formGroupStyle}>

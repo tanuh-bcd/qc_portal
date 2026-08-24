@@ -5,7 +5,7 @@ import json
 
 class TestSessionStart:
     def test_creates_session(self, client):
-        res = client.post("/api/session/start")
+        res = client.post("/api/v1/qc/session/start")
         assert res.status_code == 200
         data = res.json()
         assert data["success"] is True
@@ -15,17 +15,17 @@ class TestSessionStart:
     def test_multiple_sessions(self, client):
         ids = set()
         for _ in range(5):
-            res = client.post("/api/session/start")
+            res = client.post("/api/v1/qc/session/start")
             ids.add(res.json()["sessionId"])
         assert len(ids) == 5  # all unique
 
 
 class TestQuestionnaireSubmit:
     def test_submit_basic(self, client):
-        session_res = client.post("/api/session/start")
+        session_res = client.post("/api/v1/qc/session/start")
         session_id = session_res.json()["sessionId"]
 
-        res = client.post("/api/submit", json={
+        res = client.post("/api/v1/qc/submit", json={
             "sessionId": session_id,
             "formDataEn": {
                 "Q1": "45",
@@ -44,23 +44,23 @@ class TestQuestionnaireSubmit:
         assert float(data["riskPercentage"]) > 0
 
     def test_submit_missing_session_id(self, client):
-        res = client.post("/api/submit", json={
+        res = client.post("/api/v1/qc/submit", json={
             "sessionId": "",
             "formDataEn": {"Q1": "30"}
         })
         assert res.status_code == 400
 
     def test_submit_missing_form_data(self, client):
-        res = client.post("/api/submit", json={
+        res = client.post("/api/v1/qc/submit", json={
             "sessionId": "some-id"
         })
         assert res.status_code == 422
 
     def test_submit_high_risk_profile(self, client):
-        session_res = client.post("/api/session/start")
+        session_res = client.post("/api/v1/qc/session/start")
         session_id = session_res.json()["sessionId"]
 
-        res = client.post("/api/submit", json={
+        res = client.post("/api/v1/qc/submit", json={
             "sessionId": session_id,
             "formDataEn": {
                 "Q1": "55",
@@ -76,10 +76,10 @@ class TestQuestionnaireSubmit:
         assert float(data["riskPercentage"]) > 50  # high risk inputs
 
     def test_submit_low_risk_profile(self, client):
-        session_res = client.post("/api/session/start")
+        session_res = client.post("/api/v1/qc/session/start")
         session_id = session_res.json()["sessionId"]
 
-        res = client.post("/api/submit", json={
+        res = client.post("/api/v1/qc/submit", json={
             "sessionId": session_id,
             "formDataEn": {
                 "Q1": "30",

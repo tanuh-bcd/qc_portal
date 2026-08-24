@@ -82,7 +82,7 @@ const Stats = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/v1/stats/`);
+        const response = await fetch(`${API_URL}/api/v1/qc/stats/`);
         if (!response.ok) throw new Error('Failed to load stats');
         const json = await response.json();
         if (json.riskBins) {

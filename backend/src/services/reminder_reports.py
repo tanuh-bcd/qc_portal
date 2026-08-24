@@ -111,15 +111,15 @@ def _chunks(values: list[str], size: int = 500) -> Iterable[list[str]]:
 def _questionnaire_rows(questionnaire_db: Session, hospital_name: str):
     statement = text("""
         SELECT DISTINCT
-            s.session_id,
-            s.session_start_time,
-            s.session_end_time,
-            s.snehita_lifetime_risk,
-            s.consent_url
-        FROM session_table s
-        JOIN session_data_table sd ON s.session_id = sd.session_id
-        WHERE sd.question IN :institute_questions
-          AND TRIM(sd.answer) = :hospital_name
+            s.qc_session_id AS session_id,
+            s.qc_session_start_time AS session_start_time,
+            s.qc_session_end_time AS session_end_time,
+            s.qc_snehita_lifetime_risk AS snehita_lifetime_risk,
+            s.qc_consent_url AS consent_url
+        FROM qc_session_table s
+        JOIN qc_session_data_table sd ON s.qc_session_id = sd.qc_session_id
+        WHERE sd.qc_question IN :institute_questions
+          AND TRIM(sd.qc_answer) = :hospital_name
     """).bindparams(bindparam("institute_questions", expanding=True))
     return questionnaire_db.execute(statement, {
         "institute_questions": INSTITUTE_QUESTIONS,
@@ -131,10 +131,10 @@ def _blank_questionnaire_session_ids(questionnaire_db: Session, session_ids: lis
     blank_ids: set[str] = set()
     for session_chunk in _chunks(session_ids):
         statement = text("""
-            SELECT DISTINCT session_id
-            FROM session_data_table
-            WHERE session_id IN :session_ids
-              AND (answer IS NULL OR TRIM(answer) = '')
+            SELECT DISTINCT qc_session_id
+            FROM qc_session_data_table
+            WHERE qc_session_id IN :session_ids
+              AND (qc_answer IS NULL OR TRIM(qc_answer) = '')
         """).bindparams(bindparam("session_ids", expanding=True))
         blank_ids.update(
             row[0] for row in questionnaire_db.execute(
@@ -148,9 +148,9 @@ def _patient_sessions(db: Session, session_ids: list[str]) -> dict[str, PatientS
     sessions: dict[str, PatientSession] = {}
     for session_chunk in _chunks(session_ids):
         rows = db.query(PatientSession).filter(
-            PatientSession.id.in_(session_chunk)
+            PatientSession.qc_id.in_(session_chunk)
         ).all()
-        sessions.update({row.id: row for row in rows})
+        sessions.update({row.qc_id: row for row in rows})
     return sessions
 
 
@@ -163,18 +163,18 @@ def _latest_assessments(
         rows = db.query(DoctorAssessment).options(
             joinedload(DoctorAssessment.attachments)
         ).filter(
-            DoctorAssessment.patient_session_id.in_(session_chunk)
+            DoctorAssessment.qc_patient_session_id.in_(session_chunk)
         ).all()
         for row in rows:
-            existing = assessments.get(row.patient_session_id)
+            existing = assessments.get(row.qc_patient_session_id)
             if not existing or (
-                row.created_at or datetime.min,
-                row.id or 0,
+                row.qc_created_at or datetime.min,
+                row.qc_id or 0,
             ) > (
-                existing.created_at or datetime.min,
-                existing.id or 0,
+                existing.qc_created_at or datetime.min,
+                existing.qc_id or 0,
             ):
-                assessments[row.patient_session_id] = row
+                assessments[row.qc_patient_session_id] = row
     return assessments
 
 
@@ -182,13 +182,13 @@ def _bilateral_value(assessment: Optional[DoctorAssessment], field: str) -> bool
     if not assessment:
         return False
     if field == "birads":
-        right_value = assessment.mammo_birads
-        left_value = assessment.us_biopsy_birads
+        right_value = assessment.qc_mammo_birads
+        left_value = assessment.qc_us_biopsy_birads
     else:
-        right_value = assessment.mammo_density
-        left_value = assessment.us_biopsy_density
+        right_value = assessment.qc_mammo_density
+        left_value = assessment.qc_us_biopsy_density
 
-    findings = assessment.clinical_findings if isinstance(assessment.clinical_findings, dict) else {}
+    findings = assessment.qc_clinical_findings if isinstance(assessment.qc_clinical_findings, dict) else {}
     right = findings.get("right") if isinstance(findings.get("right"), dict) else {}
     left = findings.get("left") if isinstance(findings.get("left"), dict) else {}
     return bool(right_value or right.get(field)) and bool(left_value or left.get(field))
@@ -200,7 +200,7 @@ def _components(
     assessment: Optional[DoctorAssessment],
 ) -> dict[str, bool]:
     attachment_types = {
-        attachment.file_type for attachment in (assessment.attachments if assessment else [])
+        attachment.qc_file_type for attachment in (assessment.attachments if assessment else [])
     }
     questionnaire_complete = bool(
         questionnaire_row.snehita_lifetime_risk is not None
@@ -209,14 +209,14 @@ def _components(
     return {
         "consent": bool(
             (questionnaire_row.consent_url and str(questionnaire_row.consent_url).strip())
-            or (patient_session and patient_session.consent_scanned_url)
+            or (patient_session and patient_session.qc_consent_scanned_url)
         ),
         "questionnaire": questionnaire_complete,
         "mammogram": MAMMOGRAM_VIEWS.issubset(attachment_types),
         "birads": _bilateral_value(assessment, "birads"),
         "density": _bilateral_value(assessment, "density"),
         "mammogram_report": "mammo_reading" in attachment_types,
-        "routine_views_confirmed": bool(assessment and assessment.routine_views_uploaded),
+        "routine_views_confirmed": bool(assessment and assessment.qc_routine_views_uploaded),
         "assessment": assessment is not None,
     }
 
@@ -227,11 +227,11 @@ def _is_complete_data_point(components: dict[str, bool]) -> bool:
 
 def active_hospital_recipients(db: Session, hospital_id: str) -> list[ReminderRecipient]:
     users = db.query(User).filter(
-        User.hospital_id == hospital_id,
-        User.is_active.is_(True),
-        User.email.isnot(None),
-        User.email != "",
-    ).order_by(User.id).all()
+        User.qc_hospital_id == hospital_id,
+        User.qc_is_active.is_(True),
+        User.qc_email.isnot(None),
+        User.qc_email != "",
+    ).order_by(User.qc_id).all()
     excluded_domains = {
         value.lower().lstrip("@")
         for value in _csv_values(settings.REMINDER_EXCLUDED_RECIPIENT_DOMAINS)
@@ -239,13 +239,13 @@ def active_hospital_recipients(db: Session, hospital_id: str) -> list[ReminderRe
     recipients: list[ReminderRecipient] = []
     seen: set[str] = set()
     for user in users:
-        email = user.email.strip().lower()
+        email = user.qc_email.strip().lower()
         if any(email.endswith(f"@{domain}") for domain in excluded_domains):
             continue
         if email in seen:
             continue
         seen.add(email)
-        recipients.append(ReminderRecipient(email, user.full_name or "PinkShield AI User"))
+        recipients.append(ReminderRecipient(email, user.qc_full_name or "PinkShield AI User"))
     return recipients
 
 
@@ -291,7 +291,7 @@ def build_report(
 ) -> ReminderReport:
     target = target if target is not None else settings.REMINDER_QUARTERLY_TARGET
     quarter_start, quarter_end = quarter_bounds(report_date)
-    questionnaire_rows = _questionnaire_rows(questionnaire_db, hospital.name)
+    questionnaire_rows = _questionnaire_rows(questionnaire_db, hospital.qc_name)
     session_ids = [row.session_id for row in questionnaire_rows]
     patient_sessions = _patient_sessions(db, session_ids)
     latest_assessments = _latest_assessments(db, session_ids)
@@ -315,10 +315,10 @@ def build_report(
     data_points = sum(_is_complete_data_point(components) for _, components in current_rows)
     assessments_submitted = sum(components["assessment"] for _, components in current_rows)
 
-    recipients = active_hospital_recipients(db, hospital.id)
+    recipients = active_hospital_recipients(db, hospital.qc_id)
     return ReminderReport(
-        hospital_id=hospital.id,
-        hospital_name=hospital.name,
+        hospital_id=hospital.qc_id,
+        hospital_name=hospital.qc_name,
         report_date=report_date,
         quarter_start=quarter_start,
         quarter_end=quarter_end,
@@ -847,8 +847,8 @@ def send_aggregate_report(
 def _all_hospitals(db: Session) -> list[Hospital]:
     excluded = {name.lower() for name in _csv_values(settings.REMINDER_EXCLUDED_HOSPITALS)}
     return [
-        hospital for hospital in db.query(Hospital).order_by(Hospital.name).all()
-        if hospital.name.lower() not in excluded
+        hospital for hospital in db.query(Hospital).order_by(Hospital.qc_name).all()
+        if hospital.qc_name.lower() not in excluded
     ]
 
 
@@ -860,7 +860,7 @@ def build_reports(
 ) -> list[ReminderReport]:
     hospitals = _all_hospitals(db)
     if hospital_id:
-        hospitals = [hospital for hospital in hospitals if hospital.id == hospital_id]
+        hospitals = [hospital for hospital in hospitals if hospital.qc_id == hospital_id]
     return [build_report(db, questionnaire_db, hospital, report_date) for hospital in hospitals]
 
 

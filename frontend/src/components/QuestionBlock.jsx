@@ -43,7 +43,7 @@ const QuestionBlock = ({
       return (
         <select name={qName} onChange={handleChange} value={formData[qName] || ""} className="select-input">
           <option value="" disabled>{t('ui.inputs.selectDefault')}</option>
-          {(hospitals || []).map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
+          {(hospitals || []).map((h) => <option key={h.qc_id} value={h.qc_name}>{h.qc_name}</option>)}
         </select>
       );
     }

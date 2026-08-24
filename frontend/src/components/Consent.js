@@ -155,7 +155,7 @@ function Consent({ onAccept }) {
         if (scannedFile) {
           formData.append('file', scannedFile);
         }
-        const response = await fetch(`${apiUrl}/api/v1/patient/consent`, {
+        const response = await fetch(`${apiUrl}/api/v1/qc/patient/consent`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}` },
           body: formData

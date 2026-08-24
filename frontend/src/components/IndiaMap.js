@@ -73,7 +73,7 @@ const IndiaMap = () => {
         if (!r.ok) throw new Error('Map data unavailable');
         return r.json();
       }),
-      fetch(`${API_URL}/api/v1/stats/hospital-locations`).then((r) => {
+      fetch(`${API_URL}/api/v1/qc/stats/hospital-locations`).then((r) => {
         if (!r.ok) throw new Error('Hospital locations unavailable');
         return r.json();
       }),
@@ -101,7 +101,7 @@ const IndiaMap = () => {
     const wr = wrap.getBoundingClientRect();
     const hospList = Array.isArray(group.hospitals) ? group.hospitals : [group];
     const city = hospList[0]?.city || '';
-    const state = group.state || hospList[0]?.state || '';
+    const state = group.state || hospList[0]?.qc_state || '';
     const location = [city, state].filter(Boolean).join(', ');
     setTooltip({
       left: mr.left - wr.left + mr.width / 2,
@@ -165,7 +165,7 @@ const IndiaMap = () => {
     const g = grouped.get(key) || {
       latitude: h.latitude,
       longitude: h.longitude,
-      state: h.state,
+      state: h.qc_state,
       hospitals: [],
     };
     g.hospitals.push(h);
@@ -175,7 +175,7 @@ const IndiaMap = () => {
   const markers = clusterMarkers(groups, mapData.projection);
 
   const selectedStateHospitals = selectedState
-    ? hospitals.filter((h) => h.state === selectedState.name)
+    ? hospitals.filter((h) => h.qc_state === selectedState.name)
     : [];
 
   return (
@@ -254,7 +254,7 @@ const IndiaMap = () => {
             <ul>
               {tooltip.hospitals.map((h, i) => (
                 <li key={i}>
-                  <strong>{h.name}</strong>
+                  <strong>{h.qc_name}</strong>
                   <span className="map-tip-subjects">{h.subjects || 0} records</span>
                 </li>
               ))}
@@ -295,9 +295,9 @@ const IndiaMap = () => {
             {selectedStateHospitals.length > 0 && (
               <ul className="info-panel-hospital-list">
                 {selectedStateHospitals.map((h, i) => (
-                  <li key={h.id ?? i} className="info-panel-hospital-item">
+                  <li key={h.qc_id ?? i} className="info-panel-hospital-item">
                     <span className="hospital-item-name">
-                      {[h.name, h.city].filter(Boolean).join(', ')}
+                      {[h.qc_name, h.city].filter(Boolean).join(', ')}
                     </span>
                   </li>
                 ))}

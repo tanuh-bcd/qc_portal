@@ -365,16 +365,16 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
 
   useEffect(() => {
     if (initialData) {
-      setFeedback(initialData.questionnaire_feedback || '');
-      setQuestionnaireCorrect(initialData.is_questionnaire_correct || false);
-      setRecommendation(initialData.recommendation_followup || '');
-      setRoutineViews(initialData.routine_views_uploaded || false);
-      setDoctorRiskClass(initialData.doctor_risk_class || '');
-      setDoctorCaseNotes(initialData.doctor_case_notes || '');
-      if (initialData.clinical_findings) {
-        const cf = typeof initialData.clinical_findings === 'string'
-          ? JSON.parse(initialData.clinical_findings)
-          : initialData.clinical_findings;
+      setFeedback(initialData.qc_questionnaire_feedback || '');
+      setQuestionnaireCorrect(initialData.qc_is_questionnaire_correct || false);
+      setRecommendation(initialData.qc_recommendation_followup || '');
+      setRoutineViews(initialData.qc_routine_views_uploaded || false);
+      setDoctorRiskClass(initialData.qc_doctor_risk_class || '');
+      setDoctorCaseNotes(initialData.qc_doctor_case_notes || '');
+      if (initialData.qc_clinical_findings) {
+        const cf = typeof initialData.qc_clinical_findings === 'string'
+          ? JSON.parse(initialData.qc_clinical_findings)
+          : initialData.qc_clinical_findings;
         if (cf.right) setRightBreast({ ...EMPTY_BREAST, ...cf.right });
         if (cf.left) setLeftBreast({ ...EMPTY_BREAST, ...cf.left });
       }
@@ -383,12 +383,12 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
 
   const getAttachmentByType = (type) => {
     if (!initialData || !initialData.attachments) return null;
-    return initialData.attachments.find(a => a.file_type === type);
+    return initialData.attachments.find(a => a.qc_file_type === type);
   };
 
   const getAttachmentsByPrefix = (prefix) => {
     if (!initialData || !initialData.attachments) return [];
-    return initialData.attachments.filter(a => a.file_type.startsWith(prefix));
+    return initialData.attachments.filter(a => a.qc_file_type.startsWith(prefix));
   };
 
   const handleSubmit = async (e) => {
@@ -444,7 +444,7 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
     try {
       const token = localStorage.getItem('token');
       const apiUrl = process.env.REACT_APP_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/v1/patient/assessment`, {
+      const response = await fetch(`${apiUrl}/api/v1/qc/patient/assessment`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: submitData,
@@ -747,10 +747,10 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
 
       {viewingAttachment && (
         <FileViewer
-          attachmentId={viewingAttachment.id}
-          fileName={viewingAttachment.file_name}
-          mimeType={viewingAttachment.mime_type}
-          fileTypeKey={viewingAttachment.file_type}
+          attachmentId={viewingAttachment.qc_id ?? viewingAttachment.id}
+          fileName={viewingAttachment.qc_file_name ?? viewingAttachment.file_name}
+          mimeType={viewingAttachment.qc_mime_type ?? viewingAttachment.mime_type}
+          fileTypeKey={viewingAttachment.qc_file_type ?? viewingAttachment.file_type}
           onClose={() => setViewingAttachment(null)}
         />
       )}

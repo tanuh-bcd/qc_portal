@@ -11,7 +11,7 @@ const RiskTable = () => {
     useEffect(() => {
         const fetchRiskCategories = async () => {
             try {
-                const res = await fetch(`${API_URL}/api/v1/risk-categories/`);
+                const res = await fetch(`${API_URL}/api/v1/qc/risk-categories/`);
                 if (!res.ok) throw new Error(`Request failed: ${res.status}`);
                 const data = await res.json();
                 const mapped = data.map((row) => {

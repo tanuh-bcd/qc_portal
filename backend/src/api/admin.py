@@ -22,9 +22,9 @@ def check_admin_role(current_user: dict = Depends(get_current_user), db: Session
         )
     # Check if the admin belongs to Test hospital for certain operations
     hospital_id = current_user.get("hospital_id")
-    hospital = db.query(Hospital).filter(Hospital.id == hospital_id).first()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == hospital_id).first()
     if hospital:
-        current_user["hospital_name"] = hospital.name
+        current_user["hospital_name"] = hospital.qc_name
     return current_user
 
 def check_super_admin(current_user: dict = Depends(check_admin_role)):
@@ -41,14 +41,14 @@ def create_hospital(
     db: Session = Depends(get_db),
     current_user: dict = Depends(check_super_admin)
 ):
-    hospital = db.query(Hospital).filter(Hospital.email == hospital_in.email).first()
+    hospital = db.query(Hospital).filter(Hospital.qc_email == hospital_in.qc_email).first()
     if hospital:
         raise HTTPException(
             status_code=400,
             detail="A hospital with this email already exists.",
         )
     from sqlalchemy import func
-    max_id = db.query(func.max(Hospital.id)).scalar()
+    max_id = db.query(func.max(Hospital.qc_id)).scalar()
     if max_id and max_id.startswith("clinic_"):
         num = int(max_id.split("_")[1]) + 1
     else:
@@ -56,26 +56,26 @@ def create_hospital(
     new_id = f"clinic_{num:05d}"
 
     db_hospital = Hospital(
-        id=new_id,
-        name=hospital_in.name,
-        short_name=hospital_in.short_name,
-        contact_person=hospital_in.contact_person,
-        email=hospital_in.email,
-        address=hospital_in.address,
-        pincode=hospital_in.pincode,
-        state=hospital_in.state,
-        type=hospital_in.type
+        qc_id=new_id,
+        qc_name=hospital_in.qc_name,
+        qc_short_name=hospital_in.qc_short_name,
+        qc_contact_person=hospital_in.qc_contact_person,
+        qc_email=hospital_in.qc_email,
+        qc_address=hospital_in.qc_address,
+        qc_pincode=hospital_in.qc_pincode,
+        qc_state=hospital_in.qc_state,
+        qc_type=hospital_in.qc_type
     )
     db.add(db_hospital)
     db.commit()
     db.refresh(db_hospital)
 
     try:
-        send_template_email(db, "hospital_added", hospital_in.email, {
-            "hospital_name": hospital_in.name,
-            "contact_person": hospital_in.contact_person,
-            "contact_email": hospital_in.email,
-            "address": hospital_in.address or "",
+        send_template_email(db, "hospital_added", hospital_in.qc_email, {
+            "hospital_name": hospital_in.qc_name,
+            "contact_person": hospital_in.qc_contact_person,
+            "contact_email": hospital_in.qc_email,
+            "address": hospital_in.qc_address or "",
         })
     except Exception:
         pass
@@ -89,8 +89,8 @@ def create_user(
     current_user: dict = Depends(check_admin_role)
 ):
     # If trying to create an Admin, only Test1 admin can do it
-    role = db.query(Role).filter(Role.id == user_in.role_id).first()
-    if role and role.name.lower() == 'admin':
+    role = db.query(Role).filter(Role.qc_id == user_in.qc_role_id).first()
+    if role and role.qc_name.lower() == 'admin':
         if current_user.get("hospital_name") != "Test":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -98,9 +98,9 @@ def create_user(
             )
 
     user = db.query(User).filter(
-        User.email == user_in.email,
-        User.hospital_id == user_in.hospital_id,
-        User.role_id == user_in.role_id
+        User.qc_email == user_in.qc_email,
+        User.qc_hospital_id == user_in.qc_hospital_id,
+        User.qc_role_id == user_in.qc_role_id
     ).first()
     if user:
         raise HTTPException(
@@ -108,14 +108,14 @@ def create_user(
             detail="A user with this email, hospital, and role already exists.",
         )
     # Verify hospital exists
-    hospital = db.query(Hospital).filter(Hospital.id == user_in.hospital_id).first()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == user_in.qc_hospital_id).first()
     if not hospital:
         raise HTTPException(
             status_code=404,
             detail="Hospital not found.",
         )
     # Verify role exists
-    role = db.query(Role).filter(Role.id == user_in.role_id).first()
+    role = db.query(Role).filter(Role.qc_id == user_in.qc_role_id).first()
     if not role:
         raise HTTPException(
             status_code=404,
@@ -123,23 +123,23 @@ def create_user(
         )
 
     db_user = User(
-        email=user_in.email,
-        password_hash=get_password_hash(user_in.password),
-        full_name=user_in.full_name,
-        hospital_id=user_in.hospital_id,
-        role_id=user_in.role_id,
-        is_active=True
+        qc_email=user_in.qc_email,
+        qc_password_hash=get_password_hash(user_in.password),
+        qc_full_name=user_in.qc_full_name,
+        qc_hospital_id=user_in.qc_hospital_id,
+        qc_role_id=user_in.qc_role_id,
+        qc_is_active=True
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
 
     try:
-        send_template_email(db, "user_created", user_in.email, {
-            "full_name": user_in.full_name or user_in.email,
-            "email": user_in.email,
-            "hospital_name": hospital.name,
-            "role_name": role.name,
+        send_template_email(db, "user_created", user_in.qc_email, {
+            "full_name": user_in.qc_full_name or user_in.qc_email,
+            "email": user_in.qc_email,
+            "hospital_name": hospital.qc_name,
+            "role_name": role.qc_name,
             "temp_password": user_in.password,
         })
     except Exception:
@@ -161,29 +161,29 @@ def create_machine(
     db: Session = Depends(get_db),
     current_user: dict = Depends(check_admin_role)
 ):
-    hospital = db.query(Hospital).filter(Hospital.id == machine_in.hospital_id).first()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == machine_in.qc_hospital_id).first()
     if not hospital:
         raise HTTPException(status_code=404, detail="Hospital not found.")
 
-    if current_user.get("hospital_name") != "Test" and current_user.get("hospital_id") != machine_in.hospital_id:
+    if current_user.get("hospital_name") != "Test" and current_user.get("hospital_id") != machine_in.qc_hospital_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only create machine details for your own institution.",
         )
 
-    if machine_in.hospital_short_name and hospital.short_name and machine_in.hospital_short_name != hospital.short_name:
+    if machine_in.qc_hospital_short_name and hospital.qc_short_name and machine_in.qc_hospital_short_name != hospital.qc_short_name:
         raise HTTPException(
             status_code=400,
             detail="Hospital short name does not match the selected institute.",
         )
 
     db_machine = Machine(
-        hospital_id=machine_in.hospital_id,
-        hospital_short_name=machine_in.hospital_short_name or hospital.short_name,
-        machine=machine_in.machine,
-        make=machine_in.make,
-        technology=machine_in.technology,
-        no_of_machines=machine_in.no_of_machines
+        qc_hospital_id=machine_in.qc_hospital_id,
+        qc_hospital_short_name=machine_in.qc_hospital_short_name or hospital.qc_short_name,
+        qc_machine=machine_in.qc_machine,
+        qc_make=machine_in.qc_make,
+        qc_technology=machine_in.qc_technology,
+        qc_no_of_machines=machine_in.qc_no_of_machines
     )
     db.add(db_machine)
     db.commit()
@@ -241,7 +241,7 @@ def create_mrmc_study(
         study_id=study.id,
         user_id=data.arbiter_user_id,
         is_arbiter=True,
-        assigned_count=0  
+        assigned_count=0
     ))
 
     for session_id in data.subject_ids:
@@ -256,7 +256,7 @@ def create_mrmc_study(
         #       __tablename__ = "mrmc_study_institutions"
         #       id = Column(Integer, primary_key=True)
         #       study_id = Column(Integer, ForeignKey("mrmc_studies.id"))
-        #       hospital_id = Column(String, ForeignKey("hospitals.id"))
+        #       hospital_id = Column(String, ForeignKey("qc_hospitals.qc_id"))
         # db.add(MRMCStudyInstitution(study_id=study.id, hospital_id=institution_id))
         pass
 
@@ -270,8 +270,8 @@ def get_study_participants(
     current_user: dict = Depends(require_admin)
 ):
     rows = (
-        db.query(MRMCStudyParticipant, User.full_name)
-        .join(User, MRMCStudyParticipant.user_id == User.id)
+        db.query(MRMCStudyParticipant, User.qc_full_name)
+        .join(User, MRMCStudyParticipant.user_id == User.qc_id)
         .join(MRMCStudy, MRMCStudyParticipant.study_id == MRMCStudy.id)
         .filter(MRMCStudy.hospital_id == current_user["hospital_id"])
         .all()
@@ -314,36 +314,36 @@ def get_clinicians(
     current_user: dict = Depends(check_admin_role)
 ):
     clinicians = (
-        db.query(User.id, User.full_name)
+        db.query(User.qc_id, User.qc_full_name)
         .filter(
-            User.role_id == 2,
-            User.hospital_id.in_(institution_id)
+            User.qc_role_id == 2,
+            User.qc_hospital_id.in_(institution_id)
         )
-        .order_by(User.full_name)
+        .order_by(User.qc_full_name)
         .all()
     )
 
     return [
-        ClinicianOption(id=u.id, full_name=u.full_name)
+        ClinicianOption(id=u.qc_id, full_name=u.qc_full_name)
         for u in clinicians
     ]
 
 def _get_subject_hospital(q_db: Session, app_db: Session, session_id: str):
     row = q_db.execute(text("""
-        SELECT answer FROM session_data_table
-        WHERE session_id = :sid AND question IN :inst_questions
+        SELECT qc_answer FROM qc_session_data_table
+        WHERE qc_session_id = :sid AND qc_question IN :inst_questions
         LIMIT 1
     """), {"sid": session_id, "inst_questions": INSTITUTE_QUESTIONS}).fetchone()
     if not row:
         return None
-    return app_db.query(Hospital).filter(Hospital.name == row[0]).first()
+    return app_db.query(Hospital).filter(Hospital.qc_name == row[0]).first()
 
 
 def _get_subject_patient_id(q_db: Session, session_id: str):
     row = q_db.execute(text("""
-        SELECT answer FROM session_data_table
-        WHERE session_id = :sid
-          AND question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
+        SELECT qc_answer FROM qc_session_data_table
+        WHERE qc_session_id = :sid
+          AND qc_question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
         LIMIT 1
     """), {"sid": session_id}).fetchone()
     return row[0] if row else None
@@ -370,13 +370,13 @@ def _missing(v):
 
 def _build_case_data(q_db: Session, app_db: Session, session_id: str) -> SubjectCaseData:
     rows = q_db.execute(
-        text("SELECT question, answer FROM session_data_table WHERE session_id = :sid"),
+        text("SELECT qc_question, qc_answer FROM qc_session_data_table WHERE qc_session_id = :sid"),
         {"sid": session_id}
     ).fetchall()
     responses = {r[0]: r[1] for r in rows}
 
     hospital = _get_subject_hospital(q_db, app_db, session_id)
-    machine = app_db.query(Machine).filter(Machine.hospital_id == hospital.id).first() if hospital else None
+    machine = app_db.query(Machine).filter(Machine.qc_hospital_id == hospital.qc_id).first() if hospital else None
 
     return SubjectCaseData(
         patient_session_id=session_id,
@@ -384,9 +384,9 @@ def _build_case_data(q_db: Session, app_db: Session, session_id: str) -> Subject
         ethnicity=_missing(responses.get(CASE_DATA_QUESTIONS["ethnicity"])),
         age=_missing(responses.get(CASE_DATA_QUESTIONS["age"])),
         state=_missing(responses.get(CASE_DATA_QUESTIONS["state"])),
-        machine=_missing(machine.machine if machine else None),
-        brand=_missing(machine.make if machine else None),
-        institution=_missing(hospital.name if hospital else None),
+        machine=_missing(machine.qc_machine if machine else None),
+        brand=_missing(machine.qc_make if machine else None),
+        institution=_missing(hospital.qc_name if hospital else None),
     )
 
 
@@ -412,34 +412,34 @@ def get_available_subjects(
     app_db: Session = Depends(get_db),
     current_user: dict = Depends(check_admin_role)
 ):
-    hospitals = app_db.query(Hospital).filter(Hospital.id.in_(institution_id)).all()
-    valid_names = [h.name for h in hospitals]
+    hospitals = app_db.query(Hospital).filter(Hospital.qc_id.in_(institution_id)).all()
+    valid_names = [h.qc_name for h in hospitals]
     if not valid_names:
         return []
 
     rows = q_db.execute(text("""
-        SELECT s.session_id, pid.answer AS patient_id
-        FROM session_table s
+        SELECT s.qc_session_id, pid.answer AS patient_id
+        FROM qc_session_table s
         JOIN (
-            SELECT session_id, MIN(answer) AS answer
-            FROM session_data_table
-            WHERE question IN :inst_questions
-              AND answer IN :valid_names
-            GROUP BY session_id
-        ) hosp ON s.session_id = hosp.session_id
+            SELECT qc_session_id, MIN(qc_answer) AS answer
+            FROM qc_session_data_table
+            WHERE qc_question IN :inst_questions
+              AND qc_answer IN :valid_names
+            GROUP BY qc_session_id
+        ) hosp ON s.qc_session_id = hosp.qc_session_id
         LEFT JOIN (
-            SELECT session_id, MIN(answer) AS answer
-            FROM session_data_table
-            WHERE question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
-            GROUP BY session_id
-        ) pid ON s.session_id = pid.session_id
-        WHERE s.snehita_lifetime_risk IS NOT NULL
+            SELECT qc_session_id, MIN(qc_answer) AS answer
+            FROM qc_session_data_table
+            WHERE qc_question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
+            GROUP BY qc_session_id
+        ) pid ON s.qc_session_id = pid.qc_session_id
+        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
     """), {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_names)}).fetchall()
 
     result = []
     for session_id, patient_id in rows:
         assessment = app_db.query(DoctorAssessment).filter(
-            DoctorAssessment.patient_session_id == session_id
+            DoctorAssessment.qc_patient_session_id == session_id
         ).options(joinedload(DoctorAssessment.attachments)).first()
         flags = _get_attachment_flags(assessment)
         if flags["has_mammo_dicom"]:
@@ -458,9 +458,9 @@ def get_subject_clinicians(
     if not hospital:
         raise HTTPException(status_code=404, detail="Could not resolve subject's institution")
     clinicians = (
-        app_db.query(User.id, User.full_name)
-        .filter(User.role_id == 2, User.hospital_id == hospital.id)
-        .order_by(User.full_name)
+        app_db.query(User.qc_id, User.qc_full_name)
+        .filter(User.qc_role_id == 2, User.qc_hospital_id == hospital.qc_id)
+        .order_by(User.qc_full_name)
         .all()
     )
-    return [ClinicianOption(id=u.id, full_name=u.full_name) for u in clinicians]
+    return [ClinicianOption(id=u.qc_id, full_name=u.qc_full_name) for u in clinicians]

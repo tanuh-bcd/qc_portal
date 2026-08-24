@@ -1,6 +1,14 @@
+import os
+
+# Prevent core.config/core.secrets from making network calls to GCP Secret
+# Manager for every unset env var during test collection (see
+# docs/fortnightly_email_reminder_operations.md). Must be set before
+# backend.src.main (and therefore backend.src.core.config) is imported.
+os.environ.setdefault("DISABLE_SECRET_MANAGER", "true")
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from backend.src.main import app
@@ -9,9 +17,21 @@ from backend.src.core.security import get_password_hash, create_access_token
 
 SQLALCHEMY_TEST_URL = "sqlite:///./test_bcd.db"
 SQLALCHEMY_TEST_Q_URL = "sqlite:///./test_questionnaire.db"
+# A handful of models (RiskCategory*, ModelWeights*, RiskThresholds*) declare
+# __table_args__ = {"schema": "ai_features"}. SQLite has no notion of a
+# schema on its own — it needs the schema attached as a separate database —
+# so every new DBAPI connection on the main engine attaches one here, backed
+# by a real file so all connections (and both the app and test code) see the
+# same data.
+AI_FEATURES_DB_PATH = os.path.abspath("./test_ai_features.db")
 
 engine = create_engine(SQLALCHEMY_TEST_URL, connect_args={"check_same_thread": False})
 q_engine = create_engine(SQLALCHEMY_TEST_Q_URL, connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _attach_ai_features_schema(dbapi_connection, connection_record):
+    dbapi_connection.execute(f"ATTACH DATABASE '{AI_FEATURES_DB_PATH}' AS ai_features")
 
 TestSession = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 TestQSession = sessionmaker(autocommit=False, autoflush=False, bind=q_engine)
@@ -38,26 +58,25 @@ def setup_databases():
     from backend.src.models.models import PatientResponse, EmailTemplate
     for model in [PatientResponse, EmailTemplate]:
         for col in model.__table__.columns:
-            if col.name == 'updated_at' and col.server_default is not None:
+            if col.name == 'qc_updated_at' and col.server_default is not None:
                 col.server_default = None
 
     Base.metadata.create_all(bind=engine)
 
     from sqlalchemy import text
     conn = q_engine.connect()
-    conn.execute(text("CREATE TABLE IF NOT EXISTS session_table (session_id TEXT PRIMARY KEY, ip_address TEXT, session_start_time TEXT, session_end_time TEXT, snehita_lifetime_risk TEXT, risk_category TEXT, consent_url TEXT)"))
-    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(session_table)")).fetchall()}
-    if "consent_url" not in columns:
-        conn.execute(text("ALTER TABLE session_table ADD COLUMN consent_url TEXT"))
-    conn.execute(text("CREATE TABLE IF NOT EXISTS session_data_table (session_data_id TEXT PRIMARY KEY, session_id TEXT, question TEXT, answer TEXT, created_by TEXT, created_at TEXT)"))
+    conn.execute(text("CREATE TABLE IF NOT EXISTS qc_session_table (qc_session_id TEXT PRIMARY KEY, qc_ip_address TEXT, qc_session_start_time TEXT, qc_session_end_time TEXT, qc_snehita_lifetime_risk TEXT, qc_risk_category TEXT, qc_consent_url TEXT)"))
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(qc_session_table)")).fetchall()}
+    if "qc_consent_url" not in columns:
+        conn.execute(text("ALTER TABLE qc_session_table ADD COLUMN qc_consent_url TEXT"))
+    conn.execute(text("CREATE TABLE IF NOT EXISTS qc_session_data_table (qc_session_data_id TEXT PRIMARY KEY, qc_session_id TEXT, qc_question TEXT, qc_answer TEXT, created_by TEXT, qc_created_at TEXT)"))
     conn.commit()
     conn.close()
 
     _seed_test_data()
 
     yield
-    import os
-    for f in ["test_bcd.db", "test_questionnaire.db"]:
+    for f in ["test_bcd.db", "test_questionnaire.db", "test_ai_features.db"]:
         if os.path.exists(f):
             os.unlink(f)
 
@@ -69,21 +88,21 @@ def _seed_test_data():
         session.close()
         return
 
-    session.add(Hospital(id="clinic_00001", name="TestHospital", contact_person="Dr. Test", email="test@hospital.com"))
-    session.add(Hospital(id="clinic_00002", name="Test", contact_person="Super Admin", email="super@test.com"))
+    session.add(Hospital(qc_id="clinic_00001", qc_name="TestHospital", qc_contact_person="Dr. Test", qc_email="test@hospital.com"))
+    session.add(Hospital(qc_id="clinic_00002", qc_name="Test", qc_contact_person="Super Admin", qc_email="super@test.com"))
     for name in ["Admin", "Doctor", "Staff", "Clinician"]:
-        session.add(Role(name=name))
+        session.add(Role(qc_name=name))
     session.commit()
 
-    admin_role = session.query(Role).filter(Role.name == "Admin").first()
-    doctor_role = session.query(Role).filter(Role.name == "Doctor").first()
-    staff_role = session.query(Role).filter(Role.name == "Staff").first()
+    admin_role = session.query(Role).filter(Role.qc_name == "Admin").first()
+    doctor_role = session.query(Role).filter(Role.qc_name == "Doctor").first()
+    staff_role = session.query(Role).filter(Role.qc_name == "Staff").first()
 
-    clinician_role = session.query(Role).filter(Role.name == "Clinician").first()
+    clinician_role = session.query(Role).filter(Role.qc_name == "Clinician").first()
 
-    session.add(User(email="admin@test.com", password_hash=get_password_hash("password123"), hospital_id="clinic_00001", role_id=admin_role.id, is_active=True, full_name="Admin User"))
-    session.add(User(email="doctor@test.com", password_hash=get_password_hash("password123"), hospital_id="clinic_00001", role_id=clinician_role.id, is_active=True, full_name="Dr. Test"))
-    session.add(User(email="staff@test.com", password_hash=get_password_hash("password123"), hospital_id="clinic_00001", role_id=staff_role.id, is_active=True, full_name="Staff User"))
+    session.add(User(qc_email="admin@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=admin_role.qc_id, qc_is_active=True, qc_full_name="Admin User"))
+    session.add(User(qc_email="doctor@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=clinician_role.qc_id, qc_is_active=True, qc_full_name="Dr. Test"))
+    session.add(User(qc_email="staff@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=staff_role.qc_id, qc_is_active=True, qc_full_name="Staff User"))
     session.commit()
     session.close()
 

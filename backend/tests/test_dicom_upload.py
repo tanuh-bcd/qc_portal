@@ -22,14 +22,14 @@ from .conftest import get_token, TestSession, TestQSession
 
 def _start_questionnaire_session(client):
     """Create a session in the questionnaire DB via the public endpoint."""
-    res = client.post("/api/session/start")
+    res = client.post("/api/v1/qc/session/start")
     assert res.status_code == 200
     return res.json()["sessionId"]
 
 
 def _submit_questionnaire(client, session_id):
     """Submit questionnaire answers so the session has risk data."""
-    res = client.post("/api/submit", json={
+    res = client.post("/api/v1/qc/submit", json={
         "sessionId": session_id,
         "formDataEn": {
             "Q1": "45",
@@ -82,7 +82,7 @@ def _mock_gcs():
 
 
 # ===========================================================================
-# 1. Signed URL generation  (/api/v1/patient/upload-url)
+# 1. Signed URL generation  (/api/v1/qc/patient/upload-url)
 # ===========================================================================
 
 class TestUploadUrlEndpoint:
@@ -91,7 +91,7 @@ class TestUploadUrlEndpoint:
     def test_generates_signed_url_for_valid_dicom_type(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = _clinician_token()
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "scan_left_cc.dcm",
                 "session_id": "test-session-001",
@@ -111,7 +111,7 @@ class TestUploadUrlEndpoint:
 
         with _mock_gcs()[0]:
             for view in views:
-                res = client.post("/api/v1/patient/upload-url", data={
+                res = client.post("/api/v1/qc/patient/upload-url", data={
                     "file_type": view,
                     "file_name": f"{view}.dcm",
                     "session_id": "test-session-views",
@@ -122,7 +122,7 @@ class TestUploadUrlEndpoint:
     def test_generates_url_for_ultrasound(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = _clinician_token()
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "us_video",
                 "file_name": "ultrasound.dcm",
                 "session_id": "test-session-us",
@@ -133,7 +133,7 @@ class TestUploadUrlEndpoint:
     def test_generates_url_for_annotation(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = _clinician_token()
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "annot_cc_left",
                 "file_name": "annotation.dcm",
                 "session_id": "test-session-annot",
@@ -142,7 +142,7 @@ class TestUploadUrlEndpoint:
             assert "annotation" in res.json()["blob_path"]
 
     def test_rejects_unauthenticated_request(self, client):
-        res = client.post("/api/v1/patient/upload-url", data={
+        res = client.post("/api/v1/qc/patient/upload-url", data={
             "file_type": "mammo_cc_left",
             "file_name": "test.dcm",
             "session_id": "session-123",
@@ -151,7 +151,7 @@ class TestUploadUrlEndpoint:
 
     def test_rejects_missing_required_fields(self, client, seed_hospital_and_user):
         token = _clinician_token()
-        res = client.post("/api/v1/patient/upload-url", data={
+        res = client.post("/api/v1/qc/patient/upload-url", data={
             "file_type": "mammo_cc_left",
         }, headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 422
@@ -159,7 +159,7 @@ class TestUploadUrlEndpoint:
     def test_blob_path_includes_hospital_and_session(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = _clinician_token()
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
                 "session_id": "session-abc-123",
@@ -171,7 +171,7 @@ class TestUploadUrlEndpoint:
     def test_gcs_url_format(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = _clinician_token()
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
                 "session_id": "s1",
@@ -181,7 +181,7 @@ class TestUploadUrlEndpoint:
 
 
 # ===========================================================================
-# 2. Upload completion recording  (/api/v1/patient/upload-complete)
+# 2. Upload completion recording  (/api/v1/qc/patient/upload-complete)
 # ===========================================================================
 
 class TestUploadCompleteEndpoint:
@@ -191,7 +191,7 @@ class TestUploadCompleteEndpoint:
         session_id = _start_questionnaire_session(client)
         token = _clinician_token()
 
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
             "file_type": "mammo_cc_left",
             "file_name": "cc_left.dcm",
@@ -208,7 +208,7 @@ class TestUploadCompleteEndpoint:
         file_types = ["mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right"]
 
         for ft in file_types:
-            res = client.post("/api/v1/patient/upload-complete", data={
+            res = client.post("/api/v1/qc/patient/upload-complete", data={
                 "session_id": session_id,
                 "file_type": ft,
                 "file_name": f"{ft}.dcm",
@@ -222,7 +222,7 @@ class TestUploadCompleteEndpoint:
         token = _clinician_token()
 
         for i in range(2):
-            res = client.post("/api/v1/patient/upload-complete", data={
+            res = client.post("/api/v1/qc/patient/upload-complete", data={
                 "session_id": session_id,
                 "file_type": "mammo_cc_left",
                 "file_name": f"cc_left_v{i}.dcm",
@@ -235,7 +235,7 @@ class TestUploadCompleteEndpoint:
         session_id = _start_questionnaire_session(client)
         token = _clinician_token()
 
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
             "file_type": "us_video",
             "file_name": "ultrasound.dcm",
@@ -248,7 +248,7 @@ class TestUploadCompleteEndpoint:
         session_id = _start_questionnaire_session(client)
         token = _clinician_token()
 
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
             "file_type": "annot_cc_left",
             "file_name": "annot.dcm",
@@ -258,7 +258,7 @@ class TestUploadCompleteEndpoint:
         assert res.status_code == 200
 
     def test_rejects_unauthenticated(self, client):
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": "s1",
             "file_type": "mammo_cc_left",
             "file_name": "test.dcm",
@@ -268,14 +268,14 @@ class TestUploadCompleteEndpoint:
 
     def test_rejects_missing_fields(self, client, seed_hospital_and_user):
         token = _clinician_token()
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": "s1",
         }, headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 422
 
 
 # ===========================================================================
-# 3. Assessment submission with file uploads  (/api/v1/patient/assessment)
+# 3. Assessment submission with file uploads  (/api/v1/qc/patient/assessment)
 # ===========================================================================
 
 class TestAssessmentWithFileUpload:
@@ -309,16 +309,16 @@ class TestAssessmentWithFileUpload:
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
             data = self._base_assessment_data(session_id)
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"mammo_cc_left": _make_fake_dicom("cc_left.dcm")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             resp_data = res.json()
-            assert resp_data["patient_session_id"] == session_id
+            assert resp_data["qc_patient_session_id"] == session_id
             atts = resp_data.get("attachments", [])
-            assert any(a["file_type"] == "mammo_cc_left" for a in atts)
+            assert any(a["qc_file_type"] == "mammo_cc_left" for a in atts)
 
     def test_assessment_with_all_four_mammo_views(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
@@ -333,13 +333,13 @@ class TestAssessmentWithFileUpload:
                 "mammo_mlo_left": _make_fake_dicom("mlo_left.dcm"),
                 "mammo_mlo_right": _make_fake_dicom("mlo_right.dcm"),
             }
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data, files=files,
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             atts = res.json().get("attachments", [])
-            att_types = {a["file_type"] for a in atts}
+            att_types = {a["qc_file_type"] for a in atts}
             assert {"mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right"}.issubset(att_types)
 
     def test_assessment_with_mammo_reading_pdf(self, client, seed_hospital_and_user):
@@ -349,14 +349,14 @@ class TestAssessmentWithFileUpload:
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
             data = self._base_assessment_data(session_id)
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"mammo_reading": ("report.pdf", io.BytesIO(b"%PDF-1.4 fake"), "application/pdf")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             atts = res.json().get("attachments", [])
-            assert any(a["file_type"] == "mammo_reading" for a in atts)
+            assert any(a["qc_file_type"] == "mammo_reading" for a in atts)
 
     def test_assessment_with_ultrasound_video(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
@@ -365,14 +365,14 @@ class TestAssessmentWithFileUpload:
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
             data = self._base_assessment_data(session_id)
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"us_video": _make_fake_dicom("us_scan.dcm")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             atts = res.json().get("attachments", [])
-            assert any(a["file_type"] == "us_video" for a in atts)
+            assert any(a["qc_file_type"] == "us_video" for a in atts)
 
     def test_assessment_with_ultrasound_reading(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
@@ -381,14 +381,14 @@ class TestAssessmentWithFileUpload:
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
             data = self._base_assessment_data(session_id)
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"us_reading": ("us_report.pdf", io.BytesIO(b"%PDF"), "application/pdf")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             atts = res.json().get("attachments", [])
-            assert any(a["file_type"] == "us_reading" for a in atts)
+            assert any(a["qc_file_type"] == "us_reading" for a in atts)
 
     def test_assessment_with_biopsy_doc(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
@@ -397,14 +397,14 @@ class TestAssessmentWithFileUpload:
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
             data = self._base_assessment_data(session_id)
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"biopsy_doc": ("biopsy.pdf", io.BytesIO(b"%PDF"), "application/pdf")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             atts = res.json().get("attachments", [])
-            assert any(a["file_type"] == "biopsy_reading" for a in atts)
+            assert any(a["qc_file_type"] == "biopsy_reading" for a in atts)
 
     def test_assessment_with_annotation_files(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
@@ -419,12 +419,12 @@ class TestAssessmentWithFileUpload:
                 "annot_mlo_left": _make_fake_dicom("annot_mlo_l.dcm"),
                 "annot_mlo_right": _make_fake_dicom("annot_mlo_r.dcm"),
             }
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data, files=files,
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
-            att_types = {a["file_type"] for a in res.json().get("attachments", [])}
+            att_types = {a["qc_file_type"] for a in res.json().get("attachments", [])}
             for annot in ["annot_cc_left", "annot_cc_right", "annot_mlo_left", "annot_mlo_right"]:
                 assert annot in att_types
 
@@ -450,12 +450,12 @@ class TestAssessmentWithFileUpload:
                 "annot_mlo_left": _make_fake_dicom("annot_mlo_l.dcm"),
                 "annot_mlo_right": _make_fake_dicom("annot_mlo_r.dcm"),
             }
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data, files=files,
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
-            att_types = {a["file_type"] for a in res.json().get("attachments", [])}
+            att_types = {a["qc_file_type"] for a in res.json().get("attachments", [])}
             expected = {
                 "mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right",
                 "mammo_reading", "us_video", "us_reading", "biopsy_reading",
@@ -473,28 +473,28 @@ class TestAssessmentWithFileUpload:
             data = self._base_assessment_data(session_id)
 
             # First upload
-            res1 = client.post("/api/v1/patient/assessment",
+            res1 = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"mammo_cc_left": _make_fake_dicom("cc_left_v1.dcm")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res1.status_code == 200
-            assessment_id = res1.json()["id"]
-            v1_atts = [a for a in res1.json()["attachments"] if a["file_type"] == "mammo_cc_left"]
+            assessment_id = res1.json()["qc_id"]
+            v1_atts = [a for a in res1.json()["attachments"] if a["qc_file_type"] == "mammo_cc_left"]
             assert len(v1_atts) == 1
-            assert v1_atts[0]["file_name"] == "cc_left_v1.dcm"
+            assert v1_atts[0]["qc_file_name"] == "cc_left_v1.dcm"
 
             # Second upload — should replace
-            res2 = client.post("/api/v1/patient/assessment",
+            res2 = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"mammo_cc_left": _make_fake_dicom("cc_left_v2.dcm")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res2.status_code == 200
-            assert res2.json()["id"] == assessment_id
-            v2_atts = [a for a in res2.json()["attachments"] if a["file_type"] == "mammo_cc_left"]
+            assert res2.json()["qc_id"] == assessment_id
+            v2_atts = [a for a in res2.json()["attachments"] if a["qc_file_type"] == "mammo_cc_left"]
             assert len(v2_atts) == 1
-            assert v2_atts[0]["file_name"] == "cc_left_v2.dcm"
+            assert v2_atts[0]["qc_file_name"] == "cc_left_v2.dcm"
 
     def test_assessment_no_files_still_succeeds(self, client, seed_hospital_and_user):
         """Assessment with no file uploads should still save clinical data."""
@@ -502,12 +502,12 @@ class TestAssessmentWithFileUpload:
         token = _clinician_token()
 
         data = self._base_assessment_data(session_id)
-        res = client.post("/api/v1/patient/assessment",
+        res = client.post("/api/v1/qc/patient/assessment",
             data=data,
             headers={"Authorization": f"Bearer {token}"},
         )
         assert res.status_code == 200
-        assert res.json()["recommendation_followup"] == "Routine screening"
+        assert res.json()["qc_recommendation_followup"] == "Routine screening"
 
     def test_gcs_failure_saves_assessment_with_warnings(self, client, seed_hospital_and_user):
         """If GCS upload fails, the assessment data should still be saved with upload warnings."""
@@ -516,14 +516,14 @@ class TestAssessmentWithFileUpload:
 
         with patch("backend.src.api.patient.upload_to_gcs", side_effect=Exception("GCS unavailable")):
             data = self._base_assessment_data(session_id)
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data,
                 files={"mammo_cc_left": _make_fake_dicom("cc_left.dcm")},
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             resp_data = res.json()
-            assert resp_data["recommendation_followup"] == "Routine screening"
+            assert resp_data["qc_recommendation_followup"] == "Routine screening"
             assert resp_data["upload_warnings"] is not None
             assert any("GCS unavailable" in w for w in resp_data["upload_warnings"])
 
@@ -548,20 +548,20 @@ class TestAssessmentWithFileUpload:
                 "mammo_cc_left": _make_fake_dicom("cc_left.dcm"),
                 "mammo_cc_right": _make_fake_dicom("cc_right.dcm"),
             }
-            res = client.post("/api/v1/patient/assessment",
+            res = client.post("/api/v1/qc/patient/assessment",
                 data=data, files=files,
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert res.status_code == 200
             resp_data = res.json()
-            assert resp_data["recommendation_followup"] == "Routine screening"
+            assert resp_data["qc_recommendation_followup"] == "Routine screening"
             atts = resp_data.get("attachments", [])
-            assert any(a["file_type"] == "mammo_cc_left" for a in atts)
+            assert any(a["qc_file_type"] == "mammo_cc_left" for a in atts)
             assert resp_data["upload_warnings"] is not None
             assert len(resp_data["upload_warnings"]) == 1
 
     def test_assessment_unauthorized(self, client):
-        res = client.post("/api/v1/patient/assessment",
+        res = client.post("/api/v1/qc/patient/assessment",
             data={"patient_session_id": "s1", "is_questionnaire_correct": "false",
                    "routine_views_uploaded": "false"},
         )
@@ -570,7 +570,7 @@ class TestAssessmentWithFileUpload:
     def test_assessment_invalid_session(self, client, seed_hospital_and_user):
         token = _clinician_token()
         data = self._base_assessment_data("nonexistent-session-id")
-        res = client.post("/api/v1/patient/assessment",
+        res = client.post("/api/v1/qc/patient/assessment",
             data=data,
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -607,10 +607,10 @@ class TestAttachmentFlags:
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
         assessment.attachments = [
-            MagicMock(file_type="mammo_cc_left"),
-            MagicMock(file_type="mammo_cc_right"),
-            MagicMock(file_type="mammo_mlo_left"),
-            MagicMock(file_type="mammo_mlo_right"),
+            MagicMock(qc_file_type="mammo_cc_left"),
+            MagicMock(qc_file_type="mammo_cc_right"),
+            MagicMock(qc_file_type="mammo_mlo_left"),
+            MagicMock(qc_file_type="mammo_mlo_right"),
         ]
         flags = _get_attachment_flags(assessment)
         assert flags["has_mammo_dicom"] is True
@@ -619,8 +619,8 @@ class TestAttachmentFlags:
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
         assessment.attachments = [
-            MagicMock(file_type="mammo_cc_left"),
-            MagicMock(file_type="mammo_cc_right"),
+            MagicMock(qc_file_type="mammo_cc_left"),
+            MagicMock(qc_file_type="mammo_cc_right"),
         ]
         flags = _get_attachment_flags(assessment)
         assert flags["has_mammo_dicom"] is False
@@ -628,28 +628,28 @@ class TestAttachmentFlags:
     def test_mammo_reading_flag(self):
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
-        assessment.attachments = [MagicMock(file_type="mammo_reading")]
+        assessment.attachments = [MagicMock(qc_file_type="mammo_reading")]
         flags = _get_attachment_flags(assessment)
         assert flags["has_mammo_reading"] == "Yes"
 
     def test_us_video_flag(self):
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
-        assessment.attachments = [MagicMock(file_type="us_video")]
+        assessment.attachments = [MagicMock(qc_file_type="us_video")]
         flags = _get_attachment_flags(assessment)
         assert flags["has_us_video"] == "Yes"
 
     def test_us_reading_flag(self):
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
-        assessment.attachments = [MagicMock(file_type="us_reading")]
+        assessment.attachments = [MagicMock(qc_file_type="us_reading")]
         flags = _get_attachment_flags(assessment)
         assert flags["has_us_reading"] == "Yes"
 
     def test_biopsy_flag(self):
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
-        assessment.attachments = [MagicMock(file_type="biopsy_reading")]
+        assessment.attachments = [MagicMock(qc_file_type="biopsy_reading")]
         flags = _get_attachment_flags(assessment)
         assert flags["has_biopsy"] is True
 
@@ -657,8 +657,8 @@ class TestAttachmentFlags:
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
         assessment.attachments = [
-            MagicMock(file_type="annot_cc_left"),
-            MagicMock(file_type="annot_mlo_right"),
+            MagicMock(qc_file_type="annot_cc_left"),
+            MagicMock(qc_file_type="annot_mlo_right"),
         ]
         flags = _get_attachment_flags(assessment)
         assert flags["has_annotations"] is True
@@ -668,11 +668,11 @@ class TestAttachmentFlags:
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
         assessment.attachments = [
-            MagicMock(file_type="mammo_cc_left"),
-            MagicMock(file_type="mammo_cc_right"),
-            MagicMock(file_type="mammo_mlo_left"),
-            MagicMock(file_type="mammo_mlo_right"),
-            MagicMock(file_type="us_reading"),
+            MagicMock(qc_file_type="mammo_cc_left"),
+            MagicMock(qc_file_type="mammo_cc_right"),
+            MagicMock(qc_file_type="mammo_mlo_left"),
+            MagicMock(qc_file_type="mammo_mlo_right"),
+            MagicMock(qc_file_type="us_reading"),
         ]
         flags = _get_attachment_flags(assessment)
         assert flags["has_mammo_reading"] == "SMR"
@@ -684,12 +684,12 @@ class TestAttachmentFlags:
         from backend.src.api.doctor import _get_attachment_flags
         assessment = MagicMock()
         assessment.attachments = [
-            MagicMock(file_type="mammo_cc_left"),
-            MagicMock(file_type="mammo_cc_right"),
-            MagicMock(file_type="mammo_mlo_left"),
-            MagicMock(file_type="mammo_mlo_right"),
-            MagicMock(file_type="us_reading"),
-            MagicMock(file_type="mammo_reading"),
+            MagicMock(qc_file_type="mammo_cc_left"),
+            MagicMock(qc_file_type="mammo_cc_right"),
+            MagicMock(qc_file_type="mammo_mlo_left"),
+            MagicMock(qc_file_type="mammo_mlo_right"),
+            MagicMock(qc_file_type="us_reading"),
+            MagicMock(qc_file_type="mammo_reading"),
         ]
         flags = _get_attachment_flags(assessment)
         assert flags["has_mammo_reading"] == "Yes"
@@ -712,7 +712,7 @@ class TestEndToEndUploadFlow:
 
         # Step 1: Get signed URL
         with _mock_gcs()[0]:
-            url_res = client.post("/api/v1/patient/upload-url", data={
+            url_res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "cc_left.dcm",
                 "session_id": session_id,
@@ -723,7 +723,7 @@ class TestEndToEndUploadFlow:
         # Step 2: (simulated) PUT to signed URL — skipped in unit tests
 
         # Step 3: Record completion
-        complete_res = client.post("/api/v1/patient/upload-complete", data={
+        complete_res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
             "file_type": "mammo_cc_left",
             "file_name": "cc_left.dcm",
@@ -741,14 +741,14 @@ class TestEndToEndUploadFlow:
         views = ["mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right"]
         for view in views:
             with _mock_gcs()[0]:
-                url_res = client.post("/api/v1/patient/upload-url", data={
+                url_res = client.post("/api/v1/qc/patient/upload-url", data={
                     "file_type": view,
                     "file_name": f"{view}.dcm",
                     "session_id": session_id,
                 }, headers={"Authorization": f"Bearer {token}"})
                 gcs_url = url_res.json()["gcs_url"]
 
-            client.post("/api/v1/patient/upload-complete", data={
+            client.post("/api/v1/qc/patient/upload-complete", data={
                 "session_id": session_id,
                 "file_type": view,
                 "file_name": f"{view}.dcm",
@@ -757,7 +757,7 @@ class TestEndToEndUploadFlow:
             }, headers={"Authorization": f"Bearer {token}"})
 
         # Verify via session detail (avoids MySQL-specific IN-tuple syntax in list endpoint)
-        detail_res = client.get(f"/api/v1/doctor/sessions/{session_id}",
+        detail_res = client.get(f"/api/v1/qc/doctor/sessions/{session_id}",
             headers={"Authorization": f"Bearer {token}"})
         assert detail_res.status_code == 200
         assert detail_res.json()["has_mammo_dicom"] is True
@@ -795,14 +795,14 @@ class TestEndToEndUploadFlow:
                 "mammo_mlo_left": _make_fake_dicom("mlo_l.dcm"),
                 "mammo_mlo_right": _make_fake_dicom("mlo_r.dcm"),
             }
-            assess_res = client.post("/api/v1/patient/assessment",
+            assess_res = client.post("/api/v1/qc/patient/assessment",
                 data=data, files=files,
                 headers={"Authorization": f"Bearer {token}"},
             )
             assert assess_res.status_code == 200
 
         # Verify session detail
-        detail_res = client.get(f"/api/v1/doctor/sessions/{session_id}",
+        detail_res = client.get(f"/api/v1/qc/doctor/sessions/{session_id}",
             headers={"Authorization": f"Bearer {token}"})
         assert detail_res.status_code == 200
         detail = detail_res.json()
@@ -814,7 +814,7 @@ class TestEndToEndUploadFlow:
         session_id = _start_questionnaire_session(client)
         token = _clinician_token()
 
-        res = client.post("/api/v1/patient/upload-complete", data={
+        res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
             "file_type": "mammo_cc_left",
             "file_name": "cc_left.dcm",
@@ -826,7 +826,7 @@ class TestEndToEndUploadFlow:
         # Subsequent assessment submission should find and update the existing record
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
-            assess_res = client.post("/api/v1/patient/assessment", data={
+            assess_res = client.post("/api/v1/qc/patient/assessment", data={
                 "patient_session_id": session_id,
                 "is_questionnaire_correct": "true",
                 "mammo_birads": "1",
@@ -841,7 +841,7 @@ class TestEndToEndUploadFlow:
             }, headers={"Authorization": f"Bearer {token}"})
             assert assess_res.status_code == 200
             atts = assess_res.json().get("attachments", [])
-            assert any(a["file_type"] == "mammo_cc_left" for a in atts)
+            assert any(a["qc_file_type"] == "mammo_cc_left" for a in atts)
 
 
 # ===========================================================================
@@ -956,7 +956,7 @@ class TestUploadPermissions:
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
-            res = client.post("/api/v1/patient/assessment", data={
+            res = client.post("/api/v1/qc/patient/assessment", data={
                 "patient_session_id": session_id,
                 "is_questionnaire_correct": "true",
                 "mammo_birads": "1",
@@ -992,21 +992,21 @@ class TestUploadPermissions:
         }
 
         # Clinician creates
-        res1 = client.post("/api/v1/patient/assessment",
+        res1 = client.post("/api/v1/qc/patient/assessment",
             data=base_data, headers={"Authorization": f"Bearer {clinician_token}"})
         assert res1.status_code == 200
 
         # Admin updates
         base_data["recommendation_followup"] = "Updated by admin"
-        res2 = client.post("/api/v1/patient/assessment",
+        res2 = client.post("/api/v1/qc/patient/assessment",
             data=base_data, headers={"Authorization": f"Bearer {admin_token}"})
         assert res2.status_code == 200
-        assert res2.json()["recommendation_followup"] == "Updated by admin"
+        assert res2.json()["qc_recommendation_followup"] == "Updated by admin"
 
     def test_clinician_can_generate_upload_url(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = _clinician_token()
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
                 "session_id": "s1",
@@ -1016,7 +1016,7 @@ class TestUploadPermissions:
     def test_staff_can_generate_upload_url(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
             token = get_token("Staff", "staff@test.com")
-            res = client.post("/api/v1/patient/upload-url", data={
+            res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
                 "session_id": "s1",

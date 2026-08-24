@@ -37,7 +37,7 @@ const LoginPage = () => {
 
     setLoginLoading(true);
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/auth/login`, {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +85,7 @@ const LoginPage = () => {
   useEffect(() => {
     const fetchHospitals = async () => {
       try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/auth/hospitals`);
+        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/auth/hospitals`);
         if (!response.ok) {
           throw new Error('Failed to fetch hospitals');
         }
@@ -135,8 +135,8 @@ const LoginPage = () => {
               >
                 <option value="">{loading ? 'Loading institutions...' : 'Select Institution'}</option>
                 {hospitals.map((hospital) => (
-                  <option key={hospital.id} value={hospital.name}>
-                    {hospital.name}
+                  <option key={hospital.qc_id} value={hospital.qc_name}>
+                    {hospital.qc_name}
                   </option>
                 ))}
               </select>

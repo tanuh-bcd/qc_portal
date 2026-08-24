@@ -3,17 +3,17 @@ from typing import Optional, List
 import datetime
 
 class UserBase(BaseModel):
-    email: EmailStr
-    full_name: Optional[str] = None
-    hospital_id: str
-    role_id: int
+    qc_email: EmailStr
+    qc_full_name: Optional[str] = None
+    qc_hospital_id: str
+    qc_role_id: int
 
 class UserCreate(UserBase):
     password: str
 
 class User(UserBase):
-    id: int
-    is_active: bool
+    qc_id: int
+    qc_is_active: bool
 
     class Config:
         from_attributes = True
@@ -42,57 +42,57 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 class HospitalBase(BaseModel):
-    name: str
-    short_name: Optional[str] = None
-    contact_person: str
-    email: EmailStr
-    address: Optional[str] = None
-    pincode: Optional[str] = None
-    state: Optional[str] = None
-    type: Optional[str] = None
+    qc_name: str
+    qc_short_name: Optional[str] = None
+    qc_contact_person: str
+    qc_email: EmailStr
+    qc_address: Optional[str] = None
+    qc_pincode: Optional[str] = None
+    qc_state: Optional[str] = None
+    qc_type: Optional[str] = None
 
 class HospitalCreate(HospitalBase):
-    state: str
-    type: str
-    short_name: str
+    qc_state: str
+    qc_type: str
+    qc_short_name: str
 
 class HospitalResponse(HospitalBase):
-    id: str
+    qc_id: str
 
     class Config:
         from_attributes = True
 
 class LanguageResponse(BaseModel):
-    code: str
-    name: str
+    qc_code: str
+    qc_name: str
 
     class Config:
         from_attributes = True
 
 class QuestionOptionResponse(BaseModel):
-    id: int
-    option_value: str
-    option_label: str
-    sort_order: int
+    qc_id: int
+    qc_option_value: str
+    qc_option_label: str
+    qc_sort_order: int
 
     class Config:
         from_attributes = True
 
 class QuestionResponse(BaseModel):
-    id: int
-    section: str
-    response_type: str
-    input_type: Optional[str] = None
-    is_required: bool = False
-    min_value: Optional[str] = None
-    max_value: Optional[str] = None
-    placeholder: Optional[str] = None
-    question_text: str
-    parent_question_id: Optional[int] = None
-    trigger_answer: Optional[str] = None
+    qc_id: int
+    qc_section: str
+    qc_response_type: str
+    qc_input_type: Optional[str] = None
+    qc_is_required: bool = False
+    qc_min_value: Optional[str] = None
+    qc_max_value: Optional[str] = None
+    qc_placeholder: Optional[str] = None
+    qc_question_text: str
+    qc_parent_question_id: Optional[int] = None
+    qc_trigger_answer: Optional[str] = None
     options: list[QuestionOptionResponse] = []
 
-    @field_validator('min_value', 'max_value', mode='before')
+    @field_validator('qc_min_value', 'qc_max_value', mode='before')
     @classmethod
     def convert_to_string(cls, v):
         if v is None:
@@ -103,45 +103,45 @@ class QuestionResponse(BaseModel):
         from_attributes = True
 
 class PatientResponseCreate(BaseModel):
-    question: str
-    answer: str
+    qc_question: str
+    qc_answer: str
 
 class PatientResponse(PatientResponseCreate):
-    id: int
-    created_at: datetime.datetime
+    qc_id: int
+    qc_created_at: datetime.datetime
 
     class Config:
         from_attributes = True
 
 class AttachmentResponse(BaseModel):
-    id: int
-    file_type: str
-    file_name: str
-    storage_url: str
-    mime_type: Optional[str] = None
+    qc_id: int
+    qc_file_type: str
+    qc_file_name: str
+    qc_storage_url: str
+    qc_mime_type: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 class DoctorAssessmentResponse(BaseModel):
-    id: int
-    patient_session_id: str
-    hospital_id: str
-    doctor_id: int
-    questionnaire_feedback: Optional[str] = None
-    is_questionnaire_correct: bool
-    mammo_birads: Optional[str] = None
-    mammo_density: Optional[str] = None
-    us_biopsy_birads: Optional[str] = None
-    us_biopsy_density: Optional[str] = None
-    precision_diagnosis: Optional[str] = None
-    datapoint_feedback: Optional[str] = None
-    clinical_findings: Optional[dict] = None
-    recommendation_followup: Optional[str] = None
-    routine_views_uploaded: Optional[bool] = False
-    doctor_risk_class: Optional[str] = None
-    doctor_case_notes: Optional[str] = None
-    created_at: datetime.datetime
+    qc_id: int
+    qc_patient_session_id: str
+    qc_hospital_id: str
+    qc_doctor_id: int
+    qc_questionnaire_feedback: Optional[str] = None
+    qc_is_questionnaire_correct: bool
+    qc_mammo_birads: Optional[str] = None
+    qc_mammo_density: Optional[str] = None
+    qc_us_biopsy_birads: Optional[str] = None
+    qc_us_biopsy_density: Optional[str] = None
+    qc_precision_diagnosis: Optional[str] = None
+    qc_datapoint_feedback: Optional[str] = None
+    qc_clinical_findings: Optional[dict] = None
+    qc_recommendation_followup: Optional[str] = None
+    qc_routine_views_uploaded: Optional[bool] = False
+    qc_doctor_risk_class: Optional[str] = None
+    qc_doctor_case_notes: Optional[str] = None
+    qc_created_at: datetime.datetime
     attachments: List[AttachmentResponse] = []
     upload_warnings: Optional[List[str]] = None
 
@@ -149,13 +149,13 @@ class DoctorAssessmentResponse(BaseModel):
         from_attributes = True
 
 class PatientSessionListItem(BaseModel):
-    id: str
+    qc_id: str
     patient_id: Optional[str] = None
     hospital_name: Optional[str] = None
-    consent_scanned_url: Optional[str] = None
-    consent_timestamp: Optional[datetime.datetime] = None
+    qc_consent_scanned_url: Optional[str] = None
+    qc_consent_timestamp: Optional[datetime.datetime] = None
     snehita_risk: Optional[str] = None
-    risk_category: Optional[str] = None
+    qc_risk_category: Optional[str] = None
     has_assessment: bool = False
     has_mammo_dicom: bool = False
     has_mammo_reading: Optional[str] = ""
@@ -180,23 +180,23 @@ class QuestionnaireSubmission(BaseModel):
     responses: list[PatientResponseCreate]
 
 class DoctorAssessmentCreate(BaseModel):
-    patient_session_id: str
-    questionnaire_feedback: Optional[str] = None
-    is_questionnaire_correct: bool = False
-    mammo_birads: Optional[str] = None
-    mammo_density: Optional[str] = None
-    us_biopsy_birads: Optional[str] = None
-    us_biopsy_density: Optional[str] = None
-    precision_diagnosis: Optional[str] = None
-    datapoint_feedback: Optional[str] = None
+    qc_patient_session_id: str
+    qc_questionnaire_feedback: Optional[str] = None
+    qc_is_questionnaire_correct: bool = False
+    qc_mammo_birads: Optional[str] = None
+    qc_mammo_density: Optional[str] = None
+    qc_us_biopsy_birads: Optional[str] = None
+    qc_us_biopsy_density: Optional[str] = None
+    qc_precision_diagnosis: Optional[str] = None
+    qc_datapoint_feedback: Optional[str] = None
 
 class MachineBase(BaseModel):
-    machine: str
-    make: Optional[str] = None
-    technology: Optional[str] = None
-    no_of_machines: int = 1
+    qc_machine: str
+    qc_make: Optional[str] = None
+    qc_technology: Optional[str] = None
+    qc_no_of_machines: int = 1
 
-    @field_validator('no_of_machines')
+    @field_validator('qc_no_of_machines')
     @classmethod
     def validate_no_of_machines(cls, v):
         if v <= 0:
@@ -204,21 +204,21 @@ class MachineBase(BaseModel):
         return v
 
 class MachineCreate(MachineBase):
-    hospital_id: str
-    hospital_short_name: Optional[str] = None
+    qc_hospital_id: str
+    qc_hospital_short_name: Optional[str] = None
 
 class MachineResponse(MachineBase):
-    id: int
-    hospital_id: str
-    hospital_short_name: Optional[str] = None
+    qc_id: int
+    qc_hospital_id: str
+    qc_hospital_short_name: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 class UserResponse(BaseModel):
-    id: int
-    full_name: str
-    email: str
+    qc_id: int
+    qc_full_name: str
+    qc_email: str
 
     class Config:
         from_attributes = True
@@ -273,7 +273,7 @@ class SubjectAssignment(BaseModel):
         if v is not None and v == info.data.get("reader_user_id"):
             raise ValueError("Reader and arbiter cannot be the same clinician")
         return v
-    
+
 class RiskCategoryResponse(BaseModel):
     id: int
     risk_category: str
@@ -343,7 +343,7 @@ class ModelWeightsVersionResponse(BaseModel):
 class RiskThresholdResponse(BaseModel):
     id: int
     risk_category: str
-    min_percentage: Optional[float] = None 
+    min_percentage: Optional[float] = None
     max_percentage: Optional[float] = None
     version_number: int
 

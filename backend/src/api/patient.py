@@ -61,7 +61,7 @@ def get_ist_now():
 
 def generate_subject_id(db):
     from sqlalchemy import func
-    result = db.query(func.max(PatientSession.id)).scalar()
+    result = db.query(func.max(PatientSession.qc_id)).scalar()
     if result and result.startswith("subject_"):
         num = int(result.split("_")[1]) + 1
     else:
@@ -144,7 +144,7 @@ def get_view_url(
     if not hospital_id:
         raise HTTPException(status_code=400, detail="User hospital ID not found")
 
-    attachment = db.query(Attachment).filter(Attachment.id == attachment_id).first()
+    attachment = db.query(Attachment).filter(Attachment.qc_id == attachment_id).first()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
@@ -153,17 +153,17 @@ def get_view_url(
 
     if is_super_viewer:
         assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.id == attachment.assessment_id
+            DoctorAssessment.qc_id == attachment.qc_assessment_id
         ).first()
     else:
         assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.id == attachment.assessment_id,
-            DoctorAssessment.hospital_id == hospital_id
+            DoctorAssessment.qc_id == attachment.qc_assessment_id,
+            DoctorAssessment.qc_hospital_id == hospital_id
         ).first()
     if not assessment:
         raise HTTPException(status_code=403, detail="Not authorized to view this file")
 
-    gcs_url = attachment.storage_url
+    gcs_url = attachment.qc_storage_url
     if not gcs_url or not gcs_url.startswith("gs://"):
         raise HTTPException(status_code=400, detail="Invalid storage URL")
 
@@ -199,8 +199,8 @@ def get_view_url(
 
     return {
         "view_url": signed_url,
-        "file_name": attachment.file_name,
-        "mime_type": attachment.mime_type,
+        "file_name": attachment.qc_file_name,
+        "mime_type": attachment.qc_mime_type,
     }
 
 
@@ -216,7 +216,7 @@ def view_file(
     if not hospital_id:
         raise HTTPException(status_code=400, detail="User hospital ID not found")
 
-    attachment = db.query(Attachment).filter(Attachment.id == attachment_id).first()
+    attachment = db.query(Attachment).filter(Attachment.qc_id == attachment_id).first()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
 
@@ -225,17 +225,17 @@ def view_file(
 
     if is_super_viewer:
         assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.id == attachment.assessment_id
+            DoctorAssessment.qc_id == attachment.qc_assessment_id
         ).first()
     else:
         assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.id == attachment.assessment_id,
-            DoctorAssessment.hospital_id == hospital_id
+            DoctorAssessment.qc_id == attachment.qc_assessment_id,
+            DoctorAssessment.qc_hospital_id == hospital_id
         ).first()
     if not assessment:
         raise HTTPException(status_code=403, detail="Not authorized to view this file")
 
-    gcs_url = attachment.storage_url
+    gcs_url = attachment.qc_storage_url
     if not gcs_url or not gcs_url.startswith("gs://"):
         raise HTTPException(status_code=400, detail="Invalid storage URL")
 
@@ -255,7 +255,7 @@ def view_file(
         )
 
     content = blob.download_as_bytes()
-    mime = attachment.mime_type or "application/octet-stream"
+    mime = attachment.qc_mime_type or "application/octet-stream"
 
     if len(content) >= 132 and content[128:132] == b'DICM':
         mime = "application/dicom"
@@ -284,7 +284,7 @@ def view_file(
         content=content,
         media_type=mime,
         headers={
-            "Content-Disposition": f'inline; filename="{attachment.file_name}"',
+            "Content-Disposition": f'inline; filename="{attachment.qc_file_name}"',
         },
     )
 
@@ -303,44 +303,44 @@ def record_upload(
     doctor_id = current_user.get("id")
 
     assessment = db.query(DoctorAssessment).filter(
-        DoctorAssessment.patient_session_id == session_id
+        DoctorAssessment.qc_patient_session_id == session_id
     ).first()
 
     if not assessment:
         assessment = DoctorAssessment(
-            patient_session_id=session_id,
-            hospital_id=hospital_id,
-            doctor_id=doctor_id,
+            qc_patient_session_id=session_id,
+            qc_hospital_id=hospital_id,
+            qc_doctor_id=doctor_id,
         )
         db.add(assessment)
         db.flush()
 
     if file_type.startswith("additional_"):
         att = Attachment(
-            assessment_id=assessment.id,
-            file_type=file_type,
-            file_name=file_name,
-            storage_url=gcs_url,
-            mime_type=mime_type,
+            qc_assessment_id=assessment.qc_id,
+            qc_file_type=file_type,
+            qc_file_name=file_name,
+            qc_storage_url=gcs_url,
+            qc_mime_type=mime_type,
         )
         db.add(att)
     else:
         att = db.query(Attachment).filter(
-            Attachment.assessment_id == assessment.id,
-            Attachment.file_type == file_type
+            Attachment.qc_assessment_id == assessment.qc_id,
+            Attachment.qc_file_type == file_type
         ).first()
 
         if att:
-            att.file_name = file_name
-            att.storage_url = gcs_url
-            att.mime_type = mime_type
+            att.qc_file_name = file_name
+            att.qc_storage_url = gcs_url
+            att.qc_mime_type = mime_type
         else:
             att = Attachment(
-                assessment_id=assessment.id,
-                file_type=file_type,
-                file_name=file_name,
-                storage_url=gcs_url,
-                mime_type=mime_type,
+                qc_assessment_id=assessment.qc_id,
+                qc_file_type=file_type,
+                qc_file_name=file_name,
+                qc_storage_url=gcs_url,
+                qc_mime_type=mime_type,
             )
             db.add(att)
 
@@ -349,10 +349,10 @@ def record_upload(
     return {
         "success": True,
         "attachment": {
-            "id": att.id,
-            "file_type": att.file_type,
-            "file_name": att.file_name,
-            "mime_type": att.mime_type,
+            "id": att.qc_id,
+            "file_type": att.qc_file_type,
+            "file_name": att.qc_file_name,
+            "mime_type": att.qc_mime_type,
         },
     }
 
@@ -363,50 +363,50 @@ def get_questions(lang: str = "en", db: Session = Depends(get_db)):
     questions = db.query(Question).options(
         joinedload(Question.translations),
         joinedload(Question.options).joinedload(QuestionOption.translations)
-    ).order_by(Question.id).all()
-    
+    ).order_by(Question.qc_id).all()
+
     response = []
     for q in questions:
         # Find the translation for the requested language or fallback to English
-        trans = next((t for t in q.translations if t.language_code == lang), None)
+        trans = next((t for t in q.translations if t.qc_language_code == lang), None)
         if not trans and lang != "en":
-            trans = next((t for t in q.translations if t.language_code == "en"), None)
-        
-        # Use q.question from questions table if lang is 'en' or translation is not found
-        question_text = q.question if (lang == "en" and q.question) else (trans.question_text if trans else q.question)
-        
+            trans = next((t for t in q.translations if t.qc_language_code == "en"), None)
+
+        # Use q.qc_question from questions table if lang is 'en' or translation is not found
+        question_text = q.qc_question if (lang == "en" and q.qc_question) else (trans.qc_question_text if trans else q.qc_question)
+
         if not question_text:
             continue
-            
+
         options = []
         for opt in q.options:
-            opt_trans = next((t for t in opt.translations if t.language_code == lang), None)
+            opt_trans = next((t for t in opt.translations if t.qc_language_code == lang), None)
             if not opt_trans and lang != "en":
-                opt_trans = next((t for t in opt.translations if t.language_code == "en"), None)
-            
+                opt_trans = next((t for t in opt.translations if t.qc_language_code == "en"), None)
+
             if opt_trans:
                 options.append(QuestionOptionResponse(
-                    id=opt.id,
-                    option_value=opt.option_value,
-                    option_label=opt_trans.option_label,
-                    sort_order=opt.sort_order
+                    qc_id=opt.qc_id,
+                    qc_option_value=opt.qc_option_value,
+                    qc_option_label=opt_trans.qc_option_label,
+                    qc_sort_order=opt.qc_sort_order
                 ))
-        
+
         response.append(QuestionResponse(
-            id=q.id,
-            section=q.section,
-            response_type=q.response_type,
-            input_type=q.input_type,
-            is_required=q.is_required,
-            min_value=q.min_value,
-            max_value=q.max_value,
-            placeholder=q.placeholder,
-            question_text=question_text,
-            parent_question_id=q.parent_question_id,
-            trigger_answer=q.trigger_answer,
-            options=sorted(options, key=lambda x: x.sort_order)
+            qc_id=q.qc_id,
+            qc_section=q.qc_section,
+            qc_response_type=q.qc_response_type,
+            qc_input_type=q.qc_input_type,
+            qc_is_required=q.qc_is_required,
+            qc_min_value=q.qc_min_value,
+            qc_max_value=q.qc_max_value,
+            qc_placeholder=q.qc_placeholder,
+            qc_question_text=question_text,
+            qc_parent_question_id=q.qc_parent_question_id,
+            qc_trigger_answer=q.qc_trigger_answer,
+            options=sorted(options, key=lambda x: x.qc_sort_order)
         ))
-    
+
     return response
 
 @router.post("/consent")
@@ -434,30 +434,30 @@ async def upload_consent(
             gcs_url = upload_to_gcs(content, consent_blob)
 
         new_session = PatientSession(
-            id=subject_id,
-            hospital_id=hospital_id,
-            consent_scanned_url=gcs_url,
-            consent_timestamp=ist_now
+            qc_id=subject_id,
+            qc_hospital_id=hospital_id,
+            qc_consent_scanned_url=gcs_url,
+            qc_consent_timestamp=ist_now
         )
         db.add(new_session)
         db.commit()
         db.refresh(new_session)
-        
+
         duration = time.time() - start_time
-        print(f"Time taken for POST /api/v1/patient/consent: {duration:.4f} seconds")
-        
-        return {"id": new_session.id, "consent_scanned_url": gcs_url}
-        
+        print(f"Time taken for POST /api/v1/qc/patient/consent: {duration:.4f} seconds")
+
+        return {"id": new_session.qc_id, "consent_scanned_url": gcs_url}
+
     except Exception as e:
         duration = time.time() - start_time
-        print(f"Time taken for POST /api/v1/patient/consent (FAILED): {duration:.4f} seconds")
+        print(f"Time taken for POST /api/v1/qc/patient/consent (FAILED): {duration:.4f} seconds")
         print(f"Error uploading consent: {e}")
         error_detail = str(e)
         if "403" in error_detail:
             error_detail = "Permission denied: Service account does not have write access to GCS bucket."
         elif "not configured" in error_detail:
             error_detail = "GCS bucket is not configured in settings."
-            
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Could not upload consent: {error_detail}"
@@ -473,29 +473,29 @@ async def submit_questionnaire(
         hospital_id = current_user.get("hospital_id")
         if not hospital_id:
             raise HTTPException(status_code=400, detail="User hospital ID not found")
-        
+
         # Verify session exists and belongs to the hospital
         session = db.query(PatientSession).filter(
-            PatientSession.id == submission.session_id,
-            PatientSession.hospital_id == hospital_id
+            PatientSession.qc_id == submission.session_id,
+            PatientSession.qc_hospital_id == hospital_id
         ).first()
-        
+
         if not session:
             raise HTTPException(status_code=404, detail="Patient session not found")
-        
+
         # Save responses
         for resp in submission.responses:
             new_response = PatientResponse(
-                hospital_id=hospital_id,
-                session_id=submission.session_id,
-                question=resp.question,
-                answer=resp.answer
+                qc_hospital_id=hospital_id,
+                qc_session_id=submission.session_id,
+                qc_question=resp.qc_question,
+                qc_answer=resp.qc_answer
             )
             db.add(new_response)
-        
+
         db.commit()
         return {"status": "success", "message": "Questionnaire responses saved"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -550,55 +550,55 @@ async def create_doctor_assessment(
 
         from sqlalchemy import text as sql_text
         session_row = q_db.execute(sql_text(
-            "SELECT session_id FROM session_table WHERE session_id = :sid"
+            "SELECT qc_session_id FROM qc_session_table WHERE qc_session_id = :sid"
         ), {"sid": patient_session_id}).fetchone()
 
         if not session_row:
             raise HTTPException(status_code=404, detail="Patient session not found")
 
         assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.patient_session_id == patient_session_id
+            DoctorAssessment.qc_patient_session_id == patient_session_id
         ).first()
 
         if assessment:
             is_admin = (user_role or '').lower() == 'admin'
-            if assessment.hospital_id != hospital_id and not is_admin:
+            if assessment.qc_hospital_id != hospital_id and not is_admin:
                 raise HTTPException(
                     status_code=403,
                     detail="Not authorized to edit another hospital's assessment",
                 )
 
-            assessment.questionnaire_feedback = questionnaire_feedback
-            assessment.is_questionnaire_correct = is_questionnaire_correct
-            assessment.mammo_birads = mammo_birads
-            assessment.mammo_density = mammo_density
-            assessment.us_biopsy_birads = us_biopsy_birads
-            assessment.us_biopsy_density = us_biopsy_density
-            assessment.precision_diagnosis = precision_diagnosis
-            assessment.datapoint_feedback = datapoint_feedback
-            assessment.clinical_findings = json.loads(clinical_findings) if clinical_findings else None
-            assessment.recommendation_followup = recommendation_followup
-            assessment.routine_views_uploaded = routine_views_uploaded
-            assessment.doctor_risk_class = doctor_risk_class
-            assessment.doctor_case_notes = doctor_case_notes
+            assessment.qc_questionnaire_feedback = questionnaire_feedback
+            assessment.qc_is_questionnaire_correct = is_questionnaire_correct
+            assessment.qc_mammo_birads = mammo_birads
+            assessment.qc_mammo_density = mammo_density
+            assessment.qc_us_biopsy_birads = us_biopsy_birads
+            assessment.qc_us_biopsy_density = us_biopsy_density
+            assessment.qc_precision_diagnosis = precision_diagnosis
+            assessment.qc_datapoint_feedback = datapoint_feedback
+            assessment.qc_clinical_findings = json.loads(clinical_findings) if clinical_findings else None
+            assessment.qc_recommendation_followup = recommendation_followup
+            assessment.qc_routine_views_uploaded = routine_views_uploaded
+            assessment.qc_doctor_risk_class = doctor_risk_class
+            assessment.qc_doctor_case_notes = doctor_case_notes
         else:
             assessment = DoctorAssessment(
-                patient_session_id=patient_session_id,
-                hospital_id=hospital_id,
-                doctor_id=doctor_id,
-                questionnaire_feedback=questionnaire_feedback,
-                is_questionnaire_correct=is_questionnaire_correct,
-                mammo_birads=mammo_birads,
-                mammo_density=mammo_density,
-                us_biopsy_birads=us_biopsy_birads,
-                us_biopsy_density=us_biopsy_density,
-                precision_diagnosis=precision_diagnosis,
-                datapoint_feedback=datapoint_feedback,
-                clinical_findings=json.loads(clinical_findings) if clinical_findings else None,
-                recommendation_followup=recommendation_followup,
-                routine_views_uploaded=routine_views_uploaded,
-                doctor_risk_class=doctor_risk_class,
-                doctor_case_notes=doctor_case_notes,
+                qc_patient_session_id=patient_session_id,
+                qc_hospital_id=hospital_id,
+                qc_doctor_id=doctor_id,
+                qc_questionnaire_feedback=questionnaire_feedback,
+                qc_is_questionnaire_correct=is_questionnaire_correct,
+                qc_mammo_birads=mammo_birads,
+                qc_mammo_density=mammo_density,
+                qc_us_biopsy_birads=us_biopsy_birads,
+                qc_us_biopsy_density=us_biopsy_density,
+                qc_precision_diagnosis=precision_diagnosis,
+                qc_datapoint_feedback=datapoint_feedback,
+                qc_clinical_findings=json.loads(clinical_findings) if clinical_findings else None,
+                qc_recommendation_followup=recommendation_followup,
+                qc_routine_views_uploaded=routine_views_uploaded,
+                qc_doctor_risk_class=doctor_risk_class,
+                qc_doctor_case_notes=doctor_case_notes,
             )
             db.add(assessment)
 
@@ -623,8 +623,8 @@ async def create_doctor_assessment(
         try:
             if replace:
                 db.query(Attachment).filter(
-                    Attachment.assessment_id == assessment.id,
-                    Attachment.file_type == file_type
+                    Attachment.qc_assessment_id == assessment.qc_id,
+                    Attachment.qc_file_type == file_type
                 ).delete()
 
             content = await file.read()
@@ -632,11 +632,11 @@ async def create_doctor_assessment(
             gcs_url = upload_to_gcs(content, destination_blob_name)
 
             attachment = Attachment(
-                assessment_id=assessment.id,
-                file_type=file_type,
-                file_name=file.filename,
-                storage_url=gcs_url,
-                mime_type=file.content_type
+                qc_assessment_id=assessment.qc_id,
+                qc_file_type=file_type,
+                qc_file_name=file.filename,
+                qc_storage_url=gcs_url,
+                qc_mime_type=file.content_type
             )
             db.add(attachment)
             db.commit()

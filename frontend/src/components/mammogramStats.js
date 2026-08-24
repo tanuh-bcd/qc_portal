@@ -793,7 +793,7 @@ const MammogramStats = () => {
   useEffect(() => {
     const fetchMammoStats = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/v1/mammogram/portal-stats`);
+        const response = await fetch(`${API_URL}/api/v1/qc/mammogram/portal-stats`);
         if (!response.ok) throw new Error('Failed to load mammogram stats');
         const json = await response.json();
         setData(json);

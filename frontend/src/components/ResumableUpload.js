@@ -33,7 +33,7 @@ const ResumableUpload = ({ label, hint, accept, fileType, sessionId, existing, o
       formData.append('file_name', file.name);
       formData.append('session_id', sessionId);
 
-      const urlRes = await fetch(`${apiUrl}/api/v1/patient/upload-url`, {
+      const urlRes = await fetch(`${apiUrl}/api/v1/qc/patient/upload-url`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,
@@ -78,7 +78,7 @@ const ResumableUpload = ({ label, hint, accept, fileType, sessionId, existing, o
       completeForm.append('gcs_url', gcs_url);
       completeForm.append('mime_type', file.type || 'application/octet-stream');
 
-      const completeRes = await fetch(`${apiUrl}/api/v1/patient/upload-complete`, {
+      const completeRes = await fetch(`${apiUrl}/api/v1/qc/patient/upload-complete`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: completeForm,
@@ -127,7 +127,7 @@ const ResumableUpload = ({ label, hint, accept, fileType, sessionId, existing, o
         <div style={{ fontSize: 13, color: '#14868C', fontWeight: 600, marginBottom: 4 }}>{label}</div>
         {hasExisting ? (
           <div style={{ fontSize: 12, color: '#333', display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{existing.file_name}</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{existing.qc_file_name}</span>
             {onView && (
               <button
                 type="button"
@@ -164,7 +164,7 @@ const ResumableUpload = ({ label, hint, accept, fileType, sessionId, existing, o
 
       {hasExisting && !file && !done && (
         <div style={{ fontSize: 12, color: '#14868C', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>Existing: {existing.file_name}</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>Existing: {existing.qc_file_name}</span>
           {onView && (
             <button
               type="button"

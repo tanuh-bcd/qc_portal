@@ -46,7 +46,7 @@ const PatientPage = ({ isEmbedded = false }) => {
       const apiUrl = process.env.REACT_APP_API_URL || '';
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`${apiUrl}/api/v1/patient/questionnaire`, {
+      const response = await fetch(`${apiUrl}/api/v1/qc/patient/questionnaire`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

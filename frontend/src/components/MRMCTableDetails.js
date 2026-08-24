@@ -72,7 +72,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
       const token = localStorage.getItem('token');
       if (!token) { setError('Authentication token missing.'); setLoading(false); return; }
       const apiUrl = process.env.REACT_APP_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/v1/doctor/hospital-summary`, {
+      const response = await fetch(`${apiUrl}/api/v1/qc/doctor/hospital-summary`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
@@ -96,7 +96,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
       const apiUrl = process.env.REACT_APP_API_URL || '';
       const sortQuery = sortStack.map(s => `${s.key}:${s.dir}`).join(',');
       const response = await fetch(
-        `${apiUrl}/api/v1/doctor/sessions?sort=${encodeURIComponent(sortQuery)}&hospital_name=${encodeURIComponent(hospitalName)}`,
+        `${apiUrl}/api/v1/qc/doctor/sessions?sort=${encodeURIComponent(sortQuery)}&hospital_name=${encodeURIComponent(hospitalName)}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       if (response.ok) {
@@ -121,7 +121,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
       }
       const apiUrl = process.env.REACT_APP_API_URL || '';
       const sortQuery = sortParam || sortStack.map(s => `${s.key}:${s.dir}`).join(',');
-      let url = `${apiUrl}/api/v1/doctor/sessions?sort=${encodeURIComponent(sortQuery)}`;
+      let url = `${apiUrl}/api/v1/qc/doctor/sessions?sort=${encodeURIComponent(sortQuery)}`;
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -158,7 +158,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
         return;
       }
       const apiUrl = process.env.REACT_APP_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/v1/doctor/sessions/${sessionId}`, {
+      const response = await fetch(`${apiUrl}/api/v1/qc/doctor/sessions/${sessionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -380,8 +380,8 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
       return h.hospital_name.toLowerCase().includes(term)
-        || (h.short_name || '').toLowerCase().includes(term)
-        || (h.state || '').toLowerCase().includes(term);
+        || (h.qc_short_name || '').toLowerCase().includes(term)
+        || (h.qc_state || '').toLowerCase().includes(term);
     });
 
     return (
@@ -472,7 +472,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
           if (!searchTerm) return true;
           const term = searchTerm.toLowerCase();
           return (s.patient_id || '').toLowerCase().includes(term)
-            || (s.id || '').toLowerCase().includes(term);
+            || (s.qc_id || '').toLowerCase().includes(term);
         });
 
         if (!loading && !error && sessions.length === 0) return <p>No sessions found.</p>;
@@ -498,7 +498,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
         <div style={modalOverlayStyle} onClick={() => setIsModalOpen(false)}>
           <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
             <div style={modalHeaderStyle}>
-              <h3>Responses for Subject ID: {selectedSession.patient_id || selectedSession.id}</h3>
+              <h3>Responses for Subject ID: {selectedSession.patient_id || selectedSession.qc_id}</h3>
               <button style={closeButtonStyle} onClick={() => setIsModalOpen(false)}>&times;</button>
             </div>
             <div style={modalBodyStyle}>
@@ -512,9 +512,9 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
                 <tbody>
                   {selectedSession.responses && selectedSession.responses.length > 0 ? (
                     selectedSession.responses.map((resp) => (
-                      <tr key={resp.id}>
-                        <td style={qaTdStyle}>{resp.question}</td>
-                        <td style={qaTdStyle}>{resp.answer}</td>
+                      <tr key={resp.qc_id}>
+                        <td style={qaTdStyle}>{resp.qc_question}</td>
+                        <td style={qaTdStyle}>{resp.qc_answer}</td>
                       </tr>
                     ))
                   ) : (
@@ -528,13 +528,13 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
               {isSuperViewer ? (
                 selectedSession.assessment ? (
                   <DoctorAssessmentForm
-                    sessionId={selectedSession.id}
+                    sessionId={selectedSession.qc_id}
                     initialData={selectedSession.assessment}
                     readOnly={true}
                     snehithaRisk={(() => {
                       if (!selectedSession.responses) return null;
                       const r = {};
-                      selectedSession.responses.forEach(resp => { r[resp.question] = resp.answer; });
+                      selectedSession.responses.forEach(resp => { r[resp.qc_question] = resp.qc_answer; });
                       const age = parseInt(r['What is your current age? (Please enter a number - years)'] || r['Q1'] || '0') || 0;
                       const aam = parseInt(r['What age were you when you had your first menstrual period? (Please enter a number)'] || r['Q10'] || '0') || 0;
                       const irr = (r['Q12_Current'] === 'No' || r['Are your menstrual cycles regular? - Currently'] === 'No') ? 1 : 0;
@@ -556,12 +556,12 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
                 )
               ) : (
                 <DoctorAssessmentForm
-                  sessionId={selectedSession.id}
+                  sessionId={selectedSession.qc_id}
                   initialData={selectedSession.assessment}
                   snehithaRisk={(() => {
                     if (!selectedSession.responses) return null;
                     const r = {};
-                    selectedSession.responses.forEach(resp => { r[resp.question] = resp.answer; });
+                    selectedSession.responses.forEach(resp => { r[resp.qc_question] = resp.qc_answer; });
                     const age = parseInt(r['What is your current age? (Please enter a number - years)'] || r['Q1'] || '0') || 0;
                     const aam = parseInt(r['What age were you when you had your first menstrual period? (Please enter a number)'] || r['Q10'] || '0') || 0;
                     const irr = (r['Q12_Current'] === 'No' || r['Are your menstrual cycles regular? - Currently'] === 'No') ? 1 : 0;

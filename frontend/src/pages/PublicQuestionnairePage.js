@@ -20,7 +20,7 @@ const PublicQuestionnairePage = () => {
 
   const handleConsentAccept = async (result) => {
     try {
-      const res = await fetch(`${API_URL}/api/session/start`, { method: 'POST' });
+      const res = await fetch(`${API_URL}/api/v1/qc/session/start`, { method: 'POST' });
       const data = await res.json();
       if (data.success && data.sessionId) {
         setSessionId(data.sessionId);
@@ -28,7 +28,7 @@ const PublicQuestionnairePage = () => {
         if (result && result.file) {
           const formData = new FormData();
           formData.append('file', result.file);
-          fetch(`${API_URL}/api/session/${data.sessionId}/consent`, {
+          fetch(`${API_URL}/api/v1/qc/session/${data.sessionId}/consent`, {
             method: 'POST',
             body: formData,
           }).catch(() => {});
@@ -54,7 +54,7 @@ const PublicQuestionnairePage = () => {
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
-        const res = await fetch(`${API_URL}/api/submit`, {
+        const res = await fetch(`${API_URL}/api/v1/qc/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId, formDataEn: submitData }),

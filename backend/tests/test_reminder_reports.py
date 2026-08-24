@@ -39,9 +39,9 @@ def add_questionnaire_session(
     blank_answer=False,
 ):
     q_db.execute(text("""
-        INSERT INTO session_table
-            (session_id, session_start_time, session_end_time,
-             snehita_lifetime_risk, risk_category, consent_url)
+        INSERT INTO qc_session_table
+            (qc_session_id, qc_session_start_time, qc_session_end_time,
+             qc_snehita_lifetime_risk, qc_risk_category, qc_consent_url)
         VALUES (:session_id, :submitted_at, :submitted_at,
                 :risk, 'Evident Risk', :consent_url)
     """), {
@@ -51,8 +51,8 @@ def add_questionnaire_session(
         "consent_url": consent_url,
     })
     q_db.execute(text("""
-        INSERT INTO session_data_table
-            (session_data_id, session_id, question, answer, created_at)
+        INSERT INTO qc_session_data_table
+            (qc_session_data_id, qc_session_id, qc_question, qc_answer, qc_created_at)
         VALUES (:row_id, :session_id, 'Q45', :hospital_name, :submitted_at)
     """), {
         "row_id": f"{session_id}-hospital",
@@ -62,8 +62,8 @@ def add_questionnaire_session(
     })
     if blank_answer:
         q_db.execute(text("""
-            INSERT INTO session_data_table
-                (session_data_id, session_id, question, answer, created_at)
+            INSERT INTO qc_session_data_table
+                (qc_session_data_id, qc_session_id, qc_question, qc_answer, qc_created_at)
             VALUES (:row_id, :session_id, 'Q1', '', :submitted_at)
         """), {
             "row_id": f"{session_id}-blank",
@@ -74,11 +74,11 @@ def add_questionnaire_session(
 
 
 def delete_questionnaire_sessions(q_db, session_ids):
-    statement = text("DELETE FROM session_data_table WHERE session_id IN :ids").bindparams(
+    statement = text("DELETE FROM qc_session_data_table WHERE qc_session_id IN :ids").bindparams(
         bindparam("ids", expanding=True)
     )
     q_db.execute(statement, {"ids": session_ids})
-    statement = text("DELETE FROM session_table WHERE session_id IN :ids").bindparams(
+    statement = text("DELETE FROM qc_session_table WHERE qc_session_id IN :ids").bindparams(
         bindparam("ids", expanding=True)
     )
     q_db.execute(statement, {"ids": session_ids})
@@ -87,17 +87,17 @@ def delete_questionnaire_sessions(q_db, session_ids):
 
 def cleanup_sessions(db, q_db, session_ids):
     delete_questionnaire_sessions(q_db, session_ids)
-    assessment_ids = [row[0] for row in db.query(DoctorAssessment.id).filter(
-        DoctorAssessment.patient_session_id.in_(session_ids)
+    assessment_ids = [row[0] for row in db.query(DoctorAssessment.qc_id).filter(
+        DoctorAssessment.qc_patient_session_id.in_(session_ids)
     ).all()]
     if assessment_ids:
         db.query(Attachment).filter(
-            Attachment.assessment_id.in_(assessment_ids)
+            Attachment.qc_assessment_id.in_(assessment_ids)
         ).delete(synchronize_session=False)
     db.query(DoctorAssessment).filter(
-        DoctorAssessment.patient_session_id.in_(session_ids)
+        DoctorAssessment.qc_patient_session_id.in_(session_ids)
     ).delete(synchronize_session=False)
-    db.query(PatientSession).filter(PatientSession.id.in_(session_ids)).delete(
+    db.query(PatientSession).filter(PatientSession.qc_id.in_(session_ids)).delete(
         synchronize_session=False
     )
     db.commit()
@@ -105,15 +105,15 @@ def cleanup_sessions(db, q_db, session_ids):
 
 def add_assessment(db, doctor, hospital, session_id, complete=True):
     assessment = DoctorAssessment(
-        patient_session_id=session_id,
-        hospital_id=hospital.id,
-        doctor_id=doctor.id,
-        mammo_birads="2",
-        mammo_density="B",
-        us_biopsy_birads="2" if complete else None,
-        us_biopsy_density="B" if complete else None,
-        clinical_findings={"right": {"birads": "2", "density": "B"}},
-        routine_views_uploaded=complete,
+        qc_patient_session_id=session_id,
+        qc_hospital_id=hospital.qc_id,
+        qc_doctor_id=doctor.qc_id,
+        qc_mammo_birads="2",
+        qc_mammo_density="B",
+        qc_us_biopsy_birads="2" if complete else None,
+        qc_us_biopsy_density="B" if complete else None,
+        qc_clinical_findings={"right": {"birads": "2", "density": "B"}},
+        qc_routine_views_uploaded=complete,
     )
     db.add(assessment)
     db.flush()
@@ -130,10 +130,10 @@ def add_assessment(db, doctor, hospital, session_id, complete=True):
     attachment_types = list(view_types) + (["mammo_reading"] if complete else [])
     db.add_all([
         Attachment(
-            assessment_id=assessment.id,
-            file_type=file_type,
-            file_name=f"{file_type}.dcm",
-            storage_url=f"gs://test/{file_type}.dcm",
+            qc_assessment_id=assessment.qc_id,
+            qc_file_type=file_type,
+            qc_file_name=f"{file_type}.dcm",
+            qc_storage_url=f"gs://test/{file_type}.dcm",
         )
         for file_type in attachment_types
     ])
@@ -148,25 +148,25 @@ def test_quarter_bounds():
 def test_build_report_requires_all_five_data_point_components():
     db = TestSession()
     q_db = TestQSession()
-    hospital = db.query(Hospital).filter(Hospital.id == "clinic_00001").one()
-    doctor = db.query(User).filter(User.email == "doctor@test.com").one()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == "clinic_00001").one()
+    doctor = db.query(User).filter(User.qc_email == "doctor@test.com").one()
     session_ids = ["reminder-complete", "reminder-incomplete", "reminder-old"]
     try:
         db.add_all([
-            PatientSession(id=session_id, hospital_id=hospital.id)
+            PatientSession(qc_id=session_id, qc_hospital_id=hospital.qc_id)
             for session_id in session_ids
         ])
         db.flush()
         add_questionnaire_session(
-            q_db, session_ids[0], hospital.name, datetime(2026, 7, 2),
+            q_db, session_ids[0], hospital.qc_name, datetime(2026, 7, 2),
             consent_url="gs://test/consent-complete.pdf",
         )
         add_questionnaire_session(
-            q_db, session_ids[1], hospital.name, datetime(2026, 8, 2),
+            q_db, session_ids[1], hospital.qc_name, datetime(2026, 8, 2),
             blank_answer=True,
         )
         add_questionnaire_session(
-            q_db, session_ids[2], hospital.name, datetime(2026, 6, 30),
+            q_db, session_ids[2], hospital.qc_name, datetime(2026, 6, 30),
             consent_url="gs://test/consent-old.pdf",
         )
         add_assessment(db, doctor, hospital, session_ids[0], complete=True)
@@ -201,15 +201,15 @@ def test_build_report_requires_all_five_data_point_components():
 def test_pending_never_goes_below_zero():
     db = TestSession()
     q_db = TestQSession()
-    hospital = db.query(Hospital).filter(Hospital.id == "clinic_00001").one()
-    doctor = db.query(User).filter(User.email == "doctor@test.com").one()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == "clinic_00001").one()
+    doctor = db.query(User).filter(User.qc_email == "doctor@test.com").one()
     session_ids = [f"over-target-{index}" for index in range(3)]
     try:
-        db.add_all([PatientSession(id=session_id, hospital_id=hospital.id) for session_id in session_ids])
+        db.add_all([PatientSession(qc_id=session_id, qc_hospital_id=hospital.qc_id) for session_id in session_ids])
         db.flush()
         for session_id in session_ids:
             add_questionnaire_session(
-                q_db, session_id, hospital.name, datetime(2026, 7, 2),
+                q_db, session_id, hospital.qc_name, datetime(2026, 7, 2),
                 consent_url=f"gs://test/{session_id}.pdf",
             )
             add_assessment(db, doctor, hospital, session_id, complete=True)
@@ -234,14 +234,14 @@ def test_pending_never_goes_below_zero():
 def test_report_uses_assessment_when_patient_session_parent_is_missing():
     db = TestSession()
     q_db = TestQSession()
-    hospital = db.query(Hospital).filter(Hospital.id == "clinic_00001").one()
-    doctor = db.query(User).filter(User.email == "doctor@test.com").one()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == "clinic_00001").one()
+    doctor = db.query(User).filter(User.qc_email == "doctor@test.com").one()
     session_id = "orphan-assessment"
     try:
         add_questionnaire_session(
             q_db,
             session_id,
-            hospital.name,
+            hospital.qc_name,
             datetime(2026, 8, 12),
             consent_url="gs://test/orphan-consent.pdf",
         )
@@ -273,14 +273,14 @@ def test_hospital_reports_go_to_every_active_account(monkeypatch):
     )
     internal_email = "internal.reviewer@TANUH.AI"
     try:
-        existing_user = db.query(User).filter(User.email == "admin@test.com").one()
+        existing_user = db.query(User).filter(User.qc_email == "admin@test.com").one()
         db.add(User(
-            email=internal_email,
-            password_hash="not-used",
-            hospital_id="clinic_00001",
-            role_id=existing_user.role_id,
-            is_active=True,
-            full_name="Internal Reviewer",
+            qc_email=internal_email,
+            qc_password_hash="not-used",
+            qc_hospital_id="clinic_00001",
+            qc_role_id=existing_user.qc_role_id,
+            qc_is_active=True,
+            qc_full_name="Internal Reviewer",
         ))
         db.commit()
         recipients = hospital_recipients(db, "clinic_00001")
@@ -288,7 +288,7 @@ def test_hospital_reports_go_to_every_active_account(monkeypatch):
             "admin@test.com", "doctor@test.com", "staff@test.com"
         }
     finally:
-        db.query(User).filter(User.email == internal_email).delete(
+        db.query(User).filter(User.qc_email == internal_email).delete(
             synchronize_session=False
         )
         db.commit()
@@ -301,10 +301,10 @@ def test_new_hospitals_are_automatically_included_in_reports():
     hospital_id = "clinic_00999"
     try:
         db.add(Hospital(
-            id=hospital_id,
-            name="Newly Added Hospital",
-            contact_person="New Contact",
-            email="new-hospital@example.com",
+            qc_id=hospital_id,
+            qc_name="Newly Added Hospital",
+            qc_contact_person="New Contact",
+            qc_email="new-hospital@example.com",
         ))
         db.commit()
 
@@ -315,7 +315,7 @@ def test_new_hospitals_are_automatically_included_in_reports():
         assert "clinic_00001" in report_ids
         assert "clinic_00002" not in report_ids
     finally:
-        db.query(Hospital).filter(Hospital.id == hospital_id).delete(
+        db.query(Hospital).filter(Hospital.qc_id == hospital_id).delete(
             synchronize_session=False
         )
         db.commit()
@@ -454,7 +454,7 @@ def test_due_check_supports_five_minute_pilot_interval():
 def test_send_report_records_success_and_prevents_duplicate(monkeypatch):
     db = TestSession()
     q_db = TestQSession()
-    hospital = db.query(Hospital).filter(Hospital.id == "clinic_00001").one()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == "clinic_00001").one()
     report_date = date(2026, 9, 1)
     recipient = ReminderRecipient("doctor@test.com", "Doctor")
     calls = []
@@ -499,7 +499,7 @@ def test_send_report_records_success_and_prevents_duplicate(monkeypatch):
 def test_new_five_minute_period_can_send_another_pilot_email(monkeypatch):
     db = TestSession()
     q_db = TestQSession()
-    hospital = db.query(Hospital).filter(Hospital.id == "clinic_00001").one()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == "clinic_00001").one()
     recipient = ReminderRecipient("manisha.verma@tanuh.ai", "Pilot Reviewer")
     report_date = date(2026, 9, 2)
     calls = []
@@ -538,7 +538,7 @@ def test_new_five_minute_period_can_send_another_pilot_email(monkeypatch):
 def test_failure_notification_is_sent_after_initial_attempt_and_two_retries(monkeypatch):
     db = TestSession()
     q_db = TestQSession()
-    hospital = db.query(Hospital).filter(Hospital.id == "clinic_00001").one()
+    hospital = db.query(Hospital).filter(Hospital.qc_id == "clinic_00001").one()
     recipient = ReminderRecipient("doctor@test.com", "Doctor")
     report_date = date(2026, 9, 3)
     calls = []

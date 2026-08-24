@@ -75,7 +75,7 @@ def send_template_email(
 ) -> bool:
     from ..models.models import EmailTemplate, EmailTemplateCc
 
-    template = db.query(EmailTemplate).filter(EmailTemplate.template_key == template_key).first()
+    template = db.query(EmailTemplate).filter(EmailTemplate.qc_template_key == template_key).first()
     if not template:
         logger.warning("Email template '%s' not found in DB — skipping email to %s", template_key, to_email)
         if raise_on_error:
@@ -91,17 +91,17 @@ def send_template_email(
             seen_cc.add(normalized)
             cc_list.append(normalized)
     if include_configured_cc:
-        cc_rows = db.query(EmailTemplateCc).filter(EmailTemplateCc.template_key == template_key).all()
+        cc_rows = db.query(EmailTemplateCc).filter(EmailTemplateCc.qc_template_key == template_key).all()
         for row in cc_rows:
-            normalized = row.cc_email.strip().lower()
+            normalized = row.qc_cc_email.strip().lower()
             if normalized and normalized != to_email_normalized and normalized not in seen_cc:
                 seen_cc.add(normalized)
                 cc_list.append(normalized)
 
     variables.setdefault("login_url", LOGIN_URL)
 
-    subject = _render(template.subject, variables)
-    html = _render(template.body_html, variables)
+    subject = _render(template.qc_subject, variables)
+    html = _render(template.qc_body_html, variables)
     return send_email(
         to_email,
         subject,

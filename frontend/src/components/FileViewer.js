@@ -67,7 +67,7 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
 
         // Try signed URL first (direct GCS download, faster)
         try {
-          const urlRes = await fetch(`${apiUrl}/api/v1/patient/view-url/${attachmentId}`, {
+          const urlRes = await fetch(`${apiUrl}/api/v1/qc/patient/view-url/${attachmentId}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           });
           if (urlRes.ok) {
@@ -81,7 +81,7 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
           }
         } catch {
           // Fallback to proxied download through backend
-          res = await fetch(`${apiUrl}/api/v1/patient/view-file/${attachmentId}`, {
+          res = await fetch(`${apiUrl}/api/v1/qc/patient/view-file/${attachmentId}`, {
             headers: { 'Authorization': `Bearer ${token}` },
           });
           if (!res.ok) {
@@ -130,7 +130,7 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
       try {
         const token = localStorage.getItem('token');
         const apiUrl = process.env.REACT_APP_API_URL || '';
-        const res = await fetch(`${apiUrl}/api/v1/patient/view-file/${attachmentId}`, {
+        const res = await fetch(`${apiUrl}/api/v1/qc/patient/view-file/${attachmentId}`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (!res.ok) throw new Error('Backend fallback failed');
@@ -354,7 +354,7 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
                   try {
                     const token = localStorage.getItem('token');
                     const apiUrl = process.env.REACT_APP_API_URL || '';
-                    const res = await fetch(`${apiUrl}/api/v1/patient/view-file/${attachmentId}`, {
+                    const res = await fetch(`${apiUrl}/api/v1/qc/patient/view-file/${attachmentId}`, {
                       headers: { 'Authorization': `Bearer ${token}` },
                     });
                     if (!res.ok) throw new Error('fallback failed');
