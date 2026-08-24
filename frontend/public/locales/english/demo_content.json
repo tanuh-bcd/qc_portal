@@ -1,0 +1,158 @@
+{
+  "walkthrough": {
+    "consent": {
+      "title": "Informed Consent",
+      "highlight": "Your privacy is paramount. All data is de-identified and used for academic research only. This tool is for research purposes and not a clinical diagnosis."
+    },
+    "lang_support": {
+        "title": "12 Language Support",
+        "highlight": "Our tool supports major Indian languages like Kannada, Hindi, Tamil, and Malayalam to ensure accessibility across diverse populations."
+    },
+    "Q44": {
+      "title": "Patient Identification",
+      "highlight": "Optional unique identifier used to track submissions within a specific clinical study context."
+    },
+    "Q45": {
+      "title": "Healthcare Institution",
+      "highlight": "Helps in understanding geographical and institutional variations in risk factor distributions."
+    },
+    "Q47": {
+      "title": "Biological Gender",
+      "highlight": "Breast cancer predominantly affects females, but it is important to capture biological gender for accurate hormonal risk calculation."
+    },
+    "Q1": {
+      "title": "Age Factor",
+      "highlight": "Age is the single most significant risk factor. Risk increases significantly as cells age and accumulate genetic mutations."
+    },
+    "Q2": {
+      "title": "Height (cms)",
+      "highlight": "Height is sometimes correlated with certain hormonal profiles during puberty that can influence long-term risk."
+    },
+    "Q3": {
+      "title": "Weight (kgs)",
+      "highlight": "Body Mass Index (BMI) is a critical factor. Post-menopausal obesity increases risk due to higher estrogen levels produced in fat tissue."
+    },
+    "Q4": {
+      "title": "Regional Influence",
+      "highlight": "Environmental factors and regional dietary habits play a role in the localized risk profile within the Indian population."
+    },
+    "Q5": {
+      "title": "Socio-economic Status",
+      "highlight": "Income and lifestyle often correlate with dietary patterns and access to early screening facilities."
+    },
+    "Q6": {
+      "title": "Education Level",
+      "highlight": "Education often correlates with health literacy and awareness of early symptoms, leading to better outcomes."
+    },
+    "Q7": {
+      "title": "Diabetes History",
+      "highlight": "Insulin resistance and chronic inflammation associated with diabetes can potentially influence cancer cell growth."
+    },
+    "Q8": {
+      "title": "Hypertension",
+      "highlight": "Blood pressure is monitored as a general health indicator that can correlate with lifestyle-related metabolic risks."
+    },
+    "Q9": {
+      "title": "Menstrual History",
+      "highlight": "The duration of exposure to estrogen and progesterone throughout a woman's life is a primary driver of breast cancer risk."
+    },
+    "Q10": {
+      "title": "Age of Menarche",
+      "highlight": "Early onset of menstruation (before 12) means longer lifetime exposure to reproductive hormones, slightly increasing risk."
+    },
+    "Q12_Current": {
+      "title": "Menstrual Regularity",
+      "highlight": "Irregular cycles can sometimes indicate hormonal imbalances that are relevant to long-term health tracking."
+    },
+    "Q13": {
+      "title": "Marital Status",
+      "highlight": "In many epidemiological studies, marital status is used as a proxy for social support systems and lifestyle stability."
+    },
+    "Q14": {
+      "title": "Reproductive History",
+      "highlight": "Pregnancy and breastfeeding have a protective effect as they 'pause' the menstrual cycle and mature the breast cells."
+    },
+    "Q15": {
+      "title": "Number of Births",
+      "highlight": "Multiparity (having multiple children) is generally associated with a cumulative reduction in breast cancer risk."
+    },
+    "Q16": {
+      "title": "Age at First Birth",
+      "highlight": "Having a first child before age 30 allows breast cells to fully differentiate earlier, providing a protective effect."
+    },
+    "Q17": {
+      "title": "Breastfeeding Duration",
+      "highlight": "Extended breastfeeding (over 12-24 months) consistently shows a reduced risk profile in various Indian clinical studies."
+    },
+    "Q18": {
+      "title": "Tobacco Usage",
+      "highlight": "Chemicals in tobacco are known carcinogens and contribute to systemic oxidative stress and inflammation."
+    },
+    "Q19": {
+      "title": "Alcohol Consumption",
+      "highlight": "Even moderate alcohol intake can raise estrogen levels and damage DNA in cells, contributing to elevated risk."
+    },
+    "Q20": {
+      "title": "Family Cancer History",
+      "highlight": "A positive family history can indicate shared genetic markers or common environmental exposures."
+    },
+    "Q21": {
+      "title": "Relative Proximity",
+      "highlight": "First-order relatives (mother, sister) share 50% of your DNA. Cancer in these relatives carries the highest genetic weight."
+    },
+    "Q22": {
+      "title": "Diagnosis Age",
+      "highlight": "Family members diagnosed at a younger age (before 50) strongly suggest a hereditary genetic predisposition like BRCA1/2."
+    },
+    "Q23": {
+      "title": "Cancer Typology",
+      "highlight": "Breast and Ovarian cancers are often linked genetically. Identifying the exact type helps the AI model weigh the risk appropriately."
+    },
+    "Q24": {
+      "title": "Survival Status",
+      "highlight": "Used to complete the medical history profile and understand the severity of the family pedigree."
+    },
+    "Q26": {
+      "title": "Ethnic Background",
+      "highlight": "India has diverse genetic clusters. Certain ethnicities may have specific founder mutations that influence localized risk."
+    },
+    "Q27": {
+      "title": "Prior Screening",
+      "highlight": "Regular clinical exams are essential. If you haven't had one, we provide a guided video to help you self-screen."
+    },
+    "risk_result": {
+      "title": "Risk Analysis",
+      "highlight": "Our AI model synthesizes all factors to provide a localized risk probability based on Indian population data."
+    }
+  },
+  "golden_path": {
+    "Q44": "TANUH2026_010",
+    "Q45": "Institute 1",
+    "Q47": "Female",
+    "Q1": "45",
+    "Q2": "160",
+    "Q3": "70",
+    "Q4": "Karnataka",
+    "Q5": "Between ₹5,00,000 and ₹10,00,000 per annum",
+    "Q6": "Graduation & Above",
+    "Q7": "No",
+    "Q8": "No",
+    "Q9": "Yes",
+    "Q10": "12",
+    "Q12_Current": "Yes",
+    "Q13": "Married",
+    "Q14": "Yes",
+    "Q15": "1",
+    "Q16": "After 30",
+    "Q17": "less than 24 months",
+    "Q18": "No",
+    "Q19": "No",
+    "Q20": "Yes",
+    "Q21": "First Order (Mother, Sibling, Father)",
+    "Q22": "48",
+    "Q23": ["Breast cancer"],
+    "Q24": "Yes",
+    "Q26": "Brahmin",
+    "Q27": "No"
+  }
+}

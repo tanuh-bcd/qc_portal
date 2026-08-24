@@ -1,0 +1,15 @@
+# Sync output/logs
+sync_full.log
+sync_report.csv
+test_output/
+
+# Python
+__pycache__/
+*.pyc
+
+# Test scripts (local only)
+test_anonymizer.py
+test_ekacare_pii.py
+
+# Privacy filter test data with real names
+privacy_filter/tests/rajashetty report.pdf

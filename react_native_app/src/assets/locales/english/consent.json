@@ -1,0 +1,91 @@
+{
+  "title": "E-Consent",
+  "logos": {
+    "tanuhAlt": "TANUH Logo",
+    "iiscAlt": "IISC Logo"
+  },
+  "headernames": {
+    "studyTitle": "Study Title",
+    "sponsor": "Sponsor",
+    "iecApproval": "IEC Approval"
+  },
+  "header": {
+    "studyTitle": "AI enabled Breast Cancer Screening Tool",
+    "sponsor": "TANUH Foundation",
+    "iecApproval": "Ethics committee approval received from Clinicom vide letter no: 02434 dated 13-Jan-2026"
+  },
+  "sections": [
+    {
+      "heading": "1) Invitation & Voluntary Participation",
+      "paragraphs": [
+        { "text": "You are invited to take part in a research study about breast cancer risk factors in the Indian population. Participation is entirely voluntary. You may decline to participate without any penalty or loss of benefits." },
+        { "strong": "Eligibility:", "text": "You must be 18 years or older. If you are under 18, please do not proceed.", "className": "sub-point" }
+      ]
+    },
+    {
+      "heading": "2) Purpose of the Study",
+      "paragraphs": [
+        { "text": "We will analyze survey responses to understand breast cancer risk factors in India and to develop a research-only model that estimates 5-year and lifetime risk. This tool is under development, not for clinical use, and does not provide a medical diagnosis or treatment." }
+      ]
+    },
+    {
+      "heading": "3) What You Will Do",
+      "paragraphs": [
+        { "text": "Complete a one-time questionnaire on demographic and health-related factors. The estimated time is approximately 5-7 minutes. You may skip any question you are uncomfortable answering." }
+      ]
+    },
+    {
+      "heading": "4) Risks & Discomforts",
+      "paragraphs": [
+        { "text": "The risks are minimal and may include discomfort with personal questions. There is a small risk of a data breach, for which we apply the safeguards described in the \"Data & Privacy\" section below." }
+      ]
+    },
+    {
+      "heading": "5) Benefits",
+      "paragraphs": [
+        { "text": "There may be no direct benefit to you. The findings may improve the understanding of breast cancer risk factors in India and guide future research tools." }
+      ]
+    },
+    {
+      "heading": "6) Important: Research-Only; Not Medical Advice",
+      "className": "important-notice",
+      "paragraphs": [
+        { "text": "Any score or output from this tool is experimental and for research purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment. This tool is not approved by CDSCO and is not a certified Software as a Medical Device (SaMD). For any health concerns, please consult a qualified physician." }
+      ]
+    },
+    {
+      "heading": "7) Data & Privacy (Anonymous Survey)",
+      "paragraphs": [
+        { "text": "We do not collect any personal identifiers (e.g., name, phone, email, precise address, national ID). Responses are recorded without any link to your identity. Because submissions are anonymous, once you submit your responses, they cannot be withdrawn or deleted, as we cannot identify which responses are yours." },
+        { "strong": "Technical logs:", "text": "We configure systems to avoid storing IP addresses or device identifiers beyond transient processing. If minimal infrastructure logs are generated for security or performance, they are not linked to your responses and are deleted per institutional policy.", "className": "sub-point" },
+        { "strong": "Security:", "text": "Data are stored on secure, access-controlled systems with reasonable technical and organizational measures, such as encryption and role-based access controls.", "className": "sub-point" }
+      ]
+    },
+    {
+      "heading": "8) Data Use, Sharing & Retention",
+      "paragraphs": [
+        { "strong": "Purpose limitation:", "text": "Data will be used exclusively for academic research on breast cancer risk factors and model development/validation.", "className": "sub-point" },
+        { "strong": "Sharing:", "text": "Only de-identified or aggregated datasets may be shared with research collaborators and academic partners for the same purpose. Publications will report aggregate results that do not identify individuals.", "className": "sub-point" },
+        { "strong": "Retention:", "text": "Anonymous datasets may be retained as per institutional/IEC policy for reproducibility and audit.", "className": "sub-point" }
+      ]
+    },
+    {
+      "heading": "9) Costs & Compensation",
+      "paragraphs": [
+        { "text": "There is no cost to you for participating, and you will not be paid. No compensation is available for injury, as this is a minimal-risk, survey-only study." }
+      ]
+    },
+    {
+      "heading": "10) Contact Information",
+      "paragraphs": [
+        { "text": "If you wish to speak to someone independent of the study, you may contact the:" },
+        { "strong": "Institutional Ethics Committee (IEC)", "text": "" },
+        { "strong": "Name:", "text": "Dr. S. Hema Priyadarshini, Secretary, IEC, TANUH" },
+        { "strong": "Email:", "text": "secretary.iec@tanuh.ai" },
+        { "strong": "Phone#", "text": "080 - 2293 4106 / 2293 4107" }
+      ]
+    }
+  ],
+  "checkboxLabel": "By checking this box, you confirm that you are 18 years of age or older, that you have read and understood the Participant Information Sheet, and that the information you provide for this study is given voluntarily.",
+  "buttonText": "Accept & Continue"
+}

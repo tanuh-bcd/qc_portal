@@ -1,0 +1,11 @@
+[Unit]
+Description=PinkShield AI hospital reminder email job
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker exec bcd-backend python -m src.jobs.send_fortnightly_reminders
+
+[Install]
+WantedBy=multi-user.target

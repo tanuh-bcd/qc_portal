@@ -1,0 +1,5 @@
+/Users/ashwinrajkumar/PycharmProjects/tanuh_bcd_website/react_native_app/node_modules/@react-native-community/netinfo/android/build/generated/source/codegen/jni/CMakeLists.txt
+/Users/ashwinrajkumar/PycharmProjects/tanuh_bcd_website/react_native_app/node_modules/react-native-image-picker/android/build/generated/source/codegen/jni/CMakeLists.txt
+/Users/ashwinrajkumar/PycharmProjects/tanuh_bcd_website/react_native_app/node_modules/react-native-safe-area-context/android/src/main/jni/CMakeLists.txt
+/Users/ashwinrajkumar/PycharmProjects/tanuh_bcd_website/react_native_app/node_modules/react-native-screens/android/src/main/jni/CMakeLists.txt
+/Users/ashwinrajkumar/PycharmProjects/tanuh_bcd_website/react_native_app/node_modules/react-native/ReactAndroid/cmake-utils/default-app-setup/CMakeLists.txt

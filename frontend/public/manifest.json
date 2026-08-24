@@ -1,0 +1,25 @@
+{
+  "short_name": "PinkShieldAI",
+  "name": "PinkShieldAI — BCD Portal",
+  "description": "Breast Cancer Detection screening and assessment portal for clinicians and patients",
+  "id": "/",
+  "scope": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#14868C",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "tanuh-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "tanuh-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

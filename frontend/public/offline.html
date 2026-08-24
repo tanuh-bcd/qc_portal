@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#14868C" />
+  <title>PinkShieldAI — Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container {
+      text-align: center;
+      max-width: 420px;
+    }
+    .icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      color: #14868C;
+      margin-bottom: 0.75rem;
+    }
+    p {
+      font-size: 1rem;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      background: #14868C;
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover { background: #106b70; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">&#128268;</div>
+    <h1>You're Offline</h1>
+    <p>PinkShieldAI needs an internet connection to load patient data and submit assessments. Please check your connection and try again.</p>
+    <button onclick="window.location.reload()">Retry</button>
+  </div>
+</body>
+</html>

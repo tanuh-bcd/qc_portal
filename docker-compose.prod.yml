@@ -1,0 +1,44 @@
+services:
+  backend:
+    image: asia-south1-docker.pkg.dev/bcd-prototypes/bcd-portal/backend:latest
+    container_name: bcd-backend
+    env_file: .env
+    ports:
+      - "8000:8000"
+    networks:
+      - bcdnet
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "1.5"
+        reservations:
+          memory: 512m
+          cpus: "0.5"
+
+  frontend:
+    image: asia-south1-docker.pkg.dev/bcd-prototypes/bcd-portal/frontend:latest
+    container_name: bcd-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - backend
+    networks:
+      - bcdnet
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: "0.5"
+        reservations:
+          memory: 128m
+          cpus: "0.1"
+
+networks:
+  bcdnet:
+    driver: bridge

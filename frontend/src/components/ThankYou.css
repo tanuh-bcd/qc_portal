@@ -1,0 +1,627 @@
+/* Legacy commented sections removed for brevity — see git history */
+
+.thank-you-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(10, 20, 30, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+  overflow-y: auto;
+  padding: clamp(12px, 1.6vw, 20px);
+}
+
+.thank-you-dialog {
+  background: #FDFCFC;
+  border-radius: clamp(10px, 1.3vw, 16px);
+  padding: clamp(20px, 2.5vw, 30px) clamp(20px, 3.2vw, 40px);
+  width: 90%;
+  max-width: clamp(320px, 52vw, 650px);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  position: relative;
+  border-top: 6px solid #14868C;
+  animation: slideInUp 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  margin: auto;
+}
+
+.close-button {
+  position: absolute;
+  top: clamp(10px, 1.2vw, 15px);
+  right: clamp(10px, 1.2vw, 15px);
+  background: #f1f3f5;
+  border: none;
+  border-radius: 50%;
+  width: clamp(24px, 2.5vw, 30px);
+  height: clamp(24px, 2.5vw, 30px);
+  font-size: clamp(1.1rem, 1.3vw, 1.5rem);
+  line-height: clamp(24px, 2.5vw, 30px);
+  color: #868e96;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.close-button:hover {
+  background-color: #e9ecef;
+  color: #343a40;
+  transform: rotate(90deg);
+}
+
+.thank-you-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(8px, 1vw, 12px);
+  margin-bottom: clamp(10px, 1.2vw, 15px);
+}
+
+.success-icon {
+  color: #14868C !important;
+}
+
+.thank-you-dialog h3 {
+  font-size: clamp(1.3rem, 1.6vw, 1.8rem);
+  font-weight: 700;
+  color: #343a40;
+  margin: 0;
+}
+
+.thank-you-dialog p {
+  color: #6c757d;
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
+  line-height: 1.6;
+  margin: 0 0 clamp(14px, 2vw, 25px) 0;
+}
+
+.risk-result-container {
+  background: #f0fafb;
+  border-radius: clamp(8px, 1vw, 12px);
+  padding: clamp(12px, 1.6vw, 20px);
+  margin: clamp(14px, 2vw, 25px) 0;
+  border: 1px solid #cceef0;
+}
+
+.risk-result-container p {
+  margin: 0;
+  color: #495057;
+  font-weight: 500;
+  font-size: clamp(0.8rem, 1vw, 0.95rem);
+}
+
+.risk-score {
+  font-size: clamp(2rem, 2.5vw, 2.8rem);
+  font-weight: 700;
+  color: #14868C;
+  margin-top: 5px;
+}
+
+.male-disclaimer-container {
+  background: #fff5f5;
+  border-radius: clamp(8px, 1vw, 12px);
+  padding: clamp(12px, 1.6vw, 20px);
+  margin: clamp(14px, 2vw, 25px) 0;
+  border: 1px solid #feb2b2;
+}
+
+.male-disclaimer-text {
+  margin: 0 !important;
+  color: #c53030 !important;
+  font-weight: 600;
+  font-size: clamp(0.9rem, 1.1vw, 1.1rem) !important;
+}
+
+.action-buttons {
+  display: flex;
+  gap: clamp(10px, 1.2vw, 15px);
+  margin-top: clamp(16px, 2.5vw, 30px);
+}
+
+.ok-button, .download-button {
+  flex: 1;
+  border: none;
+  border-radius: clamp(6px, 0.6vw, 8px);
+  padding: clamp(10px, 1.1vw, 14px);
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ok-button {
+  background-color: #14868C;
+  color: white;
+  box-shadow: 0 4px 15px rgba(20, 134, 140, 0.2);
+}
+
+.ok-button:hover {
+  background-color: #0e6a6f;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(20, 134, 140, 0.3);
+}
+
+.download-button {
+  background-color: #f1f3f5;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.download-button:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+  transform: translateY(-2px);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.interpretation-container {
+  margin-top: clamp(16px, 2.5vw, 30px);
+  text-align: left;
+}
+
+.interpretation-container h4 {
+  font-size: clamp(1rem, 1.2vw, 1.2rem);
+  color: #495057;
+  margin-bottom: clamp(10px, 1.2vw, 15px);
+  text-align: center;
+}
+
+.risk-interpretation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.75rem, 0.9vw, 0.85rem);
+  margin-bottom: clamp(14px, 2vw, 25px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: clamp(6px, 0.6vw, 8px);
+  overflow: hidden;
+}
+
+.risk-interpretation-table th,
+.risk-interpretation-table td {
+  border: 1px solid #e9ecef;
+  padding: clamp(6px, 0.8vw, 10px) clamp(8px, 1vw, 12px);
+  vertical-align: top;
+}
+
+.risk-interpretation-table th {
+  background-color: #f0fafb;
+  color: #14868C;
+  font-weight: 600;
+  text-align: left;
+}
+
+.risk-interpretation-table td {
+  color: #6c757d;
+  line-height: 1.5;
+}
+
+.risk-interpretation-table tbody tr:nth-child(even) {
+  background-color: #f8fdfd;
+}
+
+.risk-interpretation-table tbody tr.highlighted-risk-row {
+  background-color: #fff9e6;
+  font-weight: 500;
+}
+
+.risk-interpretation-table tbody tr.highlighted-risk-row td {
+  color: #5c523a;
+}
+
+.disclaimer-text {
+  font-size: clamp(0.7rem, 0.8vw, 0.8rem);
+  color: #6c757d;
+  margin-top: clamp(10px, 1.2vw, 15px);
+  text-align: left;
+  line-height: 1.4;
+}
+
+.disclaimer-asterisk {
+  color: #e63946;
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+@media (max-width: 650px) {
+  .action-buttons {
+    flex-direction: column;
+  }
+
+  .risk-interpretation-table thead {
+    display: none;
+  }
+
+  .risk-interpretation-table,
+  .risk-interpretation-table tbody,
+  .risk-interpretation-table tr,
+  .risk-interpretation-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .risk-interpretation-table tr {
+    margin-bottom: 15px;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .risk-interpretation-table td {
+    border: none;
+    border-bottom: 1px solid #e9ecef;
+    padding-left: 50%;
+    position: relative;
+    text-align: right;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .risk-interpretation-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .risk-interpretation-table td:last-child {
+    border-bottom: none;
+  }
+
+  .risk-interpretation-table td[data-label]::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 12px;
+    width: calc(50% - 24px);
+    font-weight: 600;
+    color: #14868C;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .risk-interpretation-table tbody tr.highlighted-risk-row {
+    background-color: #fff9e6;
+    border-color: #ffe8a1;
+  }
+
+  .risk-interpretation-table tbody tr.highlighted-risk-row td {
+    color: #5c523a;
+  }
+
+  .risk-interpretation-table tbody tr.highlighted-risk-row td[data-label]::before {
+    color: #b38f00;
+  }
+}
+
+
+.what-to-do-container {
+  margin-top: clamp(0.8rem, 1.2vw, 1.5rem);
+  text-align: left;
+}
+
+.what-to-do-title {
+  font-size: clamp(1rem, 1.2vw, 1.2rem);
+  font-weight: 600;
+  color: #333;
+  margin-bottom: clamp(0.4rem, 0.6vw, 0.8rem);
+}
+
+.what-to-do-box {
+  background-color: #f9f9f9;
+  border-left: 4px solid #007bff;
+  padding: clamp(0.6rem, 0.8vw, 1rem);
+  border-radius: clamp(6px, 0.6vw, 8px);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.what-to-do-text {
+  font-size: clamp(0.85rem, 1.1vw, 1rem);
+  color: #444;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.no-data-text {
+  font-size: clamp(0.8rem, 1vw, 0.95rem);
+  color: #777;
+  margin-top: 0.5rem;
+}
+
+
+/* Riskometer — gauge internals kept at fixed 280px (aspect-ratio dependent) */
+.riskometer-container {
+  position: relative;
+  width: 100%;
+  max-width: clamp(280px, 32vw, 400px);
+  margin: clamp(0.8rem, 1.2vw, 1.5rem) auto;
+  background: white;
+  border-radius: clamp(10px, 1.3vw, 16px);
+  padding: clamp(1.2rem, 2vw, 2.5rem) clamp(0.8rem, 1.2vw, 1.5rem) clamp(0.8rem, 1.2vw, 1.5rem);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.riskometer-gauge {
+  position: relative;
+  width: 280px;
+  height: 140px;
+  overflow: hidden;
+}
+
+.gauge-background {
+  position: absolute;
+  top: 0;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: conic-gradient(from 270deg,
+      #6ee7b7 0deg,
+      #6ee7b7 45deg,
+      #fde047 45deg,
+      #fde047 90deg,
+      #fb923c 90deg,
+      #fb923c 135deg,
+      #fb7185 135deg,
+      #fb7185 180deg,
+      transparent 180deg);
+  mask: radial-gradient(farthest-side, transparent 70%, blue 71%);
+  -webkit-mask: radial-gradient(farthest-side, transparent 70%, blue 71%);
+}
+
+.riskometer-needle {
+  position: absolute;
+  bottom: 0;
+  left: calc(50% - 2px);
+  width: 4px;
+  height: 112px;
+  background: #333;
+  transform-origin: bottom center;
+  transform: rotate(-90deg);
+  transition: transform 1.5s ease-out;
+  border-radius: 4px;
+}
+
+.riskometer-center {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 20px;
+  background: #333;
+  border-radius: 50%;
+  border: 3px solid white;
+}
+
+.gauge-labels {
+  display: flex;
+  width: 100%;
+  max-width: 240px;
+  justify-content: space-between;
+  margin-top: clamp(12px, 1.6vw, 20px);
+  padding: 0 5px;
+  font-size: clamp(0.65rem, 0.8vw, 0.8rem);
+  font-weight: 700;
+  color: #6c757d;
+}
+
+.gauge-labels span {
+  flex: 1;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.gauge-labels span.active-level {
+  color: #14868C;
+  transform: scale(1.15);
+}
+
+.demo-result-header-centered {
+  text-align: center;
+  margin-bottom: clamp(1rem, 1.6vw, 2rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.demo-thank-you-msg {
+  color: #666;
+  font-size: clamp(0.9rem, 1.1vw, 1.1rem);
+  margin-bottom: clamp(0.8rem, 1.2vw, 1.5rem);
+  text-align: center;
+}
+
+.demo-risk-status-hero {
+  margin: clamp(0.8rem, 1.2vw, 1.5rem) 0;
+  text-align: center;
+}
+
+.risk-status-text {
+  font-size: clamp(1.5rem, 2vw, 2.2rem);
+  font-weight: 800;
+  color: #14868C;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.fade-in { animation: fadeIn 0.4s ease forwards; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+/*
+==============================================
+--- PDF STYLES (fixed A4 dimensions) ---
+==============================================
+*/
+.pdf-content-wrapper {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    width: 210mm;
+    padding: 15mm;
+    box-sizing: border-box;
+    background-color: #FDFCFC;
+    color: #333;
+    font-family: Arial, sans-serif;
+}
+
+.pdf-header {
+    border-bottom: 2px solid #14868C;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.pdf-main-title {
+    font-size: 16pt;
+    font-weight: bold;
+    color: #343a40;
+    margin: 0;
+}
+
+.pdf-session-info {
+    font-size: 8pt;
+    color: #6c757d;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+}
+
+.pdf-risk-result-container {
+    background: #f0fafb;
+    border: 1px solid #cceef0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.pdf-risk-label {
+    font-size: 10pt;
+    color: #495057;
+    font-weight: 500;
+}
+
+.pdf-risk-score {
+    font-size: 20pt;
+    font-weight: 700;
+    color: #14868C;
+}
+
+.pdf-section-title {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #14868C;
+    margin-top: 25px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 5px;
+}
+
+.pdf-risk-interpretation-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8pt;
+    margin-bottom: 20px;
+}
+
+.pdf-risk-interpretation-table th,
+.pdf-risk-interpretation-table td {
+    border: 1px solid #e9ecef;
+    padding: 6px 8px;
+    vertical-align: top;
+    text-align: left;
+    line-height: 1.4;
+}
+
+.pdf-risk-interpretation-table th {
+    background-color: #f0fafb;
+    color: #495057;
+    font-weight: bold;
+}
+
+.pdf-risk-interpretation-table tr:nth-child(even) {
+    background-color: #fcfaff;
+}
+
+.pdf-risk-interpretation-table .pdf-highlighted-risk-row {
+    background-color: #fff9e6;
+    font-weight: 600;
+}
+
+.pdf-disclaimer-text {
+    font-size: 7pt;
+    color: #6c757d;
+    margin-top: 15px;
+    line-height: 1.4;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+}
+
+.pdf-disclaimer-asterisk {
+    color: #e63946;
+    font-weight: bold;
+    margin-right: 2px;
+}
+
+.pdf-qa-pair {
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    background-color: #fafafa;
+}
+
+.pdf-question {
+    margin-bottom: 5px;
+}
+
+.pdf-question-title {
+    display: inline;
+    font-size: 9pt;
+    font-weight: bold;
+    color: #14868C;
+    margin-right: 5px;
+}
+
+.pdf-question-text {
+    display: inline;
+    font-size: 9pt;
+    font-weight: normal;
+    color: #495057;
+    margin: 0;
+}
+
+.pdf-answer {
+    font-style: italic;
+    font-size: 9pt;
+    color: #555;
+    margin-top: 5px;
+    margin-left: 10px;
+}
+
+.pdf-subquestions-container {
+    padding-left: 15px;
+    border-left: 1px dashed #ddd;
+    margin-top: 5px;
+}

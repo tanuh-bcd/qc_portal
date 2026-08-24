@@ -1,0 +1,774 @@
+{
+  "ui": {
+    "logos": {
+      "tanuhAlt": "TANUH Logo",
+      "iiscAlt": "IISC Logo"
+    },
+    "header": {
+      "title": "ସ୍ତନ କର୍କଟ ବିପଦ ପ୍ରଶ୍ନAIre",
+      "instructions": "ଦୟାକରି ନିମ୍ନୋକ୍ତ ପ୍ରଶ୍ନଗୁଡିକର ସାମର୍ଥ୍ୟକୁ ଉତ୍ତର ଦିଅ |",
+      "mandatoryPre": "ସହିତ ଚିହ୍ନିତ କ୍ଷେତ୍ରଗୁଡିକ |",
+      "mandatorySymbol": "*",
+      "mandatoryPost": "ବାଧ୍ୟତାମୂଳକ ଅଟେ |"
+    },
+    "progressBarTemplate": "ପ୍ରଗତି: {ପ୍ରଗତି}%",
+    "errors": {
+      "validationAlert": "ଦୟାକରି * ସହିତ ଚିହ୍ନିତ ସମସ୍ତ ଆବଶ୍ୟକୀୟ କ୍ଷେତ୍ରଗୁଡିକ ପୂରଣ କରନ୍ତୁ |",
+      "questionNotFound": "ତ୍ରୁଟି: ପ୍ରଶ୍ନ {କି JS JSON ରେ ମିଳିଲା ନାହିଁ |"
+    },
+    "inputs": {
+      "selectDefault": "ଏକ ବିକଳ୍ପ ବାଛନ୍ତୁ |"
+    },
+    "videoPrompt": {
+      "note": "ଆତ୍ମ ପରୀକ୍ଷା କରିବାକୁ ଦୟାକରି ଭିଡିଓରେ ଥିବା ନିର୍ଦ୍ଦେଶାବଳୀ ଅନୁସରଣ କରନ୍ତୁ |ଏହାକୁ ଏକ ଦର୍ପଣ ସହିତ ଏକ କୋଠରୀରେ ଗୋପନୀୟତାରେ କରିବାକୁ ହେବ |ଆପଣ ପ୍ରସ୍ତୁତ ହୋଇଗଲେ ଠିକ କ୍ଲିକ୍ କରନ୍ତୁ |",
+      "button": "ଠିକ ଅଛି |",
+      "videoTitle": "ୟୁଟ୍ୟୁବ୍ ଭିଡିଓ ପ୍ଲେୟାର୍ |"
+    },
+    "submitButton": {
+      "default": "ପ୍ରଶ୍ନପତ୍ରAIre ଦାଖଲ କରନ୍ତୁ |",
+      "loading": "ଦାଖଲ ..."
+    },
+    "defaults": {
+      "q45": "ସର୍ବଭାରତୀୟ |"
+    },
+    "invalidInput": {
+      "numberPrefix": "ଦୟାକରି ଏକ ସଂଖ୍ୟା ପ୍ରବେଶ କରନ୍ତୁ ",
+      "and": "ଏବଂ",
+      "validInput": "ଦୟାକରି ଏକ ବୈଧ ଇନପୁଟ୍ ପ୍ରବେଶ କରନ୍ତୁ |"
+    }
+  },
+  "formStructure": [
+    {
+      "title": "Section 1: General Information",
+      "questions": [
+        {
+          "key": "Q44",
+          "type": "text"
+        },
+        {
+          "key": "Q45",
+          "type": "text",
+          "placeholder": "Universal"
+        },
+        {
+          "key": "Q47",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q1",
+          "type": "number",
+          "placeholder": "e.g., 35",
+          "required": true,
+          "min": 18,
+          "max": 120,
+          "step": 1,
+          "integerOnly": true
+        },
+        {
+          "key": "Q2",
+          "type": "number",
+          "placeholder": "e.g., 165",
+          "required": true,
+          "min": 100,
+          "max": 300,
+          "step": 1
+        },
+        {
+          "key": "Q3",
+          "type": "number",
+          "placeholder": "e.g., 60",
+          "required": true,
+          "min": 30,
+          "max": 500,
+          "step": 0.1
+        },
+        {
+          "key": "Q4",
+          "type": "select",
+          "required": true
+        },
+        {
+          "key": "Q5",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q6",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q7",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q8",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q9",
+          "type": "radio",
+          "required": true,
+          "condition": {
+            "key": "Q47",
+            "value": "Female"
+          },
+          "subQuestions": [
+            {
+              "key": "Q10",
+              "type": "number",
+              "required": true,
+              "min": 8,
+              "max": 100,
+              "step": 1,
+              "integerOnly": true,
+              "placeholder": "Enter age in years",
+              "condition": {
+                "key": "Q9",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q12_Current",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q9",
+                "value": "Yes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "Q13",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q14",
+          "type": "radio",
+          "required": true,
+          "condition": {
+            "key": "Q47",
+            "value": "Female"
+          },
+          "subQuestions": [
+            {
+              "key": "Q15",
+              "type": "number",
+              "placeholder": "Please enter a number",
+              "required": true,
+              "min": 1,
+              "max": 120,
+              "step": 1,
+              "integerOnly": true,
+              "condition": {
+                "key": "Q14",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q16",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q14",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q17",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q14",
+                "value": "Yes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "Q18",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q19",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q26",
+          "type": "select-plus-text",
+          "otherOptionId": "q26_other_specify",
+          "otherPlaceholder": "Please specify",
+          "required": true
+        },
+        {
+          "key": "Q20",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q21",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q22",
+              "type": "number",
+              "placeholder": "e.g., 45",
+              "required": true,
+              "min": 1,
+              "max": 120,
+              "step": 1,
+              "integerOnly": true,
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q23",
+              "type": "checkbox",
+              "required": true,
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q24",
+              "type": "radio",
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              },
+              "subQuestions": [
+                {
+                  "key": "Q25",
+                  "type": "number",
+                  "placeholder": "Enter age of death",
+                  "min": 1,
+                  "max": 120,
+                  "step": 1,
+                  "condition": {
+                    "key": "Q24",
+                    "value": "No"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Section 2: Clinical Breast Examination (CBE)",
+      "questions": [
+        {
+          "key": "Q27",
+          "type": "radio",
+          "required": true,
+          "videoUrlOnNo": "https://www.youtube.com/embed/-ygucOBbKJA?autoplay=1&rel=0&start=0",
+          "subQuestions": [
+            {
+              "key": "Q28",
+              "type": "radio",
+              "condition": {
+                "key": "Q27",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q29",
+              "type": "radio",
+              "condition": {
+                "key": "Q27",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q36",
+              "type": "radio",
+              "condition": {
+                "key": "Q27",
+                "value": "Yes"
+              },
+              "subQuestions": [
+                {
+                  "key": "Q37",
+                  "type": "checkbox",
+                  "condition": {
+                    "key": "Q36",
+                    "value": "Yes"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "Q30",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q31",
+              "type": "radio",
+              "condition": {
+                "key": "Q30",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q32",
+              "type": "radio",
+              "condition": {
+                "key": "Q30",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q33",
+              "type": "radio",
+              "condition": {
+                "key": "Q30",
+                "value": "Yes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "Q34",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q35",
+              "type": "radio",
+              "condition": {
+                "key": "Q34",
+                "value": "Yes"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Section 3: Beyond CBE",
+      "questions": [
+        {
+          "key": "Q38",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q40",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q42",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q43",
+              "type": "checkbox-plus-text",
+              "otherOptionId": "q43_other_specify",
+              "otherPlaceholder": "Please specify",
+              "required": true,
+              "condition": {
+                "key": "Q42",
+                "value": "Yes"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "Q1": {
+      "question": "ତୁମର ସାମ୍ପ୍ରତିକ ବୟସ କେତେ?(ଦୟାକରି ଏକ ସଂଖ୍ୟା - ବର୍ଷ ପ୍ରବେଶ କରନ୍ତୁ)",
+      "answers": []
+    },
+    "Q2": {
+      "question": "Cms ରେ ଆପଣଙ୍କର ସାମ୍ପ୍ରତିକ ଉଚ୍ଚତା କ’ଣ?",
+      "answers": []
+    },
+    "Q3": {
+      "question": "Kgs ରେ ଆପଣଙ୍କର ବର୍ତ୍ତମାନର ଓଜନ କ’ଣ?",
+      "answers": []
+    },
+    "Q4": {
+      "question": "କେଉଁ ରାଜ୍ୟ କିମ୍ବା ୟୁନିଅନ୍ ଅଞ୍ଚଳ ସର୍ବୋତ୍ତମ ଭାବରେ ପ୍ରତିନିଧିତ୍ where କରେ ଯେଉଁଠାରେ ତୁମେ ତୁମର ଜୀବନର ଏକ ଗୁରୁତ୍ୱପୂର୍ଣ୍ଣ ଅଂଶ ପାଇଁ ବାସ କରିଛ?",
+      "answers": [
+        "ଆନ୍ଧ୍ରପ୍ରଦେଶ",
+        "ଅରୁଣାଚଳ ପ୍ରଦେଶ",
+        "ଆସାମ |",
+        "ବିହାର |",
+        "ଛତିଶଗଡ",
+        "ଗୋଆ",
+        "ଗୁଜୁରାଟ",
+        "ହରିୟାଣା",
+        "ହିମାଚଳ ପ୍ରଦେଶ",
+        "H ାଡଖଣ୍ଡ",
+        "କର୍ଣ୍ଣାଟକ",
+        "କେରଳ",
+        "ମଧ୍ୟପ୍ରଦେଶ",
+        "ମହାରାଷ୍ଟ୍ର",
+        "ମଣିପୁର",
+        "ମେଘାଳୟ",
+        "ମିଜୋରାମ",
+        "ନାଗାଲାଣ୍ଡ |",
+        "ଓଡ଼ିଶା",
+        "ପଞ୍ଜାବ",
+        "ରାଜସ୍ଥାନ",
+        "ସିକ୍କିମ୍ |",
+        "ତାମିଲନାଡୁ |",
+        "ତେଲେଙ୍ଗାନା",
+        "ତ୍ରିପୁରା",
+        "ଉତ୍ତରପ୍ରଦେଶ",
+        "ଉତ୍ତରାଖଣ୍ଡ",
+        "ପଶ୍ଚିମବଙ୍ଗ",
+        "ଆଣ୍ଡାମାନ ଏବଂ ନିକୋବର ଦ୍ୱୀପପୁଞ୍ଜ |",
+        "ଚଣ୍ଡିଗଡ଼",
+        "ଦାଦ୍ରା ଏବଂ ନାଗର ହାଭେଲି ଏବଂ ଦାମନ ଏବଂ ଡିୟୁ |",
+        "ଦିଲ୍ଲୀ",
+        "ଜାମ୍ମୁ କାଶ୍ମୀର",
+        "ଲଦାଖ",
+        "ଲକ୍ଷ୍ମୀଦୀପ",
+        "ପୁଡୁଚେରୀ |"
+      ]
+    },
+    "Q5": {
+      "question": "ତୁମର ଆନୁମାନିକ ବାର୍ଷିକ ଘରୋଇ ଆୟ କ’ଣ?",
+      "answers": [
+        "ବାର୍ଷିକ ₹ 2,00,000 ରୁ କମ୍ |",
+        "ବାର୍ଷିକ ₹ 2,00,000 ରୁ, 5,00,000 ମଧ୍ୟରେ |",
+        "ବାର୍ଷିକ, 5,00,000 ରୁ ₹ 10,00,000 ମଧ୍ୟରେ |",
+        "ବାର୍ଷିକ ₹ 10,00,000 ରୁ ଅଧିକ |"
+      ]
+    },
+    "Q6": {
+      "question": "ତୁମେ ସମାପ୍ତ କରିଥିବା ସର୍ବୋଚ୍ଚ ଶିକ୍ଷା କ’ଣ?",
+      "answers": [
+        "କୌଣସି ଆନୁଷ୍ଠାନିକ ଶିକ୍ଷା ନାହିଁ",
+        "୯ମ ଶ୍ରେଣୀ ପର୍ଯ୍ୟନ୍ତ (ପ୍ରାଥମିକ/ମଧ୍ୟମିକ)",
+        "10ମ କିମ୍ବା 12ଶ ଶ୍ରେଣୀ (ମାଧ୍ୟମିକ/ଉଚ୍ଚ ମାଧ୍ୟମିକ)",
+        "ସ୍ନାତକ ଏବଂ ତଦୁର୍ଦ୍ଧ"
+      ]
+    },
+    "Q7": {
+      "question": "ତୁମେ ମଧୁମେହ ରୋଗରେ ଆକ୍ରାନ୍ତ କି?",
+      "answers": [
+        "ହଁ",
+        "ନା",
+        "ମୁଁ ଜାଣେ ନାହିଁ"
+      ]
+    },
+    "Q8": {
+      "question": "ଆପଣ ଉଚ୍ଚ ରକ୍ତଚାପ (ଉଚ୍ଚ ରକ୍ତଚାପ) ରୋଗରେ ଆକ୍ରାନ୍ତ ହୋଇଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା",
+        "ମୁଁ ଜାଣେ ନାହିଁ"
+      ]
+    },
+    "Q9": {
+      "question": "ଆପଣଙ୍କୁ କେବେ ମାସିକ ଧର୍ମ ହୋଇଛି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q10": {
+      "question": "କେଉଁ ବୟସରେ ଆପଣଙ୍କର ପ୍ରଥମ ମାସିକ ଧର୍ମ ଆରମ୍ଭ ହୋଇଥିଲା?",
+      "answers": []
+    },
+    "Q12_Current": {
+      "question": "ଆପଣଙ୍କର ବର୍ତ୍ତମାନ ମାସିକ ଧର୍ମ ଚାଲିଛି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q13": {
+      "question": "ତୁମର ବ ital ବାହିକ ସ୍ଥିତି କ’ଣ?",
+      "answers": [
+        "ବିବାହିତ",
+        "କେବେ ବି ବିବାହିତ ନୁହେଁ |"
+      ]
+    },
+    "Q14": {
+      "question": "ଆପଣ ଏକ କିମ୍ବା ଅଧିକ ସନ୍ତାନ ଜନ୍ମ ଦେଇଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q15": {
+      "question": "ଦୟାକରି ଆପଣ ଜନ୍ମ କରିଥିବା ପିଲାଙ୍କ ସଂଖ୍ୟା ପ୍ରବେଶ କରନ୍ତୁ?",
+      "answers": []
+    },
+    "Q16": {
+      "question": "ପ୍ରଥମ ସନ୍ତାନ ଜନ୍ମ ସମୟରେ ଦୟାକରି ଆପଣଙ୍କର ବୟସ ବାଛନ୍ତୁ?",
+      "answers": [
+        "25 ରୁ କମ୍",
+        "25 ରୁ 29",
+        "30 ପରେ"
+      ]
+    },
+    "Q17": {
+      "question": "ସ୍ତନ୍ୟପାନର ସମୁଦାୟ ଅବଧି କେତେ?",
+      "answers": [
+        "24 ମାସରୁ କମ୍",
+        "24 ମାସରୁ ଅଧିକ |"
+      ]
+    },
+    "Q18": {
+      "question": "ଆପଣ ସିଗାରେଟ୍, ବିଡିସ୍ ଧୂମପାନ କରିଛନ୍ତି କିମ୍ବା ଅନ୍ୟ କ form ଣସି ପ୍ରକାରର ତମାଖୁ ବ୍ୟବହାର କରିଛନ୍ତି (ଯଥା, ତମାଖୁ ଚୋବାଇବା)?",
+      "answers": [
+        "ହଁ",
+        "ନା",
+        "ମୁଁ ଉତ୍ତର ଦେବାକୁ ଚାହେଁ ନାହିଁ"
+      ]
+    },
+    "Q19": {
+      "question": "ଆପଣ ମଦ୍ୟପାନ କରନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା",
+        "ମୁଁ ଉତ୍ତର ଦେବାକୁ ଚାହେଁ ନାହିଁ"
+      ]
+    },
+    "Q20": {
+      "question": "କ relatives ଣସି ସମ୍ପର୍କୀୟ କ any ଣସି ପ୍ରକାରର କର୍କଟ ରୋଗରେ ଆକ୍ରାନ୍ତ ହୋଇଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା",
+        "ମୁଁ ଜାଣେ ନାହିଁ"
+      ]
+    },
+    "Q21": {
+      "question": "ଦୟାକରି ସମ୍ପର୍କୀୟ ସହିତ ସମ୍ପର୍କ ପ୍ରବେଶ କରନ୍ତୁ?",
+      "answers": [
+        "ପ୍ରଥମ ଅର୍ଡର (ମାତା, ଭାଇଭଉଣୀ, ପିତା)",
+        "ଦ୍ୱିତୀୟ କ୍ରମ (ମାତା / ପିତାଙ୍କ ସହ ଜଡିତ)",
+        "ମୁଁ ଜାଣେ ନାହିଁ"
+      ]
+    },
+    "Q22": {
+      "question": "ଦୟାକରି ନିଦାନର ବୟସ ପ୍ରବେଶ କରନ୍ତୁ?",
+      "answers": []
+    },
+    "Q23": {
+      "question": "Please specify which types of cancer was he/she diagnosed with?",
+      "answers": [
+        "ସ୍ତନ କର୍କଟ",
+        "ଡିମ୍ବାଶୟ କର୍କଟ",
+        "କୋଲନ ରେକ୍ଟେଲ କର୍କଟ",
+        "ଅଗ୍ନାଶୟ କର୍କଟ",
+        "ଜରାୟୁ କର୍କଟ",
+        "ପ୍ରୋଷ୍ଟେଟ କର୍କଟ",
+        "Other"
+      ]
+    },
+    "Q24": {
+      "question": "ବ୍ୟକ୍ତି ଜୀବିତ କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q25": {
+      "question": "ମୃତ୍ୟୁ ବୟସ",
+      "answers": []
+    },
+    "Q26": {
+      "question": "ଦୟାକରି ଆପଣଙ୍କର ଜାତି ଚୟନ କରନ୍ତୁ:",
+      "answers": [
+        "ପଠାନ୍ (Pathan)",
+        "ପାନିୟା (Paniya)",
+        "ଅଙ୍ଗେ (Onge)",
+        "ବୈଶ୍ୟ (Vysya)",
+        "ଚେଞ୍ଚୁ (Chenchu)",
+        "କାଶ୍ମୀରୀ (Kashmiri)",
+        "ବ୍ରାହ୍ମଣ (Brahmin)",
+        "କ୍ଷତ୍ରିୟ (Kshatriya)",
+        "ସିନ୍ଧି (Sindhi)",
+        "ଭିଲ୍ (Bhil)",
+        "ଚମାର (Chamar)",
+        "ଥାରୁ (Tharu)",
+        "ଭେଲାମା (Velama)",
+        "ମାଲା (Mala)",
+        "ମାଦିଗା (Madiga)",
+        "ପାଲିୟାର (Palliyar)",
+        "ଗଣ୍ଡ (Gond)",
+        "ସାନ୍ତାଳ (Santhal)",
+        "ହୋ (Ho)",
+        "ଆଓ ନାଗା (Ao Naga)",
+        "ଶେରପା (Sherpa)",
+        "ସିଦ୍ଧି (Siddi)",
+        "ଯିହୂଦୀ (Jews)",
+        "ବେଦା (Vedda)",
+        "ଅନ୍ୟ (Other)"
+      ]
+    },
+    "Q27": {
+      "question": "ଆପଣ କେବେ ସ୍ତନ ପରୀକ୍ଷା (CBE) କରିଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q28": {
+      "question": "ଶେଷ CBE କେବେ କରାଯାଇଥିଲା?",
+      "answers": [
+        "1 ବର୍ଷ ମଧ୍ୟରେ",
+        "1-3 ବର୍ଷ",
+        "3 ବର୍ଷରୁ ଅଧିକ ପୂର୍ବେ"
+      ]
+    },
+    "Q29": {
+      "question": "CBE ର ଫଳାଫଳ କ’ଣ?",
+      "answers": [
+        "ସାଧାରଣ - କୌଣସି ଅସ୍ୱାଭାବିକ ସନ୍ଧାନ ନାହିଁ",
+        "ସୌମ୍ୟ - କର୍କଟ ରୋଗ ନ ଥିବା ବୈଶିଷ୍ଟ୍ୟଗୁଡ଼ିକ (ଯଥା, ଫାଇବ୍ରୋଏଡେନୋମା, ସିଷ୍ଟ)",
+        "ସନ୍ଦେହଜନକ - ଅସ୍ପଷ୍ଟ / ସମ୍ଭାବ୍ୟ ଭାବରେ ଘାତକ ବୈଶିଷ୍ଟ୍ୟଗୁଡ଼ିକ, ଆହୁରି ପରୀକ୍ଷା ଆବଶ୍ୟକ",
+        "ଘାତକ ବୈଶିଷ୍ଟ୍ୟଗୁଡ଼ିକ - ସ୍ତନ କର୍କଟ ରୋଗର ଦୃଢ଼ ସୂଚକ"
+      ]
+    },
+    "Q30": {
+      "question": "CBE ସମୟରେ, ଆପଣଙ୍କ ସ୍ତନରେ କ l ଣସି ଗୁଣ୍ଡ ବା ମାସ ଚିହ୍ନଟ ହେଲା କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q31": {
+      "question": "ଯଦି ହଁ, ଅବସ୍ଥାନ ନିର୍ଦ୍ଦିଷ୍ଟ କରନ୍ତୁ:",
+      "answers": [
+        "ବାମ",
+        "ଠିକ୍ |",
+        "ଉଭୟ"
+      ]
+    },
+    "Q32": {
+      "question": "ଆକାର (ଯଦି ଜଣା ହୁଏ ତେବେ ଆନୁମାନିକ):",
+      "answers": [
+        "1 ସେମିରୁ କମ୍",
+        "1-2 ସେମି",
+        "2 ସେମିରୁ ଅଧିକ"
+      ]
+    },
+    "Q33": {
+      "question": "ସ୍ଥିରତା:",
+      "answers": [
+        "ନରମ |",
+        "ଫାର୍ମ",
+        "କଠିନ |"
+      ]
+    },
+    "Q34": {
+      "question": "ପରୀକ୍ଷା ସମୟରେ ଆପଣ ସ୍ତନ pAIn କିମ୍ବା କୋମଳତା ଅନୁଭବ କରିଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q35": {
+      "question": "ଯଦି ହଁ, ଏହା ଲୋକାଲାଇଜ୍ ହୋଇଥିଲା (ଗୋଟିଏ ସ୍ପଟ୍) କିମ୍ବା ସାଧାରଣକରଣ (ଏକ ବ୍ୟାପକ ଅଞ୍ଚଳରେ ବିସ୍ତାର)?",
+      "answers": [
+        "ଲୋକାଲାଇଜଡ୍ (ଗୋଟିଏ ନିର୍ଦ୍ଦିଷ୍ଟ ସ୍ଥାନରେ)",
+        "ସାଧାରଣ (ଏକ ବ୍ୟାପକ ଅଞ୍ଚଳରେ ବିସ୍ତାର)"
+      ]
+    },
+    "Q36": {
+      "question": "CBE ପରେ, ଆପଣଙ୍କୁ ଅଧିକ ଅନୁସନ୍ଧାନ କିମ୍ବା ଅନୁସରଣ ପାଇଁ ପରାମର୍ଶ ଦିଆଗଲା କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q37": {
+      "question": "ଯଦି ହଁ, ଦୟାକରି ପରବର୍ତ୍ତୀ ସମୟରେ ଯାହା ସୁପାରିଶ କରାଯାଇଥିଲା ତାହା ନିର୍ଦ୍ଦିଷ୍ଟ କରନ୍ତୁ:",
+      "answers": [
+        "ଅଲଟ୍ରାସାଉଣ୍ଡ",
+        "ମାମୋଗ୍ରାମ",
+        "ବାୟୋପସି",
+        "ଅନ୍ୟାନ୍ୟ"
+      ]
+    },
+    "Q38": {
+      "question": "ଆପଣ ଏକ ମ୍ୟାମଗ୍ରାମ କରିଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "q26_other_specify": {
+      "question": "Ethnicity (Other):",
+      "answers": []
+    },
+    "q43_other_specify": {
+      "question": "Type of Cancer (Other):",
+      "answers": []
+    },
+    "Q40": {
+      "question": "ତୁମର ସ୍ତନ ବାୟୋପସି ଅଛି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q42": {
+      "question": "ଆପଣ କ ever ଣସି ପ୍ରକାରର କର୍କଟ ରୋଗରେ ଆକ୍ରାନ୍ତ ହୋଇଛନ୍ତି କି?",
+      "answers": [
+        "ହଁ",
+        "ନା"
+      ]
+    },
+    "Q43": {
+      "question": "ଦୟାକରି କେଉଁ ପ୍ରକାରର କର୍କଟ ନିର୍ଦ୍ଦିଷ୍ଟ କରନ୍ତୁ?",
+      "answers": [
+        "ସ୍ତନ କର୍କଟ",
+        "ଡିମ୍ବାଶୟ କର୍କଟ",
+        "କୋଲନ ରେକ୍ଟେଲ କର୍କଟ",
+        "ଅଗ୍ନାଶୟ କର୍କଟ",
+        "ଜରାୟୁ କର୍କଟ",
+        "ପ୍ରୋଷ୍ଟେଟ କର୍କଟ"
+      ]
+    },
+    "Q44": {
+      "question": "ଆପଣଙ୍କର ରୋଗୀ ID ପ୍ରବେଶ କରନ୍ତୁ (ଯଦି ଥାଏ, ଅନ୍ୟଥା ଛାଡନ୍ତୁ):",
+      "answers": []
+    },
+    "Q45": {
+      "question": "ହସ୍ପିଟାଲ୍ ID ପ୍ରବେଶ କରନ୍ତୁ (ଯଦି ଅଛି, ଅନ୍ୟଥା ଛାଡନ୍ତୁ):",
+      "answers": []
+    },
+    "Q46": {
+      "question": "Preferred Language:",
+      "answers": []
+    },
+    "Q47": {
+      "question": "ଆପଣଙ୍କର ଭାଷା ପସନ୍ଦ କ’ଣ?",
+      "answers": [
+        "ଇଂରାଜୀ",
+        "ହିନ୍ଦୀ",
+        "ଓଡ଼ିଆ"
+      ]
+    }
+  }
+}

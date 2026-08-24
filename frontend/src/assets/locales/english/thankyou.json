@@ -1,0 +1,64 @@
+{
+  "title": "Submission Complete",
+  "message": "Thank you for completing the questionnaire!",
+  "maleDisclaimer": "The model has not learned enough male datapoints to generate a risk output.",
+  "riskScoreLabel": "Risk Level:",
+  "interpretation": {
+    "title": "What Your Risk Score Means",
+    "headers": {
+      "level": "Risk Level",
+      "range": "Score Range",
+      "meaning": "What It Means",
+      "action": "What To Do"
+    },
+    "data": [
+      {
+        "level": "Baseline Risk",
+        "range": "Below 0.4004",
+        "meaning": "Your risk is lower than most women (below the 50th percentile).",
+        "action": "Keep up with routine checkups, like yearly breast exams by a doctor from 30 years of age."
+      },
+      {
+        "level": "Evident Risk",
+        "range": "0.4004 to 0.574",
+        "meaning": "Your risk is average or slightly higher (50th to 75th percentile).",
+        "action": "Consider breast exams every year from 30 years of age and talk to your doctor about prevention."
+      },
+      {
+        "level": "Significant Risk",
+        "range": "0.574 to 0.795",
+        "meaning": "Your risk is higher (75th to 95th percentile).",
+        "action": "Get breast exams every 4-6 months from 30 years of age and possibly imaging (like mammography) as advised by your doctor."
+      },
+      {
+        "level": "High Risk",
+        "range": "0.795 and above",
+        "meaning": "Your risk is very high (top 5% of women).",
+        "action": "Be extra vigilant with breast exams every 4 months from at least 25 years of age and more frequent imaging as per your doctor's advice."
+      }
+    ]
+  },
+  "disclaimer": {
+    "asterisk": "*",
+    "title": "Disclaimer",
+    "text": "This Report is intended for research purposes only. The Breast cancer risk assessment algorithm is currently under development and should not be considered clinically validated. For medically relevant decisions and clinically valid results, please consult a qualified clinician."
+  },
+  "buttons": {
+    "ok": "Ok",
+    "download": "Download Summary (PDF)"
+  },
+  "pdf": {
+    "alertNoData": "Form data is not available to generate a PDF.",
+    "mainTitle": "Breast Cancer Risk Assessment Summary",
+    "footerPage": "Page",
+    "footerGenerated": "Generated",
+    "answerPrefix": "A:",
+    "questionPrefix": "Q",
+    "fileNamePrefix": "Risk-Summary",
+    "unknownSession": "UnknownSession"
+  },
+  "logos": {
+    "tanuhAlt": "TANUH Logo",
+    "iiscAlt": "IISC Logo"
+  }
+}

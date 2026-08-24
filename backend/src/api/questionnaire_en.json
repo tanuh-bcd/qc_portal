@@ -1,0 +1,777 @@
+{
+  "ui": {
+    "logos": {
+      "tanuhAlt": "TANUH Logo",
+      "iiscAlt": "IISC Logo"
+    },
+    "header": {
+      "title": "Breast Cancer Risk Prediction Questionnaire",
+      "instructions": "Please answer the following questions to the best of your ability.",
+      "mandatoryPre": "Fields marked with ",
+      "mandatorySymbol": "*",
+      "mandatoryPost": " are mandatory."
+    },
+    "progressBarTemplate": "Progress: {progress}%",
+    "errors": {
+      "validationAlert": "Please fill out all required fields marked with *.",
+      "questionNotFound": "Error: Question {key} not found in JSON."
+    },
+    "inputs": {
+      "selectDefault": "Select an option"
+    },
+    "videoPrompt": {
+      "note": "Please follow the instructions in the video to perform self examination. It has to be performed in privacy in a room with a mirror. Click okay when you are ready.",
+      "button": "Okay",
+      "videoTitle": "YouTube video player"
+    },
+    "submitButton": {
+      "default": "Submit Questionnaire",
+      "loading": "Submitting..."
+    },
+    "defaults": {
+      "q45": "Universal"
+    },
+    "invalidInput": {
+      "numberPrefix": "Please enter a valid number between ",
+      "and": "and",
+      "validInput": "please enter a valid input."
+    }
+  },
+  "formStructure": [
+    {
+      "title": "Section 1: General Information",
+      "questions": [
+        {
+          "key": "Q44",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "Q45",
+          "type": "hospital-select",
+          "required": true
+        },
+        {
+          "key": "Q47",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q1",
+          "type": "number",
+          "placeholder": "e.g., 35",
+          "required": true,
+          "min": 18,
+          "max": 120,
+          "step": 1,
+          "integerOnly": true
+        },
+        {
+          "key": "Q2",
+          "type": "number",
+          "placeholder": "e.g., 165",
+          "required": true,
+          "min": 100,
+          "max": 300,
+          "step": 1
+        },
+        {
+          "key": "Q3",
+          "type": "number",
+          "placeholder": "e.g., 60",
+          "required": true,
+          "min": 30,
+          "max": 500,
+          "step": 0.1
+        },
+        {
+          "key": "Q4",
+          "type": "select",
+          "required": true
+        },
+        {
+          "key": "Q5",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q6",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q7",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q8",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q9",
+          "type": "radio",
+          "required": true,
+          "condition": {
+            "key": "Q47",
+            "value": "Female"
+          },
+          "subQuestions": [
+            {
+              "key": "Q10",
+              "type": "number",
+              "required": true,
+              "min": 8,
+              "max": 100,
+              "step": 1,
+              "integerOnly": true,
+              "placeholder": "Enter age in years",
+              "condition": {
+                "key": "Q9",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q12_Current",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q9",
+                "value": "Yes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "Q13",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q14",
+          "type": "radio",
+          "required": true,
+          "condition": {
+            "key": "Q47",
+            "value": "Female"
+          },
+          "subQuestions": [
+            {
+              "key": "Q15",
+              "type": "number",
+              "placeholder": "Please enter a number",
+              "required": true,
+              "min": 1,
+              "max": 120,
+              "step": 1,
+              "integerOnly": true,
+              "condition": {
+                "key": "Q14",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q16",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q14",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q17",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q14",
+                "value": "Yes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "Q18",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q19",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q26",
+          "type": "select-plus-text",
+          "otherOptionId": "q26_other_specify",
+          "otherPlaceholder": "Please specify",
+          "required": true
+        },
+        {
+          "key": "Q20",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q21",
+              "type": "radio",
+              "required": true,
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q22",
+              "type": "number",
+              "placeholder": "e.g., 45",
+              "required": true,
+              "min": 1,
+              "max": 120,
+              "step": 1,
+              "integerOnly": true,
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q23",
+              "type": "checkbox",
+              "required": true,
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q24",
+              "type": "radio",
+              "condition": {
+                "key": "Q20",
+                "value": "Yes"
+              },
+              "subQuestions": [
+                {
+                  "key": "Q25",
+                  "type": "number",
+                  "placeholder": "Enter age of death",
+                  "min": 1,
+                  "max": 120,
+                  "step": 1,
+                  "condition": {
+                    "key": "Q24",
+                    "value": "No"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Section 2: Clinical Breast Examination (CBE)",
+      "questions": [
+        {
+          "key": "Q27",
+          "type": "radio",
+          "required": true,
+          "videoUrlOnNo": "https://www.youtube.com/embed/-ygucOBbKJA?autoplay=1&rel=0&start=0",
+          "subQuestions": [
+            {
+              "key": "Q28",
+              "type": "radio",
+              "condition": {
+                "key": "Q27",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q29",
+              "type": "radio",
+              "condition": {
+                "key": "Q27",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q36",
+              "type": "radio",
+              "condition": {
+                "key": "Q27",
+                "value": "Yes"
+              },
+              "subQuestions": [
+                {
+                  "key": "Q37",
+                  "type": "checkbox",
+                  "condition": {
+                    "key": "Q36",
+                    "value": "Yes"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "Q30",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q31",
+              "type": "radio",
+              "condition": {
+                "key": "Q30",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q32",
+              "type": "radio",
+              "condition": {
+                "key": "Q30",
+                "value": "Yes"
+              }
+            },
+            {
+              "key": "Q33",
+              "type": "radio",
+              "condition": {
+                "key": "Q30",
+                "value": "Yes"
+              }
+            }
+          ]
+        },
+        {
+          "key": "Q34",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q35",
+              "type": "radio",
+              "condition": {
+                "key": "Q34",
+                "value": "Yes"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Section 3: Beyond CBE",
+      "questions": [
+        {
+          "key": "Q38",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q40",
+          "type": "radio",
+          "required": true
+        },
+        {
+          "key": "Q42",
+          "type": "radio",
+          "required": true,
+          "subQuestions": [
+            {
+              "key": "Q43",
+              "type": "checkbox-plus-text",
+              "otherOptionId": "q43_other_specify",
+              "otherPlaceholder": "Please specify",
+              "required": true,
+              "condition": {
+                "key": "Q42",
+                "value": "Yes"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "questions": {
+    "Q1": {
+      "question": "What is your current age? (Please enter a number - years)",
+      "answers": []
+    },
+    "Q2": {
+      "question": "What is your current height in cms?",
+      "answers": []
+    },
+    "Q3": {
+      "question": "What is your current Weight in kgs?",
+      "answers": []
+    },
+    "Q4": {
+      "question": "Which state or union territory best represents the place where you have lived for a significant part of your life?",
+      "answers": [
+        "Andhra Pradesh",
+        "Arunachal Pradesh",
+        "Assam",
+        "Bihar",
+        "Chhattisgarh",
+        "Goa",
+        "Gujarat",
+        "Haryana",
+        "Himachal Pradesh",
+        "Jharkhand",
+        "Karnataka",
+        "Kerala",
+        "Madhya Pradesh",
+        "Maharashtra",
+        "Manipur",
+        "Meghalaya",
+        "Mizoram",
+        "Nagaland",
+        "Odisha",
+        "Punjab",
+        "Rajasthan",
+        "Sikkim",
+        "Tamil Nadu",
+        "Telangana",
+        "Tripura",
+        "Uttar Pradesh",
+        "Uttarakhand",
+        "West Bengal",
+        "Andaman and Nicobar Islands",
+        "Chandigarh",
+        "Dadra and Nagar Haveli and Daman and Diu",
+        "Delhi",
+        "Jammu and Kashmir",
+        "Ladakh",
+        "Lakshadweep",
+        "Puducherry"
+      ]
+    },
+    "Q5": {
+      "question": "What is your approximate annual household income?",
+      "answers": [
+        "Less than ₹2,00,000 per annum",
+        "Between ₹2,00,000 and ₹5,00,000 per annum",
+        "Between ₹5,00,000 and ₹10,00,000 per annum",
+        "Greater than ₹10,00,000 per annum",
+        "I do not wish to answer"
+      ]
+    },
+    "Q6": {
+      "question": "What is the highest level of education you have completed?",
+      "answers": [
+        "No formal education",
+        "Up to Class 9(Primary/Middle)",
+        "Class 10 or 12(Secondary/Higher Secondary)",
+        "Graduation & Above",
+        "I do not wish to answer"
+      ]
+    },
+    "Q7": {
+      "question": "Have you been diagnosed with diabetes?",
+      "answers": [
+        "Yes",
+        "No",
+        "I don't know"
+      ]
+    },
+    "Q8": {
+      "question": "Have you been diagnosed with high blood pressure (hypertension)?",
+      "answers": [
+        "Yes",
+        "No",
+        "I don't know"
+      ]
+    },
+    "Q9": {
+      "question": "Have you had a menstrual period?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q10": {
+      "question": "At what age did you get your first menstrual period?",
+      "answers": []
+    },
+    "Q12_Current": {
+      "question": "Are your menstrual periods occurring at regular intervals?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q13": {
+      "question": "What is your Marital Status?",
+      "answers": [
+        "Married",
+        "Never Married"
+      ]
+    },
+    "Q14": {
+      "question": "Have you given birth to one or more children?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q15": {
+      "question": "Please enter the Number of children you have given birth to?",
+      "answers": []
+    },
+    "Q16": {
+      "question": "Please select your age at first child birth?",
+      "answers": [
+        "less than 25",
+        "25 to 29",
+        "After 30"
+      ]
+    },
+    "Q17": {
+      "question": "What is the total duration of breast feeding?",
+      "answers": [
+        "less than 24 months",
+        "greater than 24 months"
+      ]
+    },
+    "Q18": {
+      "question": "Have you smoked cigarettes, bidis, or used any other form of tobacco (e.g., chewing tobacco)?",
+      "answers": [
+        "Yes",
+        "No",
+        "I do not wish to answer"
+      ]
+    },
+    "Q19": {
+      "question": "Do you consume alcohol?",
+      "answers": [
+        "Yes",
+        "No",
+        "I do not wish to answer"
+      ]
+    },
+    "Q20": {
+      "question": "Have any relatives been diagnosed with any type of cancer?",
+      "answers": [
+        "Yes",
+        "No",
+        "I don't know"
+      ]
+    },
+    "Q21": {
+      "question": "Please enter the relation with relative?",
+      "answers": [
+        "First Order (Mother, Sibling, Father)",
+        "Second order (Related to Mother/Father)",
+        "I don't know"
+      ]
+    },
+    "Q22": {
+      "question": "Please enter the age of diagnosis?",
+      "answers": []
+    },
+    "Q23": {
+      "question": "Please specify which types of cancer was he/she diagnosed with?",
+      "answers": [
+        "Breast cancer",
+        "Ovarian cancer",
+        "Colon rectal cancer",
+        "pancreatic cancer",
+        "Uterine cancer",
+        "Prostate cancer",
+        "Other"
+      ]
+    },
+    "Q24": {
+      "question": "Is the person alive?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q25": {
+      "question": "Age of death",
+      "answers": []
+    },
+    "Q26": {
+      "question": "Please select your ethnicity:",
+      "answers": [
+        "Pathan",
+        "Paniya",
+        "Onge",
+        "Vysya",
+        "Chenchu",
+        "Kashmiri",
+        "Brahmin",
+        "Kshatriya",
+        "Sindhi",
+        "Bhil",
+        "Chamar",
+        "Tharu",
+        "Velama",
+        "Mala",
+        "Madiga",
+        "Palliyar",
+        "Gond",
+        "Santhal",
+        "Ho",
+        "Ao Naga",
+        "Sherpa",
+        "Siddi",
+        "Jews",
+        "Vedda",
+        "Other"
+      ]
+    },
+    "Q27": {
+      "question": "Have you ever undergone a Clinical Breast Examination (CBE)?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q28": {
+      "question": "When was the last CBE performed?",
+      "answers": [
+        "Within 1 year",
+        "1–3 years",
+        "More than 3 years ago"
+      ]
+    },
+    "Q29": {
+      "question": "What was the result of CBE?",
+      "answers": [
+        "Normal – No abnormal findings",
+        "Benign – Non-cancerous features (e.g., fibroadenoma, cyst)",
+        "Suspicious – Unclear/possibly malignant features, needs further tests",
+        "Malignant features – Strongly suggestive of breast cancer"
+      ]
+    },
+    "Q30": {
+      "question": "During CBE, was any lump or mass detected in your breast?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q31": {
+      "question": "If Yes, specify location:",
+      "answers": [
+        "Left",
+        "Right",
+        "Both"
+      ]
+    },
+    "Q32": {
+      "question": "Size (approximate if known):",
+      "answers": [
+        "<1 cm",
+        "1–2 cm",
+        ">2 cm"
+      ]
+    },
+    "Q33": {
+      "question": "Consistency:",
+      "answers": [
+        "Soft",
+        "Firm",
+        "Hard"
+      ]
+    },
+    "Q34": {
+      "question": "Did you experience breast pain or tenderness during examination?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q35": {
+      "question": "If Yes, was it localized (one spot) or generalized (spread across a wider area)?",
+      "answers": [
+        "localized (in one specific spot)",
+        "generalized (spread across a wider area)"
+      ]
+    },
+    "Q36": {
+      "question": "After the CBE, were you advised for further investigation or follow-up?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q37": {
+      "question": "If Yes, please specify what was recommended next:",
+      "answers": [
+        "Ultrasound",
+        "Mammography",
+        "Biopsy",
+        "Other"
+      ]
+    },
+    "Q38": {
+      "question": "Have you undergone mammography?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "q26_other_specify": {
+      "question": "Ethnicity (Other):",
+      "answers": []
+    },
+    "q43_other_specify": {
+      "question": "Type of Cancer (Other):",
+      "answers": []
+    },
+    "Q40": {
+      "question": "Have you had a breast biopsy?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q42": {
+      "question": "Have you ever been diagnosed with any type of cancer?",
+      "answers": [
+        "Yes",
+        "No"
+      ]
+    },
+    "Q43": {
+      "question": "Please specify which types of cancer?",
+      "answers": [
+        "Breast cancer",
+        "Ovarian cancer",
+        "Colon rectal cancer",
+        "pancreatic cancer",
+        "Uterine cancer",
+        "Other"
+      ]
+    },
+    "Q44": {
+      "question": "Enter your subject ID:",
+      "answers": []
+    },
+    "Q45": {
+      "question": "Institute Name:",
+      "answers": []
+    },
+    "Q46": {
+      "question": "Preferred Language:",
+      "answers": []
+    },
+    "Q47": {
+      "question": "What is your Gender?",
+      "answers": [
+        "Female",
+        "Male",
+        "Other"
+      ]
+    }
+  }
+}

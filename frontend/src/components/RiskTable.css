@@ -1,0 +1,69 @@
+.risk-table-container {
+    width: 100%;
+    margin: clamp(16px, 2.5vw, 30px) 0;
+    overflow-x: auto;
+}
+
+.risk-table-title {
+    text-align: center;
+    color: #14868C;
+    margin-bottom: clamp(10px, 1.2vw, 15px);
+    font-size: clamp(0.9rem, 1.1vw, 1.1rem);
+    font-weight: 600;
+}
+
+.risk-table-wrapper {
+    background: #ffffff;
+    border-radius: clamp(6px, 0.6vw, 8px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    overflow-x: auto;
+    border: 1px solid #e2e8f0;
+}
+
+.risk-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: clamp(0.8rem, 0.95vw, 0.9rem);
+    font-family: 'Poppins', sans-serif;
+    min-width: 600px;
+}
+
+.risk-table th {
+    background-color: #f8fafc;
+    color: #475569;
+    padding: clamp(8px, 1vw, 12px) clamp(10px, 1.3vw, 16px);
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.risk-table td {
+    padding: clamp(8px, 1vw, 12px) clamp(10px, 1.3vw, 16px);
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+    vertical-align: top;
+    line-height: 1.4;
+}
+
+.risk-table tr {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.risk-table tr:last-child td {
+    border-bottom: none;
+}
+
+.risk-table tbody tr:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 10;
+}
+
+.risk-table-footnote {
+    margin-top: clamp(6px, 0.8vw, 10px);
+    font-size: clamp(0.7rem, 0.8vw, 0.8rem);
+    color: #7f8c8d;
+    font-family: 'Poppins', sans-serif;
+    padding: 0 4px;
+}
