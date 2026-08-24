@@ -25,26 +25,26 @@ const Navbar = () => {
     <nav className={`navbar-container ${hidden ? 'hidden' : ''}`}>
       <div className="navbar-content">
         <div className="navbar-logo">
-          <Link to="/" className="logo-link">
+          <Link to="/qc" className="logo-link">
             <img src="/tanuh.png" alt="Tanuh Logo" className="logo-img logo-tanuh" />
             <img src="/MoE_Logo.svg" alt="MOE Logo" className="logo-img logo-moe" />
             <img src="/IISc_logo.png" alt="IISc Logo" className="logo-img logo-iisc" />
           </Link>
         </div>
         <div className="navbar-tabs">
-          <Link to="/" className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}>
+          <Link to="/qc" className={`nav-link ${location.pathname === '/qc' ? 'active' : ''}`}>
             Questionnaire
           </Link>
-          <Link to="/demo" className={`nav-link ${location.pathname === '/demo' ? 'active' : ''}`}>
+          <Link to="/qc/demo" className={`nav-link ${location.pathname === '/qc/demo' ? 'active' : ''}`}>
             Demo
           </Link>
-          <Link to="/stats" className={`nav-link ${location.pathname === '/stats' ? 'active' : ''}`}>
+          <Link to="/qc/stats" className={`nav-link ${location.pathname === '/qc/stats' ? 'active' : ''}`}>
             Dashboard
           </Link>
-          <Link to="/login" className={`nav-link ${location.pathname === '/login' ? 'active' : ''}`}>
+          <Link to="/qc/login" className={`nav-link ${location.pathname === '/qc/login' ? 'active' : ''}`}>
             Login
           </Link>
-         
+
         </div>
       </div>
     </nav>

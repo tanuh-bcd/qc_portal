@@ -19,7 +19,7 @@ class TestAssessmentSubmission:
     def test_submit_basic_assessment(self, client, seed_hospital_and_user):
         """Submit a minimal assessment with clinical findings."""
         session_id = self._get_valid_session_id(client)
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         clinical = json.dumps({
             "right": {
@@ -77,7 +77,7 @@ class TestAssessmentSubmission:
     def test_submit_high_risk_assessment(self, client, seed_hospital_and_user):
         """Submit assessment with high-risk findings — masses, calcification, lymph nodes."""
         session_id = self._get_valid_session_id(client)
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         clinical = json.dumps({
             "right": {
@@ -143,7 +143,7 @@ class TestAssessmentSubmission:
     def test_update_existing_assessment(self, client, seed_hospital_and_user):
         """Submit assessment then update it — should modify, not duplicate."""
         session_id = self._get_valid_session_id(client)
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         base_data = {
             "patient_session_id": session_id,
@@ -182,7 +182,7 @@ class TestAssessmentSubmission:
 
     def test_assessment_invalid_session(self, client, seed_hospital_and_user):
         """Submit assessment for a non-existent session — should fail."""
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": "non-existent-uuid-12345",
@@ -216,7 +216,7 @@ class TestAssessmentSubmission:
     def test_assessment_clinical_findings_persisted(self, client, seed_hospital_and_user):
         """Verify clinical_findings JSON is correctly stored and returned."""
         session_id = self._get_valid_session_id(client)
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         findings = {
             "right": {
@@ -287,7 +287,7 @@ class TestUploadUrlGeneration:
 
     def test_generate_upload_url(self, client, seed_hospital_and_user):
         """Generate a signed URL for file upload."""
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         res = client.post("/api/v1/qc/patient/upload-url", data={
             "file_type": "mammo_cc_left",
@@ -315,7 +315,7 @@ class TestUploadUrlGeneration:
     def test_record_upload_complete(self, client, seed_hospital_and_user):
         """Record a completed upload in the attachments table."""
         session_id = self._create_session(client)
-        token = get_token("Clinician", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
 
         res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,

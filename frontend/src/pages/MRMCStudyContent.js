@@ -536,7 +536,7 @@ const MRMCStudyContent = () => {
       const token = localStorage.getItem('token');
       const params = institutionIds.map((id) => `institution_id=${id}`).join('&');
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/subjects?${params}`,
+        `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/mrmc/subjects?${params}`,
         { headers: { 'Authorization': `Bearer ${token}` } }
       );
       const contentType = response.headers.get('content-type');

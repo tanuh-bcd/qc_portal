@@ -16,7 +16,7 @@ const PatientPage = ({ isEmbedded = false }) => {
     const role = localStorage.getItem('role')?.toLowerCase();
     const token = localStorage.getItem('token');
     if (!token || (role !== 'staff' && role !== 'admin')) {
-      navigate('/login');
+      navigate('/qc/login');
     }
   }, [navigate, isEmbedded]);
 
@@ -26,7 +26,7 @@ const PatientPage = ({ isEmbedded = false }) => {
     localStorage.removeItem('hospitalName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
-    navigate('/login');
+    navigate('/qc/login');
   };
 
   const handleConsentAccept = (result) => {

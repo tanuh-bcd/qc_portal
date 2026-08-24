@@ -25,7 +25,7 @@ def seed_data():
             print("Hospital already exists")
 
         # 2. Create Roles
-        roles = ["Admin", "Doctor", "Staff"]
+        roles = ["Admin", "Radiologist"]
         for role_name in roles:
             role = db.query(models.Role).filter(models.Role.qc_name == role_name).first()
             if not role:
@@ -35,7 +35,7 @@ def seed_data():
         db.commit()
 
         # 3. Create a Test User
-        doctor_role = db.query(models.Role).filter(models.Role.qc_name == "Staff").first()
+        radiologist_role = db.query(models.Role).filter(models.Role.qc_name == "Radiologist").first()
         test_user = db.query(models.User).filter(models.User.qc_email == "breastcancerscreening@tanuh.ai").first()
         if not test_user:
             test_user = models.User(
@@ -43,7 +43,7 @@ def seed_data():
                 qc_password_hash=get_password_hash("BestWishes26"),
                 qc_full_name="Test person",
                 qc_hospital_id=hospital.qc_id,
-                qc_role_id=doctor_role.qc_id,
+                qc_role_id=radiologist_role.qc_id,
                 qc_is_active=True
             )
             db.add(test_user)

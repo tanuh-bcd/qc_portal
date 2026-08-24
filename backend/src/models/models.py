@@ -211,6 +211,7 @@ class DoctorAssessment(Base):
     __tablename__ = "qc_doctor_assessments"
 
     qc_id = Column(Integer, primary_key=True, index=True)
+    qc_sub_ui_id = Column(String(20), unique=True, index=True)
     qc_patient_session_id = Column(String(20), ForeignKey("qc_patient_sessions.qc_id", ondelete="CASCADE"), nullable=False)
     qc_hospital_id = Column(String(20), ForeignKey("qc_hospitals.qc_id"), nullable=False)
     qc_doctor_id = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=False)
@@ -246,6 +247,24 @@ class Attachment(Base):
     qc_created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
     assessment = relationship("DoctorAssessment", back_populates="attachments")
+
+
+class Assignment(Base):
+    __tablename__ = "qc_assignments"
+
+    qc_id = Column(Integer, primary_key=True, index=True)
+    qc_assessment_id = Column(Integer, ForeignKey("qc_doctor_assessments.qc_id"), nullable=False)
+    qc_radiologist_id = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=False)
+    qc_assigned_by = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=True)
+    qc_status = Column(Enum("Pending", "Completed"), nullable=False, server_default=text("'Pending'"))
+    qc_assigned_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    qc_completed_at = Column(TIMESTAMP, nullable=True)
+    qc_role_id = Column(Integer, ForeignKey("qc_roles.qc_id"), nullable=True)
+    qc_review_notes = Column(Text, nullable=True)
+
+    assessment = relationship("DoctorAssessment")
+    radiologist = relationship("User", foreign_keys=[qc_radiologist_id])
+    assigned_by_user = relationship("User", foreign_keys=[qc_assigned_by])
 
 
 class MRMCStudy(Base):

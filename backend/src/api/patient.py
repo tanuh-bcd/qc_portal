@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, status, Form
 from sqlalchemy.orm import Session, joinedload
 from ..db.session import get_db, get_questionnaire_db
-from ..models.models import PatientSession, Question, QuestionTranslation, QuestionOption, QuestionOptionTranslation, PatientResponse, DoctorAssessment, Attachment
+from ..models.models import PatientSession, Question, QuestionTranslation, QuestionOption, QuestionOptionTranslation, PatientResponse, DoctorAssessment, Attachment, Assignment
 from ..schemas.schemas import QuestionResponse, QuestionOptionResponse, QuestionnaireSubmission, PatientSessionListItem, PatientSessionDetail, DoctorAssessmentCreate, DoctorAssessmentResponse
 from ..core.config import settings
 from .auth import get_current_user
@@ -562,7 +562,11 @@ async def create_doctor_assessment(
 
         if assessment:
             is_admin = (user_role or '').lower() == 'admin'
-            if assessment.qc_hospital_id != hospital_id and not is_admin:
+            is_assigned_radiologist = (user_role or '').lower() == 'radiologist' and db.query(Assignment).filter(
+                Assignment.qc_assessment_id == assessment.qc_id,
+                Assignment.qc_radiologist_id == doctor_id,
+            ).first() is not None
+            if assessment.qc_hospital_id != hospital_id and not is_admin and not is_assigned_radiologist:
                 raise HTTPException(
                     status_code=403,
                     detail="Not authorized to edit another hospital's assessment",

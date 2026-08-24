@@ -65,7 +65,7 @@ const ResetPasswordPage = () => {
 
       if (response.ok) {
         toast.success('Password reset successfully! Please login with your new password.');
-        navigate('/login');
+        navigate('/qc/login');
       } else {
         toast.error(data.detail || 'Failed to reset password');
       }
@@ -130,9 +130,8 @@ const ResetPasswordPage = () => {
               <label htmlFor="role">Role</label>
               <select id="role" name="role" value={formData.role} onChange={handleChange} style={inputStyle}>
                 <option value="">Select Role</option>
-                <option value="clinician">Clinician</option>
                 <option value="admin">Admin</option>
-                <option value="staff">Staff</option>
+                <option value="radiologist">Radiologist</option>
               </select>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -162,7 +161,7 @@ const ResetPasswordPage = () => {
             </button>
           </form>
           <div style={{ marginTop: '16px', textAlign: 'center' }}>
-            <button onClick={() => navigate('/login')} style={{ background: 'none', border: 'none', color: '#14868C', cursor: 'pointer', textDecoration: 'underline' }}>
+            <button onClick={() => navigate('/qc/login')} style={{ background: 'none', border: 'none', color: '#14868C', cursor: 'pointer', textDecoration: 'underline' }}>
               Back to Login
             </button>
           </div>

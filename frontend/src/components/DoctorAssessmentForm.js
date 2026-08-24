@@ -524,14 +524,14 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
           </div>
         )}
 
-        {/* Clinician's Clinical Assessment */}
+        {/* Radiologist's Clinical Assessment */}
         <div style={styles.card}>
           <div style={{ ...styles.cardHeader, background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)' }}>
-            <span style={styles.cardHeaderIcon}>&#129658;</span> Clinician's Assessment
+            <span style={styles.cardHeaderIcon}>&#129658;</span> Radiologist's Assessment
           </div>
           <div style={styles.cardBody}>
             <div style={{ marginBottom: 16 }}>
-              <label style={styles.label}>Clinician's Risk Classification</label>
+              <label style={styles.label}>Radiologist's Risk Classification</label>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {RISK_CLASSES.map(rc => (
                   <div key={rc.value} onClick={() => !readOnly && setDoctorRiskClass(rc.value)} style={{

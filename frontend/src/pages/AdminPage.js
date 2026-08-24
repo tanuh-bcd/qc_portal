@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import PatientPage from './PatientPage';
-import DoctorPage from './DoctorPage';
-import MRMCStudyContent from './MRMCStudyContent';
+import RadiologistPage from './RadiologistPage';
+import QCAdminDashboard from '../components/QCAdminDashboard';
+import AssignRadiologistHistory from '../components/AssignRadiologistHistory';
 
 const AdminPage = () => {
-  const [activeTab, setActiveTab] = useState('admin');
+  const [activeTab, setActiveTab] = useState('qc-admin');
   const navigate = useNavigate();
 
   const [userRole, setUserRole] = useState('');
@@ -17,17 +17,14 @@ const AdminPage = () => {
     const token = localStorage.getItem('token');
     const hospital = localStorage.getItem('hospitalName');
 
-    if (!token || !['admin', 'clinician', 'staff'].includes(role)) {
-      navigate('/login');
+    if (!token || !['admin', 'radiologist'].includes(role)) {
+      navigate('/qc/login');
     } else {
       setUserRole(role);
       setHospitalName(hospital || '');
 
-      // Redirect staff and doctor to their respective pages if they aren't admin
-      if (role === 'staff') {
-        navigate('/patient');
-      } else if (role === 'clinician') {
-        navigate('/doctor');
+      if (role === 'radiologist') {
+        navigate('/qc/radiologist');
       }
     }
   }, [navigate]);
@@ -38,26 +35,22 @@ const AdminPage = () => {
     localStorage.removeItem('hospitalName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
-    navigate('/login');
+    navigate('/qc/login');
   };
 
   const tabs = [
-    { id: 'patient', label: 'Subject View' },
-    { id: 'doctor', label: 'Clinician View' },
-    // { id: 'mrmc', label: 'MRMC Study' },
-    { id: 'admin', label: 'Admin' },
+    { id: 'qc-admin', label: 'QC Admin' },
+    { id: 'assign-history', label: 'Radiologist History' },
   ];
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'patient':
-        return <PatientPageContent />;
-      case 'doctor':
-        return <DoctorPageContent />;
-      case 'admin':
-        return <div style={contentStyle}><AdminContent hospitalName={hospitalName} /></div>;
-      case 'mrmc':
-        return <div style={contentStyle}><MRMCStudyContent /></div>;
+      case 'qc-admin':
+        return <div style={contentStyle}><QCAdminDashboard /></div>;
+      case 'radiologist':
+        return <RadiologistPageContent />;
+      case 'assign-history':
+        return <div style={contentStyle}><AssignRadiologistHistory /></div>;
       default:
         return null;
     }
@@ -93,13 +86,8 @@ const AdminPage = () => {
   );
 };
 
-// Simple wrappers for Admin to view other pages content
-const PatientPageContent = () => {
-  return <PatientPage isEmbedded={true} />;
-};
-
-const DoctorPageContent = () => {
-  return <DoctorPage isEmbedded={true} />;
+const RadiologistPageContent = () => {
+  return <RadiologistPage isEmbedded={true} />;
 };
 
 const tabContainerStyle = {
@@ -127,15 +115,12 @@ const contentStyle = {
   color: '#666'
 };
 
-const AdminContent = ({ hospitalName }) => {
+const ManageInstitutionsContent = ({ hospitalName }) => {
   const [expandedSection, setExpandedSection] = useState(null);
   const [hospitals, setHospitals] = useState([]);
-  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Forms states
-  const [doctorForm, setDoctorForm] = useState({ fullName: '', email: '', password: '', hospitalId: '' });
-  const [staffForm, setStaffForm] = useState({ fullName: '', email: '', password: '', hospitalId: '' });
   const [hospitalForm, setHospitalForm] = useState({ name: '', shortName: '', contactPerson: '', email: '', address: '', pincode: '', state: '', modalityType: '' });
   const [adminForm, setAdminForm] = useState({ fullName: '', email: '', password: '', hospitalId: '' });
   const [machineForm, setMachineForm] = useState({
@@ -149,7 +134,6 @@ const AdminContent = ({ hospitalName }) => {
 
   useEffect(() => {
     fetchHospitals();
-    fetchRoles();
   }, []);
 
   const fetchHospitals = async () => {
@@ -175,54 +159,22 @@ const AdminContent = ({ hospitalName }) => {
     }
   };
 
-  const fetchRoles = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/roles`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const contentType = response.headers.get("content-type");
-      if (response.ok && contentType && contentType.indexOf("application/json") !== -1) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          setRoles(data);
-        } else {
-          console.error("Roles data is not an array:", data);
-          alert("Error: Received invalid data format for roles.");
-        }
-      } else {
-        const text = await response.text();
-        console.error("Failed to fetch roles, response not ok or non-JSON:", text);
-        alert(`Error: Failed to fetch roles list. Status: ${response.status}. This might happen if your session has expired or you don't have admin privileges.`);
-      }
-    } catch (err) {
-      console.error("Failed to fetch roles", err);
-      alert("Error: Network error while fetching roles.");
-    }
-  };
-
   const [showPasswords, setShowPasswords] = useState({});
   const togglePasswordVisibility = (key) => setShowPasswords(prev => ({ ...prev, [key]: !prev[key] }));
 
   const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  const handleCreateUser = async (formData, roleName) => {
-    if (!Array.isArray(roles) || roles.length === 0) {
-      alert("Error: Roles list is empty or not available. Please refresh the page and try again.");
+  const handleCreateAdmin = async () => {
+    if (!isValidEmail(adminForm.email)) {
+      alert("Error: Please enter a valid email address.");
       return;
     }
-    if (!isValidEmail(formData.email)) {
-      alert("Error: Please enter a valid email address.");
+    if (!adminForm.fullName || !adminForm.password || !adminForm.hospitalId) {
+      alert("Error: Full Name, Password and Institution are required.");
       return;
     }
     setLoading(true);
     try {
-      const role = roles.find(r => r.qc_name.toLowerCase() === roleName.toLowerCase());
-      if (!role) {
-        const availableRoles = roles.map(r => r.qc_name).join(', ');
-        throw new Error(`Role "${roleName}" not found in the available roles: ${availableRoles}`);
-      }
-
       const token = localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/admin/users`, {
         method: 'POST',
@@ -231,31 +183,23 @@ const AdminContent = ({ hospitalName }) => {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          qc_email: formData.email,
-          password: formData.password,
-          qc_full_name: formData.fullName,
-          qc_hospital_id: formData.hospitalId,
-          qc_role_id: role.qc_id
+          full_name: adminForm.fullName,
+          email: adminForm.email,
+          password: adminForm.password,
+          role: 'Admin',
+          hospital_id: adminForm.hospitalId,
         })
       });
 
       if (response.ok) {
-        alert(`${roleName} account created successfully!`);
-        // Reset form
-        if (roleName === 'Doctor') setDoctorForm({ fullName: '', email: '', password: '', hospitalId: '' });
-        if (roleName === 'Staff') setStaffForm({ fullName: '', email: '', password: '', hospitalId: '' });
-        if (roleName === 'Admin') setAdminForm({ fullName: '', email: '', password: '', hospitalId: '' });
+        alert('Admin account created successfully!');
+        setAdminForm({ fullName: '', email: '', password: '', hospitalId: '' });
       } else {
         const contentType = response.headers.get("content-type");
         if (contentType && contentType.indexOf("application/json") !== -1) {
           const error = await response.json();
           const detail = error.detail;
-          let message;
-          if (Array.isArray(detail)) {
-            message = detail.map(d => d.msg || JSON.stringify(d)).join('; ');
-          } else {
-            message = detail || 'Failed to create account';
-          }
+          const message = Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join('; ') : (detail || 'Failed to create account');
           alert(`Error: ${message}`);
         } else {
           const errorText = await response.text();
@@ -309,12 +253,7 @@ const AdminContent = ({ hospitalName }) => {
         if (contentType && contentType.indexOf("application/json") !== -1) {
           const error = await response.json();
           const detail = error.detail;
-          let message;
-          if (Array.isArray(detail)) {
-            message = detail.map(d => d.msg || JSON.stringify(d)).join('; ');
-          } else {
-            message = detail || 'Failed to create institution';
-          }
+          const message = Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join('; ') : (detail || 'Failed to create institution');
           alert(`Error: ${message}`);
         } else {
           const errorText = await response.text();
@@ -365,12 +304,7 @@ const AdminContent = ({ hospitalName }) => {
         if (contentType && contentType.indexOf("application/json") !== -1) {
           const error = await response.json();
           const detail = error.detail;
-          let message;
-          if (Array.isArray(detail)) {
-            message = detail.map(d => d.msg || JSON.stringify(d)).join('; ');
-          } else {
-            message = detail || 'Failed to create machine details';
-          }
+          const message = Array.isArray(detail) ? detail.map(d => d.msg || JSON.stringify(d)).join('; ') : (detail || 'Failed to create machine details');
           alert(`Error: ${message}`);
         } else {
           const errorText = await response.text();
@@ -389,223 +323,15 @@ const AdminContent = ({ hospitalName }) => {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
-  const accordionStyle = {
-    marginBottom: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    overflow: 'hidden'
-  };
-
-  const accordionHeaderStyle = {
-    padding: '15px',
-    backgroundColor: '#f8f9fa',
-    cursor: 'pointer',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    fontWeight: 'bold',
-    color: '#333'
-  };
-
-  const accordionContentStyle = {
-    padding: '20px',
-    borderTop: '1px solid #ddd',
-    backgroundColor: 'white'
-  };
-
-  const formGroupStyle = {
-    marginBottom: '15px'
-  };
-
-  const labelStyle = {
-    display: 'block',
-    marginBottom: '5px',
-    fontWeight: '500'
-  };
-
-  const inputStyle = {
-    width: '100%',
-    padding: '8px',
-    borderRadius: '4px',
-    border: '1px solid #ccc',
-    boxSizing: 'border-box'
-  };
-
-  const buttonStyle = {
-    padding: '10px 20px',
-    backgroundColor: '#14868C',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    marginTop: '10px'
-  };
-
-  const newBadgeStyle = {
-    fontSize: '11px',
-    fontWeight: 'bold',
-    color: '#14868C',
-    backgroundColor: '#DCF3EF',
-    padding: '2px 8px',
-    borderRadius: '10px',
-    letterSpacing: '0.3px'
-  };
-
-  const kappaBadgeStyle = (score) => {
-    let bg = '#F1F3F5', color = '#495057';
-    if (score !== null) {
-      if (score >= 0.61) { bg = '#E3F5E9'; color = '#1E7E4B'; }
-      else if (score >= 0.21) { bg = '#FDF0DA'; color = '#B0691C'; }
-      else { bg = '#FBE3E1'; color = '#C4302B'; }
-    }
-    return {
-      display: 'inline-block',
-      padding: '3px 10px',
-      borderRadius: '6px',
-      fontSize: '13px',
-      fontWeight: 600,
-      backgroundColor: bg,
-      color
-    };
-  };
-
-  const MOCK_READER_PANEL = [
-    { name: 'Dr. Sanjana Rao', role: 'Reader', assigned: 42, submitted: 28, kappa: 0.81 },
-    { name: 'Dr. Bharath Kumar', role: 'Reader', assigned: 42, submitted: 31, kappa: 0.58 },
-    { name: 'Dr. Anil Mehta', role: 'Arbiter', assigned: null, submitted: '6 adjudicated', kappa: null }
-  ];
-
-  const MOCK_CLINICIANS = ['Dr. Sanjana Rao', 'Dr. Bharath Kumar', 'Dr. Priya Nair', 'Dr. Anil Mehta'];
-
-
   return (
     <div style={{ color: '#333' }}>
-      <h2 style={{ marginBottom: '20px', color: '#14868C' }}>Administrative Tasks</h2>
+      <h2 style={{ marginBottom: '20px', color: '#14868C' }}>Manage Institutions</h2>
 
-      {/* 1. Create Clinician Account */}
-      <div style={accordionStyle}>
-        <div style={accordionHeaderStyle} onClick={() => toggleSection('doctor')}>
-          1. Create a clinician account for the institution
-          <span>{expandedSection === 'doctor' ? '−' : '+'}</span>
-        </div>
-        {expandedSection === 'doctor' && (
-          <div style={accordionContentStyle}>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Full Name</label>
-              <input
-                style={inputStyle}
-                value={doctorForm.fullName}
-                onChange={(e) => setDoctorForm({ ...doctorForm, fullName: e.target.value })}
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Email</label>
-              <input
-                style={inputStyle}
-                type="email"
-                value={doctorForm.email}
-                onChange={(e) => setDoctorForm({ ...doctorForm, email: e.target.value })}
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Password</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  style={inputStyle}
-                  type={showPasswords.doctor ? 'text' : 'password'}
-                  value={doctorForm.password}
-                  onChange={(e) => setDoctorForm({ ...doctorForm, password: e.target.value })}
-                />
-                <span onClick={() => togglePasswordVisibility('doctor')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: '18px', userSelect: 'none' }}>{showPasswords.doctor ? '🙈' : '👁️'}</span>
-              </div>
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Institution</label>
-              <select
-                style={inputStyle}
-                value={doctorForm.hospitalId}
-                onChange={(e) => setDoctorForm({ ...doctorForm, hospitalId: e.target.value })}
-              >
-                <option value="">Select Institution</option>
-                {hospitals.map(h => <option key={h.qc_id} value={h.qc_id}>{h.qc_name}</option>)}
-              </select>
-            </div>
-            <button
-              style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}
-              disabled={loading}
-              onClick={() => handleCreateUser(doctorForm, 'Clinician')}
-            >
-              {loading ? 'Creating...' : 'Create Clinician Account'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 2. Create Staff Account */}
-      <div style={accordionStyle}>
-        <div style={accordionHeaderStyle} onClick={() => toggleSection('staff')}>
-          2. Create a staff account for the institution
-          <span>{expandedSection === 'staff' ? '−' : '+'}</span>
-        </div>
-        {expandedSection === 'staff' && (
-          <div style={accordionContentStyle}>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Full Name</label>
-              <input
-                style={inputStyle}
-                value={staffForm.fullName}
-                onChange={(e) => setStaffForm({ ...staffForm, fullName: e.target.value })}
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Email</label>
-              <input
-                style={inputStyle}
-                type="email"
-                value={staffForm.email}
-                onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
-              />
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Password</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  style={inputStyle}
-                  type={showPasswords.staff ? 'text' : 'password'}
-                  value={staffForm.password}
-                  onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                />
-                <span onClick={() => togglePasswordVisibility('staff')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', fontSize: '18px', userSelect: 'none' }}>{showPasswords.staff ? '🙈' : '👁️'}</span>
-              </div>
-            </div>
-            <div style={formGroupStyle}>
-              <label style={labelStyle}>Institution</label>
-              <select
-                style={inputStyle}
-                value={staffForm.hospitalId}
-                onChange={(e) => setStaffForm({ ...staffForm, hospitalId: e.target.value })}
-              >
-                <option value="">Select Institution</option>
-                {hospitals.map(h => <option key={h.qc_id} value={h.qc_id}>{h.qc_name}</option>)}
-              </select>
-            </div>
-            <button
-              style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}
-              disabled={loading}
-              onClick={() => handleCreateUser(staffForm, 'Staff')}
-            >
-              {loading ? 'Creating...' : 'Create Staff Account'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 3. Create another institution account */}
+      {/* 1. Create another institution account */}
       {hospitalName === 'Test' && (
         <div style={accordionStyle}>
           <div style={accordionHeaderStyle} onClick={() => toggleSection('hospital')}>
-            3. Create another institution account
+            1. Create another institution account
             <span>{expandedSection === 'hospital' ? '−' : '+'}</span>
           </div>
           {expandedSection === 'hospital' && (
@@ -703,11 +429,11 @@ const AdminContent = ({ hospitalName }) => {
         </div>
       )}
 
-      {/* 4. Create admin account for another hospital */}
+      {/* 2. Create admin account for another hospital */}
       {hospitalName === 'Test' && (
         <div style={accordionStyle}>
           <div style={accordionHeaderStyle} onClick={() => toggleSection('admin-user')}>
-            4. Create admin account for another institution
+            2. Create admin account for another institution
             <span>{expandedSection === 'admin-user' ? '−' : '+'}</span>
           </div>
           {expandedSection === 'admin-user' && (
@@ -755,7 +481,7 @@ const AdminContent = ({ hospitalName }) => {
               <button
                 style={{ ...buttonStyle, opacity: loading ? 0.7 : 1 }}
                 disabled={loading}
-                onClick={() => handleCreateUser(adminForm, 'Admin')}
+                onClick={handleCreateAdmin}
               >
                 {loading ? 'Creating...' : 'Create Admin Account'}
               </button>
@@ -764,10 +490,10 @@ const AdminContent = ({ hospitalName }) => {
         </div>
       )}
 
-      {/* 5. Create Machine Details for Institution */}
+      {/* 3. Create Machine Details for Institution */}
       <div style={accordionStyle}>
         <div style={accordionHeaderStyle} onClick={() => toggleSection('machine')}>
-          5. Create Machine Details for Institution
+          3. Create Machine Details for Institution
           <span>{expandedSection === 'machine' ? '−' : '+'}</span>
         </div>
         {expandedSection === 'machine' && (
@@ -851,6 +577,59 @@ const AdminContent = ({ hospitalName }) => {
       </div>
     </div>
   );
+};
+
+const accordionStyle = {
+  marginBottom: '10px',
+  border: '1px solid #ddd',
+  borderRadius: '4px',
+  overflow: 'hidden'
+};
+
+const accordionHeaderStyle = {
+  padding: '15px',
+  backgroundColor: '#f8f9fa',
+  cursor: 'pointer',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  fontWeight: 'bold',
+  color: '#333'
+};
+
+const accordionContentStyle = {
+  padding: '20px',
+  borderTop: '1px solid #ddd',
+  backgroundColor: 'white'
+};
+
+const formGroupStyle = {
+  marginBottom: '15px'
+};
+
+const labelStyle = {
+  display: 'block',
+  marginBottom: '5px',
+  fontWeight: '500'
+};
+
+const inputStyle = {
+  width: '100%',
+  padding: '8px',
+  borderRadius: '4px',
+  border: '1px solid #ccc',
+  boxSizing: 'border-box'
+};
+
+const buttonStyle = {
+  padding: '10px 20px',
+  backgroundColor: '#14868C',
+  color: 'white',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  fontWeight: 'bold',
+  marginTop: '10px'
 };
 
 export default AdminPage;

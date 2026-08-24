@@ -1,17 +1,30 @@
-from sqlalchemy import text
+from sqlalchemy import text, func
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+from typing import List, Optional, Dict
 from .doctor import _get_attachment_flags, INSTITUTE_QUESTIONS
 from ..db.session import get_db, get_questionnaire_db
-from ..models.models import MRMCStudy, MRMCStudyParticipant, PatientSession, User, Hospital, Role, Machine, DoctorAssessment
-from ..schemas.schemas import MRMCParticipantResponse, MRMCStudyCreate, MRMCStudyResponse, PatientResponse, UserCreate, HospitalCreate, User as UserSchema, HospitalResponse, MachineCreate, MachineResponse, ClinicianOption
+from ..models.models import MRMCStudy, MRMCStudyParticipant, PatientSession, User, Hospital, Role, Machine, DoctorAssessment, Assignment
+from ..schemas.schemas import (
+    MRMCParticipantResponse, MRMCStudyCreate, MRMCStudyResponse, PatientResponse, HospitalCreate,
+    HospitalResponse, MachineCreate, MachineResponse, ClinicianOption,
+    RadiologistOption, SubjectListItem, AssignRadiologistRequest, AssignmentListItem,
+    QCUserCreateRequest, QCUserResponse, RadiologistCasesResponse, RadiologistCaseItem,
+)
 from ..core.security import get_password_hash
 from ..core.email import send_template_email
 from .auth import get_current_user
 
 router = APIRouter()
+
+RADIOLOGIST_ROLE_NAME = "Radiologist"
+ADMIN_ROLE_NAME = "Admin"
+ALLOWED_QC_ROLES = {RADIOLOGIST_ROLE_NAME.lower(), ADMIN_ROLE_NAME.lower()}
+
+
+def _get_role_by_name(db: Session, name: str):
+    return db.query(Role).filter(func.lower(Role.qc_name) == name.lower()).first()
 
 def check_admin_role(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     user_role = current_user.get("role", "")
@@ -82,70 +95,81 @@ def create_hospital(
 
     return db_hospital
 
-@router.post("/users", response_model=UserSchema)
+@router.post("/users", response_model=QCUserResponse)
 def create_user(
-    user_in: UserCreate,
+    user_in: QCUserCreateRequest,
     db: Session = Depends(get_db),
+    q_db: Session = Depends(get_questionnaire_db),
     current_user: dict = Depends(check_admin_role)
 ):
-    # If trying to create an Admin, only Test1 admin can do it
-    role = db.query(Role).filter(Role.qc_id == user_in.qc_role_id).first()
-    if role and role.qc_name.lower() == 'admin':
-        if current_user.get("hospital_name") != "Test":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only Test hospital admins can create other admin accounts",
-            )
+    """Create an Admin or Radiologist account for the QC portal, optionally
+    assigning subjects/cases to the new Radiologist in the same call.
+    Radiologists are not scoped to a single hospital, so hospital_id is optional."""
+    role_name = (user_in.role or "").strip()
+    if role_name.lower() not in ALLOWED_QC_ROLES:
+        raise HTTPException(status_code=400, detail="Role must be Admin or Radiologist")
 
-    user = db.query(User).filter(
-        User.qc_email == user_in.qc_email,
-        User.qc_hospital_id == user_in.qc_hospital_id,
-        User.qc_role_id == user_in.qc_role_id
-    ).first()
-    if user:
-        raise HTTPException(
-            status_code=400,
-            detail="A user with this email, hospital, and role already exists.",
-        )
-    # Verify hospital exists
-    hospital = db.query(Hospital).filter(Hospital.qc_id == user_in.qc_hospital_id).first()
-    if not hospital:
-        raise HTTPException(
-            status_code=404,
-            detail="Hospital not found.",
-        )
-    # Verify role exists
-    role = db.query(Role).filter(Role.qc_id == user_in.qc_role_id).first()
+    role = _get_role_by_name(db, role_name)
     if not role:
+        raise HTTPException(status_code=404, detail=f"Role '{role_name}' not found")
+
+    if role.qc_name.lower() == ADMIN_ROLE_NAME.lower() and current_user.get("hospital_name") != "Test":
         raise HTTPException(
-            status_code=404,
-            detail="Role not found.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Test hospital admins can create other admin accounts",
         )
+
+    hospital = None
+    if user_in.hospital_id:
+        hospital = db.query(Hospital).filter(Hospital.qc_id == user_in.hospital_id).first()
+        if not hospital:
+            raise HTTPException(status_code=404, detail="Hospital not found.")
+
+    existing_query = db.query(User).filter(User.qc_email == user_in.email, User.qc_role_id == role.qc_id)
+    existing_query = existing_query.filter(User.qc_hospital_id == user_in.hospital_id) if user_in.hospital_id \
+        else existing_query.filter(User.qc_hospital_id.is_(None))
+    if existing_query.first():
+        raise HTTPException(status_code=400, detail="A user with this email and role already exists.")
 
     db_user = User(
-        qc_email=user_in.qc_email,
+        qc_email=user_in.email,
         qc_password_hash=get_password_hash(user_in.password),
-        qc_full_name=user_in.qc_full_name,
-        qc_hospital_id=user_in.qc_hospital_id,
-        qc_role_id=user_in.qc_role_id,
-        qc_is_active=True
+        qc_full_name=user_in.full_name,
+        qc_hospital_id=user_in.hospital_id,
+        qc_role_id=role.qc_id,
+        qc_is_active=True,
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
 
+    assigned_count = 0
+    failed_cases: List[str] = []
+    if user_in.cases and role.qc_name.lower() == RADIOLOGIST_ROLE_NAME.lower():
+        assigned_count, failed_cases, _, _ = _assign_subjects_to_radiologist(
+            db, q_db, db_user.qc_id, user_in.cases, current_user.get("id")
+        )
+
     try:
-        send_template_email(db, "user_created", user_in.qc_email, {
-            "full_name": user_in.qc_full_name or user_in.qc_email,
-            "email": user_in.qc_email,
-            "hospital_name": hospital.qc_name,
+        send_template_email(db, "user_created", user_in.email, {
+            "full_name": user_in.full_name or user_in.email,
+            "email": user_in.email,
+            "hospital_name": hospital.qc_name if hospital else "",
             "role_name": role.qc_name,
             "temp_password": user_in.password,
         })
     except Exception:
         pass
 
-    return db_user
+    return QCUserResponse(
+        id=db_user.qc_id,
+        full_name=db_user.qc_full_name,
+        email=db_user.qc_email,
+        role=role.qc_name,
+        hospital_id=db_user.qc_hospital_id,
+        assigned_cases=assigned_count,
+        failed_cases=failed_cases,
+    )
 
 @router.get("/roles")
 def get_roles(
@@ -405,7 +429,7 @@ class SubjectOption(BaseModel):
     subject_id: str
 
 
-@router.get("/subjects", response_model=List[SubjectOption])
+@router.get("/mrmc/subjects", response_model=List[SubjectOption])
 def get_available_subjects(
     institution_id: List[str] = Query(...),
     q_db: Session = Depends(get_questionnaire_db),
@@ -464,3 +488,214 @@ def get_subject_clinicians(
         .all()
     )
     return [ClinicianOption(id=u.qc_id, full_name=u.qc_full_name) for u in clinicians]
+
+
+# --- QC Admin dashboard: subjects (=assessments) across all hospitals, radiologist
+# assignment, and radiologist roster. Built on the existing qc_doctor_assessments /
+# qc_assignments tables rather than the MRMC study machinery above, which models a
+# different (reader-agreement study) concept. ---
+
+def _bulk_risk_categories(q_db: Session, session_ids: List[str]) -> Dict[str, str]:
+    if not session_ids:
+        return {}
+    rows = q_db.execute(text("""
+        SELECT qc_session_id, qc_risk_category FROM qc_session_table WHERE qc_session_id IN :ids
+    """), {"ids": tuple(session_ids)}).fetchall()
+    return {r[0]: r[1] for r in rows}
+
+
+def _all_subjects_with_status(app_db: Session, q_db: Session) -> List[SubjectListItem]:
+    assessments = app_db.query(DoctorAssessment).all()
+    if not assessments:
+        return []
+
+    session_ids = [a.qc_patient_session_id for a in assessments]
+    risk_categories = _bulk_risk_categories(q_db, session_ids)
+    hospitals = {h.qc_id: h.qc_name for h in app_db.query(Hospital).all()}
+
+    assessment_ids = [a.qc_id for a in assessments]
+    assignments = app_db.query(Assignment).filter(
+        Assignment.qc_assessment_id.in_(assessment_ids)
+    ).order_by(Assignment.qc_id.asc()).all()
+    # Last (highest qc_id) assignment per assessment wins as the "current" one.
+    assignment_by_assessment = {}
+    for asg in assignments:
+        assignment_by_assessment[asg.qc_assessment_id] = asg
+
+    radiologist_ids = {asg.qc_radiologist_id for asg in assignments}
+    radiologists = {}
+    if radiologist_ids:
+        radiologists = {u.qc_id: u for u in app_db.query(User).filter(User.qc_id.in_(radiologist_ids)).all()}
+
+    items = []
+    for a in assessments:
+        qc_subject_id = a.qc_sub_ui_id or a.qc_patient_session_id
+        asg = assignment_by_assessment.get(a.qc_id)
+        rad = radiologists.get(asg.qc_radiologist_id) if asg else None
+        items.append(SubjectListItem(
+            assessment_id=a.qc_id,
+            qc_subject_id=qc_subject_id,
+            session_id=a.qc_patient_session_id,
+            hospital_name=hospitals.get(a.qc_hospital_id),
+            risk_category=risk_categories.get(a.qc_patient_session_id),
+            has_assessment=True,
+            assignment_status=asg.qc_status if asg else "Unassigned",
+            radiologist_id=rad.qc_id if rad else None,
+            radiologist_name=rad.qc_full_name if rad else None,
+            radiologist_email=rad.qc_email if rad else None,
+        ))
+    return items
+
+
+def _resolve_subject_ids_to_assessments(app_db: Session, q_db: Session, subject_ids: List[str]):
+    """Maps the human-facing QC subject id (qc_sub_ui_id, falling back to session_id —
+    the same identifier GET /subjects returns) to its assessment id."""
+    by_subject = {item.qc_subject_id: item.assessment_id for item in _all_subjects_with_status(app_db, q_db)}
+    resolved, missing = {}, []
+    for sid in subject_ids:
+        if sid in by_subject:
+            resolved[sid] = by_subject[sid]
+        else:
+            missing.append(sid)
+    return resolved, missing
+
+
+def _assign_subjects_to_radiologist(app_db: Session, q_db: Session, radiologist_id: int,
+                                     subject_ids: List[str], assigned_by_id: Optional[int]):
+    """Creates/reassigns qc_assignments rows for the given subjects. Returns
+    (assigned_count, failed_subject_ids, reassigned_count, blocked_completed_ids)."""
+    resolved, missing = _resolve_subject_ids_to_assessments(app_db, q_db, subject_ids)
+    assessment_ids = list(resolved.values())
+    existing = {
+        a.qc_assessment_id: a for a in
+        app_db.query(Assignment).filter(Assignment.qc_assessment_id.in_(assessment_ids)).all()
+    } if assessment_ids else {}
+
+    assigned_count = 0
+    reassigned_count = 0
+    blocked_completed_ids = []
+    for subject_id, assessment_id in resolved.items():
+        current = existing.get(assessment_id)
+        if current is None:
+            app_db.add(Assignment(
+                qc_assessment_id=assessment_id,
+                qc_radiologist_id=radiologist_id,
+                qc_assigned_by=assigned_by_id,
+                qc_status="Pending",
+            ))
+            assigned_count += 1
+        elif current.qc_status == "Completed":
+            blocked_completed_ids.append(subject_id)
+        elif current.qc_radiologist_id != radiologist_id:
+            current.qc_assigned_by = assigned_by_id
+            current.qc_radiologist_id = radiologist_id
+            reassigned_count += 1
+            assigned_count += 1
+        # else: already assigned to the same radiologist — no-op.
+    app_db.commit()
+    return assigned_count, missing, reassigned_count, blocked_completed_ids
+
+
+@router.get("/subjects", response_model=List[SubjectListItem])
+def get_all_subjects(
+    q_db: Session = Depends(get_questionnaire_db),
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    """All assessments ("subjects") across every hospital, with their current
+    assignment status — the source of truth for the QC Admin dashboard. Deliberately
+    unpaginated: the dashboard needs the full set to compute its summary cards."""
+    return _all_subjects_with_status(app_db, q_db)
+
+
+@router.get("/radiologists", response_model=List[RadiologistOption])
+def get_radiologists(
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    role = _get_role_by_name(app_db, RADIOLOGIST_ROLE_NAME)
+    if not role:
+        return []
+    radiologists = app_db.query(User).filter(
+        User.qc_role_id == role.qc_id, User.qc_is_active == True
+    ).order_by(User.qc_full_name).all()
+    return [RadiologistOption(id=u.qc_id, full_name=u.qc_full_name, email=u.qc_email) for u in radiologists]
+
+
+@router.get("/assignments", response_model=List[AssignmentListItem])
+def get_assignments(
+    radiologist_id: Optional[int] = None,
+    hospital_id: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    q_db: Session = Depends(get_questionnaire_db),
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    subjects_by_assessment = {s.assessment_id: s for s in _all_subjects_with_status(app_db, q_db)}
+
+    hospital_name_filter = None
+    if hospital_id:
+        hospital = app_db.query(Hospital).filter(Hospital.qc_id == hospital_id).first()
+        hospital_name_filter = hospital.qc_name if hospital else hospital_id
+
+    query = app_db.query(Assignment)
+    if radiologist_id:
+        query = query.filter(Assignment.qc_radiologist_id == radiologist_id)
+    if status_filter:
+        query = query.filter(Assignment.qc_status == status_filter)
+    assignments = query.order_by(Assignment.qc_id.desc()).all()
+
+    radiologists = {u.qc_id: u for u in app_db.query(User).filter(
+        User.qc_id.in_([a.qc_radiologist_id for a in assignments])
+    ).all()} if assignments else {}
+
+    result = []
+    for a in assignments:
+        subject = subjects_by_assessment.get(a.qc_assessment_id)
+        if hospital_name_filter and (not subject or subject.hospital_name != hospital_name_filter):
+            continue
+        rad = radiologists.get(a.qc_radiologist_id)
+        result.append(AssignmentListItem(
+            assignment_id=a.qc_id,
+            assessment_id=a.qc_assessment_id,
+            qc_subject_id=subject.qc_subject_id if subject else str(a.qc_assessment_id),
+            session_id=subject.session_id if subject else None,
+            hospital_name=subject.hospital_name if subject else None,
+            risk_category=subject.risk_category if subject else None,
+            has_assessment=True,
+            radiologist_id=a.qc_radiologist_id,
+            radiologist_name=rad.qc_full_name if rad else None,
+            radiologist_email=rad.qc_email if rad else None,
+            status=a.qc_status,
+            review_notes=a.qc_review_notes,
+        ))
+
+    return result
+
+
+@router.post("/assign-radiologist")
+def assign_radiologist(
+    data: AssignRadiologistRequest,
+    q_db: Session = Depends(get_questionnaire_db),
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    radiologist = app_db.query(User).filter(User.qc_id == data.radiologist_id).first()
+    if not radiologist:
+        raise HTTPException(status_code=404, detail="Radiologist not found")
+    role = app_db.query(Role).filter(Role.qc_id == radiologist.qc_role_id).first()
+    if not role or role.qc_name.lower() != RADIOLOGIST_ROLE_NAME.lower():
+        raise HTTPException(status_code=400, detail="Selected user is not a Radiologist")
+    if not data.subject_ids:
+        raise HTTPException(status_code=400, detail="At least one subject is required")
+
+    assigned_count, missing, reassigned_count, blocked_completed_ids = _assign_subjects_to_radiologist(
+        app_db, q_db, data.radiologist_id, data.subject_ids, current_user.get("id")
+    )
+    return {
+        "success": True,
+        "assigned_count": assigned_count,
+        "reassigned_count": reassigned_count,
+        "missing_subject_ids": missing,
+        "blocked_completed_subject_ids": blocked_completed_ids,
+    }

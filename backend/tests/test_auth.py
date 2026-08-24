@@ -16,7 +16,6 @@ class TestGetHospitals:
 class TestLogin:
     def test_valid_admin_login(self, client, seed_hospital_and_user):
         res = client.post("/api/v1/qc/auth/login", json={
-            "hospital_name": "TestHospital",
             "role": "Admin",
             "email": "admin@test.com",
             "password": "password123"
@@ -26,11 +25,10 @@ class TestLogin:
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
-    def test_valid_doctor_login(self, client, seed_hospital_and_user):
+    def test_valid_radiologist_login(self, client, seed_hospital_and_user):
         res = client.post("/api/v1/qc/auth/login", json={
-            "hospital_name": "TestHospital",
-            "role": "Doctor",
-            "email": "doctor@test.com",
+            "role": "Radiologist",
+            "email": "radiologist@test.com",
             "password": "password123"
         })
         assert res.status_code == 200
@@ -38,25 +36,14 @@ class TestLogin:
 
     def test_wrong_password(self, client, seed_hospital_and_user):
         res = client.post("/api/v1/qc/auth/login", json={
-            "hospital_name": "TestHospital",
             "role": "Admin",
             "email": "admin@test.com",
             "password": "wrongpassword"
         })
         assert res.status_code == 401
 
-    def test_wrong_hospital(self, client, seed_hospital_and_user):
-        res = client.post("/api/v1/qc/auth/login", json={
-            "hospital_name": "NonExistent",
-            "role": "Admin",
-            "email": "admin@test.com",
-            "password": "password123"
-        })
-        assert res.status_code == 401
-
     def test_wrong_role(self, client, seed_hospital_and_user):
         res = client.post("/api/v1/qc/auth/login", json={
-            "hospital_name": "TestHospital",
             "role": "InvalidRole",
             "email": "admin@test.com",
             "password": "password123"
@@ -78,6 +65,6 @@ class TestTokenValidation:
         assert res.status_code == 401
 
     def test_protected_endpoint_valid_token(self, client, seed_hospital_and_user):
-        token = get_token("Doctor", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
         res = client.get("/api/v1/qc/doctor/sessions", headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 200

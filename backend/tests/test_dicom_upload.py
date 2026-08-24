@@ -1,4 +1,4 @@
-"""Systematic tests for DICOM upload flow in the clinician view.
+"""Systematic tests for DICOM upload flow in the radiologist view.
 
 Covers:
   - Signed URL generation (upload-url endpoint)
@@ -53,8 +53,8 @@ def _make_fake_dicom(name="test.dcm", size=1024):
     return (name, io.BytesIO(content), "application/dicom")
 
 
-def _clinician_token():
-    return get_token("Clinician", "doctor@test.com")
+def _radiologist_token():
+    return get_token("Radiologist", "radiologist@test.com")
 
 
 def _admin_token():
@@ -90,7 +90,7 @@ class TestUploadUrlEndpoint:
 
     def test_generates_signed_url_for_valid_dicom_type(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
-            token = _clinician_token()
+            token = _radiologist_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "scan_left_cc.dcm",
@@ -106,7 +106,7 @@ class TestUploadUrlEndpoint:
             assert "mammo_cc_left" in data["blob_path"]
 
     def test_generates_url_for_each_mammo_view(self, client, seed_hospital_and_user):
-        token = _clinician_token()
+        token = _radiologist_token()
         views = ["mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right"]
 
         with _mock_gcs()[0]:
@@ -121,7 +121,7 @@ class TestUploadUrlEndpoint:
 
     def test_generates_url_for_ultrasound(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
-            token = _clinician_token()
+            token = _radiologist_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "us_video",
                 "file_name": "ultrasound.dcm",
@@ -132,7 +132,7 @@ class TestUploadUrlEndpoint:
 
     def test_generates_url_for_annotation(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
-            token = _clinician_token()
+            token = _radiologist_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "annot_cc_left",
                 "file_name": "annotation.dcm",
@@ -150,7 +150,7 @@ class TestUploadUrlEndpoint:
         assert res.status_code == 401
 
     def test_rejects_missing_required_fields(self, client, seed_hospital_and_user):
-        token = _clinician_token()
+        token = _radiologist_token()
         res = client.post("/api/v1/qc/patient/upload-url", data={
             "file_type": "mammo_cc_left",
         }, headers={"Authorization": f"Bearer {token}"})
@@ -158,7 +158,7 @@ class TestUploadUrlEndpoint:
 
     def test_blob_path_includes_hospital_and_session(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
-            token = _clinician_token()
+            token = _radiologist_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
@@ -170,7 +170,7 @@ class TestUploadUrlEndpoint:
 
     def test_gcs_url_format(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
-            token = _clinician_token()
+            token = _radiologist_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
@@ -189,7 +189,7 @@ class TestUploadCompleteEndpoint:
 
     def test_records_new_upload_creates_assessment(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
@@ -204,7 +204,7 @@ class TestUploadCompleteEndpoint:
 
     def test_records_multiple_file_types(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
         file_types = ["mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right"]
 
         for ft in file_types:
@@ -219,7 +219,7 @@ class TestUploadCompleteEndpoint:
 
     def test_replaces_existing_upload_same_type(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         for i in range(2):
             res = client.post("/api/v1/qc/patient/upload-complete", data={
@@ -233,7 +233,7 @@ class TestUploadCompleteEndpoint:
 
     def test_records_ultrasound_upload(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
@@ -246,7 +246,7 @@ class TestUploadCompleteEndpoint:
 
     def test_records_annotation_upload(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
@@ -267,7 +267,7 @@ class TestUploadCompleteEndpoint:
         assert res.status_code == 401
 
     def test_rejects_missing_fields(self, client, seed_hospital_and_user):
-        token = _clinician_token()
+        token = _radiologist_token()
         res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": "s1",
         }, headers={"Authorization": f"Bearer {token}"})
@@ -304,7 +304,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_mammo_cc_left(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -322,7 +322,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_all_four_mammo_views(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -344,7 +344,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_mammo_reading_pdf(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -360,7 +360,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_ultrasound_video(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -376,7 +376,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_ultrasound_reading(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -392,7 +392,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_biopsy_doc(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -408,7 +408,7 @@ class TestAssessmentWithFileUpload:
 
     def test_assessment_with_annotation_files(self, client, seed_hospital_and_user):
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -431,7 +431,7 @@ class TestAssessmentWithFileUpload:
     def test_assessment_with_all_file_types(self, client, seed_hospital_and_user):
         """Full upload: all 4 mammo views + reports + US + biopsy + annotations."""
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -466,7 +466,7 @@ class TestAssessmentWithFileUpload:
     def test_file_replacement_on_update(self, client, seed_hospital_and_user):
         """Re-uploading a file for the same type should replace, not duplicate."""
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -499,7 +499,7 @@ class TestAssessmentWithFileUpload:
     def test_assessment_no_files_still_succeeds(self, client, seed_hospital_and_user):
         """Assessment with no file uploads should still save clinical data."""
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         data = self._base_assessment_data(session_id)
         res = client.post("/api/v1/qc/patient/assessment",
@@ -512,7 +512,7 @@ class TestAssessmentWithFileUpload:
     def test_gcs_failure_saves_assessment_with_warnings(self, client, seed_hospital_and_user):
         """If GCS upload fails, the assessment data should still be saved with upload warnings."""
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         with patch("backend.src.api.patient.upload_to_gcs", side_effect=Exception("GCS unavailable")):
             data = self._base_assessment_data(session_id)
@@ -530,7 +530,7 @@ class TestAssessmentWithFileUpload:
     def test_partial_gcs_failure_saves_successful_uploads(self, client, seed_hospital_and_user):
         """Some uploads succeed, some fail — assessment and successful uploads are saved."""
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         call_count = 0
         original_upload = MagicMock(return_value="gs://test-bucket/fake.dcm")
@@ -568,7 +568,7 @@ class TestAssessmentWithFileUpload:
         assert res.status_code == 401
 
     def test_assessment_invalid_session(self, client, seed_hospital_and_user):
-        token = _clinician_token()
+        token = _radiologist_token()
         data = self._base_assessment_data("nonexistent-session-id")
         res = client.post("/api/v1/qc/patient/assessment",
             data=data,
@@ -708,7 +708,7 @@ class TestEndToEndUploadFlow:
         """Simulate the ResumableUpload component's three-step flow."""
         session_id = _start_questionnaire_session(client)
         _submit_questionnaire(client, session_id)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         # Step 1: Get signed URL
         with _mock_gcs()[0]:
@@ -736,7 +736,7 @@ class TestEndToEndUploadFlow:
         """Upload all 4 mammo views via resumable flow, then check session detail flags."""
         session_id = _start_questionnaire_session(client)
         _submit_questionnaire(client, session_id)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         views = ["mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right"]
         for view in views:
@@ -766,7 +766,7 @@ class TestEndToEndUploadFlow:
         """Submit assessment with files, then verify session detail returns them."""
         session_id = _start_questionnaire_session(client)
         _submit_questionnaire(client, session_id)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         gcs_patch, upload_patch = _mock_gcs()
         with gcs_patch, upload_patch:
@@ -812,7 +812,7 @@ class TestEndToEndUploadFlow:
     def test_upload_without_prior_assessment_creates_one(self, client, seed_hospital_and_user):
         """Using upload-complete before any assessment should auto-create an assessment."""
         session_id = _start_questionnaire_session(client)
-        token = _clinician_token()
+        token = _radiologist_token()
 
         res = client.post("/api/v1/qc/patient/upload-complete", data={
             "session_id": session_id,
@@ -971,10 +971,10 @@ class TestUploadPermissions:
             }, headers={"Authorization": f"Bearer {token}"})
             assert res.status_code == 200
 
-    def test_admin_can_update_clinician_assessment(self, client, seed_hospital_and_user):
-        """Admin should be able to update an assessment created by a clinician."""
+    def test_admin_can_update_radiologist_assessment(self, client, seed_hospital_and_user):
+        """Admin should be able to update an assessment created by a radiologist."""
         session_id = _start_questionnaire_session(client)
-        clinician_token = _clinician_token()
+        radiologist_token = _radiologist_token()
         admin_token = _admin_token()
 
         base_data = {
@@ -991,9 +991,9 @@ class TestUploadPermissions:
             "routine_views_uploaded": "false",
         }
 
-        # Clinician creates
+        # Radiologist creates
         res1 = client.post("/api/v1/qc/patient/assessment",
-            data=base_data, headers={"Authorization": f"Bearer {clinician_token}"})
+            data=base_data, headers={"Authorization": f"Bearer {radiologist_token}"})
         assert res1.status_code == 200
 
         # Admin updates
@@ -1003,9 +1003,9 @@ class TestUploadPermissions:
         assert res2.status_code == 200
         assert res2.json()["qc_recommendation_followup"] == "Updated by admin"
 
-    def test_clinician_can_generate_upload_url(self, client, seed_hospital_and_user):
+    def test_radiologist_can_generate_upload_url(self, client, seed_hospital_and_user):
         with _mock_gcs()[0]:
-            token = _clinician_token()
+            token = _radiologist_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",
@@ -1013,9 +1013,11 @@ class TestUploadPermissions:
             }, headers={"Authorization": f"Bearer {token}"})
             assert res.status_code == 200
 
-    def test_staff_can_generate_upload_url(self, client, seed_hospital_and_user):
+    def test_admin_can_generate_upload_url(self, client, seed_hospital_and_user):
+        """upload-url has no role restriction beyond authentication — confirm
+        a second role (Admin) can hit it too, now that Staff no longer exists."""
         with _mock_gcs()[0]:
-            token = get_token("Staff", "staff@test.com")
+            token = _admin_token()
             res = client.post("/api/v1/qc/patient/upload-url", data={
                 "file_type": "mammo_cc_left",
                 "file_name": "test.dcm",

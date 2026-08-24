@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from ..db.session import get_db, get_questionnaire_db
-from ..models.models import DoctorAssessment, Attachment, Hospital
+from ..models.models import DoctorAssessment, Attachment, Hospital, Assignment
 from ..schemas.schemas import PatientSessionListItem, PatientSessionDetail
 from .auth import get_current_user
 from typing import Dict, List
@@ -264,7 +264,23 @@ def get_patient_session_detail(
     current_user: dict = Depends(get_current_user)
 ):
     hospital_id = current_user.get("hospital_id")
-    if not hospital_id:
+    user_role = (current_user.get("role") or "").lower()
+    is_super_viewer = current_user.get("is_super_viewer", False) or \
+        current_user.get("email", "").lower().endswith("@tanuh.ai")
+
+    if user_role == "radiologist":
+        # Radiologists aren't scoped to a hospital — they're authorized per-case via
+        # qc_assignments instead, since they review cases assigned to them across hospitals.
+        assessment_for_auth = app_db.query(DoctorAssessment).filter(
+            DoctorAssessment.qc_patient_session_id == session_id
+        ).first()
+        is_assigned = assessment_for_auth is not None and app_db.query(Assignment).filter(
+            Assignment.qc_assessment_id == assessment_for_auth.qc_id,
+            Assignment.qc_radiologist_id == current_user.get("id"),
+        ).first() is not None
+        if not is_assigned:
+            raise HTTPException(status_code=403, detail="Not authorized to view this case")
+    elif not hospital_id and not is_super_viewer:
         raise HTTPException(status_code=400, detail="User hospital ID not found")
 
     session_row = q_db.execute(text(

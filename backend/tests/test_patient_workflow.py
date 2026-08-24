@@ -1,4 +1,12 @@
-"""Tests for clinician UI endpoints: doctor sessions, assessments, file uploads."""
+"""Tests for the patient/session endpoints (consent, questionnaire, assessment,
+doctor sessions). Formerly test_clinician.py — renamed because none of these
+endpoints (see backend/src/api/patient.py and backend/src/api/doctor.py) actually
+enforce a specific role; they only require an authenticated user via
+get_current_user. The old test names/tokens ("Doctor"/"Staff") were leftovers
+from a role model that no longer exists (roles are now just Admin/Radiologist),
+so all tokens below use Radiologist — any authenticated role would pass these
+same assertions.
+"""
 import pytest
 import io
 from .conftest import get_token
@@ -6,7 +14,7 @@ from .conftest import get_token
 
 class TestDoctorSessions:
     def test_list_sessions_empty(self, client, seed_hospital_and_user):
-        token = get_token("Doctor", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
         res = client.get("/api/v1/qc/doctor/sessions", headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 200
         assert isinstance(res.json(), list)
@@ -16,14 +24,14 @@ class TestDoctorSessions:
         assert res.status_code == 401
 
     def test_session_detail_not_found(self, client, seed_hospital_and_user):
-        token = get_token("Doctor", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
         res = client.get("/api/v1/qc/doctor/sessions/99999", headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 404
 
 
 class TestPatientConsent:
     def test_consent_without_file(self, client, seed_hospital_and_user):
-        token = get_token("Staff", "staff@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
         res = client.post(
             "/api/v1/qc/patient/consent",
             headers={"Authorization": f"Bearer {token}"}
@@ -43,8 +51,8 @@ class TestAssessment:
         return res.json()["id"]
 
     def test_create_assessment_basic(self, client, seed_hospital_and_user):
-        token = get_token("Doctor", "doctor@test.com")
-        session_id = self._create_session(client, get_token("Staff", "staff@test.com"))
+        token = get_token("Radiologist", "radiologist@test.com")
+        session_id = self._create_session(client, token)
 
         res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": session_id,
@@ -63,7 +71,7 @@ class TestAssessment:
         assert res.status_code == 200
 
     def test_assessment_missing_session(self, client, seed_hospital_and_user):
-        token = get_token("Doctor", "doctor@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
         res = client.post("/api/v1/qc/patient/assessment", data={
             "patient_session_id": 99999,
             "is_questionnaire_correct": "false",
@@ -87,7 +95,7 @@ class TestAssessment:
 
 class TestQuestionnaireSubmission:
     def test_submit_responses(self, client, seed_hospital_and_user):
-        token = get_token("Staff", "staff@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
         session_id = self._create_session(client, token)
 
         res = client.post("/api/v1/qc/patient/questionnaire", json={

@@ -9,6 +9,7 @@ from .api import (
     patient,
     admin,
     doctor,
+    radiologist,
     jobs,
     reminders,
     stats,
@@ -52,6 +53,7 @@ app.include_router(auth.router, prefix="/api/v1/qc/auth", tags=["auth"])
 app.include_router(languages.router, prefix="/api/v1/qc/languages", tags=["languages"])
 app.include_router(patient.router, prefix="/api/v1/qc/patient", tags=["patient"])
 app.include_router(doctor.router, prefix="/api/v1/qc/doctor", tags=["doctor"])
+app.include_router(radiologist.router, prefix="/api/v1/qc/radiologist", tags=["radiologist"])
 app.include_router(admin.router, prefix="/api/v1/qc/admin", tags=["admin"])
 app.include_router(stats.router, prefix="/api/v1/qc/stats", tags=["stats"])
 app.include_router(public.router, prefix="/api/v1/qc", tags=["public"])

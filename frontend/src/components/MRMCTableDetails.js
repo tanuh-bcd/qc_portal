@@ -54,8 +54,8 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
     if (!isEmbedded) {
       const role = localStorage.getItem('role')?.toLowerCase();
       const token = localStorage.getItem('token');
-      if (!token || (role !== 'clinician' && role !== 'admin')) {
-        navigate('/login');
+      if (!token || (role !== 'radiologist' && role !== 'admin')) {
+        navigate('/qc/login');
         return;
       }
     }
@@ -192,7 +192,7 @@ const MRMCTableDetails = ({ isEmbedded = false }) => {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('isSuperViewer');
-    navigate('/login');
+    navigate('/qc/login');
   };
 
   const convertGcsToHttp = (gcsUrl) => {

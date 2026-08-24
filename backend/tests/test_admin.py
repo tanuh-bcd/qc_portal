@@ -8,13 +8,8 @@ class TestAdminAccess:
         res = client.get("/api/v1/qc/admin/roles")
         assert res.status_code == 401
 
-    def test_admin_endpoint_doctor_role(self, client, seed_hospital_and_user):
-        token = get_token("Doctor", "doctor@test.com")
-        res = client.get("/api/v1/qc/admin/roles", headers={"Authorization": f"Bearer {token}"})
-        assert res.status_code == 403
-
-    def test_admin_endpoint_staff_role(self, client, seed_hospital_and_user):
-        token = get_token("Staff", "staff@test.com")
+    def test_admin_endpoint_radiologist_role(self, client, seed_hospital_and_user):
+        token = get_token("Radiologist", "radiologist@test.com")
         res = client.get("/api/v1/qc/admin/roles", headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 403
 
@@ -33,5 +28,4 @@ class TestAdminRoles:
         assert isinstance(roles, list)
         role_names = [r["qc_name"] for r in roles]
         assert "Admin" in role_names
-        assert "Doctor" in role_names
-        assert "Staff" in role_names
+        assert "Radiologist" in role_names

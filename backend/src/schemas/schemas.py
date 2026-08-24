@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, Field
 from typing import Optional, List
 import datetime
 
@@ -30,7 +30,6 @@ class TokenData(BaseModel):
     role: Optional[str] = None
 
 class LoginRequest(BaseModel):
-    hospital_name: str
     role: str
     email: EmailStr
     password: str
@@ -273,6 +272,93 @@ class SubjectAssignment(BaseModel):
         if v is not None and v == info.data.get("reader_user_id"):
             raise ValueError("Reader and arbiter cannot be the same clinician")
         return v
+
+class RadiologistOption(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    email: str
+
+    class Config:
+        from_attributes = True
+
+
+class SubjectListItem(BaseModel):
+    assessment_id: int
+    qc_subject_id: str
+    session_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    risk_category: Optional[str] = None
+    has_assessment: bool = True
+    assignment_status: str = "Unassigned"
+    radiologist_id: Optional[int] = None
+    radiologist_name: Optional[str] = None
+    radiologist_email: Optional[str] = None
+
+
+class AssignRadiologistRequest(BaseModel):
+    radiologist_id: int
+    subject_ids: List[str]
+
+
+class AssignmentListItem(BaseModel):
+    assignment_id: int
+    assessment_id: int
+    qc_subject_id: str
+    session_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+    risk_category: Optional[str] = None
+    has_assessment: bool = True
+    radiologist_id: int
+    radiologist_name: Optional[str] = None
+    radiologist_email: Optional[str] = None
+    status: str
+    review_notes: Optional[str] = None
+
+
+class QCUserCreateRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    password: str
+    role: str
+    hospital_id: Optional[str] = None
+    cases: Optional[List[str]] = []
+
+
+class QCUserResponse(BaseModel):
+    id: int
+    full_name: Optional[str] = None
+    email: str
+    role: str
+    hospital_id: Optional[str] = None
+    assigned_cases: int = 0
+    failed_cases: List[str] = []
+
+
+class RadiologistCaseItem(BaseModel):
+    qc_subject_id: str
+    hospital: Optional[str] = None
+    case_id: int
+    session_id: str
+    status: str
+    review_notes: Optional[str] = None
+
+
+class RadiologistCasesResponse(BaseModel):
+    success: bool = True
+    user_id: int
+    role: str
+    cases: List[RadiologistCaseItem]
+
+
+class RadiologistReviewCompleteRequest(BaseModel):
+    notes: str = Field(..., min_length=1)
+
+
+class RadiologistReviewCompleteResponse(BaseModel):
+    case_id: int
+    status: str
+    qc_completed_at: Optional[datetime.datetime] = None
+
 
 class RiskCategoryResponse(BaseModel):
     id: int

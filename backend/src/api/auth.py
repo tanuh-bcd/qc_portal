@@ -56,15 +56,7 @@ def get_hospitals(questionnaire: bool = False, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    # 1. Find Hospital
-    hospital = db.query(Hospital).filter(Hospital.qc_name == login_data.hospital_name).first()
-    if not hospital:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid hospital name",
-        )
-
-    # 2. Find Role
+    # 1. Find Role
     role = db.query(Role).filter(Role.qc_name == login_data.role).first()
     if not role:
         raise HTTPException(
@@ -72,10 +64,9 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
             detail="Invalid role",
         )
 
-    # 3. Find User
+    # 2. Find User
     user = db.query(User).filter(
         User.qc_email == login_data.email,
-        User.qc_hospital_id == hospital.qc_id,
         User.qc_role_id == role.qc_id
     ).first()
 

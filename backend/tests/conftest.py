@@ -90,19 +90,15 @@ def _seed_test_data():
 
     session.add(Hospital(qc_id="clinic_00001", qc_name="TestHospital", qc_contact_person="Dr. Test", qc_email="test@hospital.com"))
     session.add(Hospital(qc_id="clinic_00002", qc_name="Test", qc_contact_person="Super Admin", qc_email="super@test.com"))
-    for name in ["Admin", "Doctor", "Staff", "Clinician"]:
+    for name in ["Admin", "Radiologist"]:
         session.add(Role(qc_name=name))
     session.commit()
 
     admin_role = session.query(Role).filter(Role.qc_name == "Admin").first()
-    doctor_role = session.query(Role).filter(Role.qc_name == "Doctor").first()
-    staff_role = session.query(Role).filter(Role.qc_name == "Staff").first()
-
-    clinician_role = session.query(Role).filter(Role.qc_name == "Clinician").first()
+    radiologist_role = session.query(Role).filter(Role.qc_name == "Radiologist").first()
 
     session.add(User(qc_email="admin@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=admin_role.qc_id, qc_is_active=True, qc_full_name="Admin User"))
-    session.add(User(qc_email="doctor@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=clinician_role.qc_id, qc_is_active=True, qc_full_name="Dr. Test"))
-    session.add(User(qc_email="staff@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=staff_role.qc_id, qc_is_active=True, qc_full_name="Staff User"))
+    session.add(User(qc_email="radiologist@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=radiologist_role.qc_id, qc_is_active=True, qc_full_name="Dr. Radiologist"))
     session.commit()
     session.close()
 
