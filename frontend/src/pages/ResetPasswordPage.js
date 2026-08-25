@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
-  const [hospitals, setHospitals] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
 
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [formData, setFormData] = useState({
-    hospitalName: '',
     role: '',
     email: '',
     newPassword: '',
@@ -28,7 +24,7 @@ const ResetPasswordPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.hospitalName || !formData.role || !formData.email || !formData.newPassword || !formData.confirmPassword) {
+    if (!formData.role || !formData.email || !formData.newPassword || !formData.confirmPassword) {
       toast.error('Please fill in all fields');
       return;
     }
@@ -54,7 +50,6 @@ const ResetPasswordPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          hospital_name: formData.hospitalName,
           role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
           email: formData.email,
           new_password: formData.newPassword
@@ -75,22 +70,6 @@ const ResetPasswordPage = () => {
       setSubmitting(false);
     }
   };
-
-  useEffect(() => {
-    const fetchHospitals = async () => {
-      try {
-        const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/v1/qc/auth/hospitals`);
-        if (!response.ok) throw new Error('Failed to fetch hospitals');
-        const data = await response.json();
-        setHospitals(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchHospitals();
-  }, []);
 
   const inputStyle = { padding: '8px', borderRadius: '4px', border: '1px solid #ccc' };
 
@@ -116,16 +95,6 @@ const ResetPasswordPage = () => {
         <div style={{ width: '100%', maxWidth: '420px', border: '1px solid rgba(0,0,0,0.05)', padding: '30px', borderRadius: '16px', boxShadow: '0 8px 30px rgba(20,134,140,0.1)', backgroundColor: 'white', borderTop: '5px solid #14868C' }}>
           <h2 style={{ textAlign: 'center', marginBottom: '24px' }}>Reset Password</h2>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label htmlFor="hospitalName">Institution Name</label>
-              <select id="hospitalName" name="hospitalName" value={formData.hospitalName} onChange={handleChange} style={inputStyle} disabled={loading}>
-                <option value="">{loading ? 'Loading institutions...' : 'Select Institution'}</option>
-                {hospitals.map((hospital) => (
-                  <option key={hospital.qc_id} value={hospital.qc_name}>{hospital.qc_name}</option>
-                ))}
-              </select>
-              {error && <span style={{ color: 'red', fontSize: '12px' }}>{error}</span>}
-            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label htmlFor="role">Role</label>
               <select id="role" name="role" value={formData.role} onChange={handleChange} style={inputStyle}>

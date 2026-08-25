@@ -93,7 +93,7 @@ const AssignRadiologistHistory = () => {
 
   return (
     <div style={contentStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,marginTop: -34, flexWrap: 'wrap', gap: 10 }}>
         <h2 style={{ color: '#333', margin: 0 }}>Assign Radiologist History</h2>
         <input
           type="text"
@@ -124,7 +124,7 @@ const AssignRadiologistHistory = () => {
             <table style={tableStyle}>
               <thead>
                 <tr style={headerRowStyle}>
-                  {['QC ID', 'Radiologist', 'Email', 'Hospital', 'Case/Study', 'Risk', 'Assessment', 'Status', 'Reason', 'Actions'].map(h => (
+                  {['QC ID', 'Radiologist Name', 'Total Case/Study', 'Assessment', 'Status', 'Reason', 'Actions'].map(h => (
                     <th key={h} style={thStyle}>{h}</th>
                   ))}
                 </tr>
@@ -134,10 +134,7 @@ const AssignRadiologistHistory = () => {
                   <tr key={a.assignment_id} style={rowStyle}>
                     <td style={tdStyle}>{a.qc_subject_id}</td>
                     <td style={tdStyle}>{a.radiologist_name || '-'}</td>
-                    <td style={tdStyle}>{a.radiologist_email || '-'}</td>
-                    <td style={tdStyle}>{a.hospital_name || '-'}</td>
                     <td style={tdStyle}>{a.assessment_id}</td>
-                    <td style={tdStyle}><RiskBadge risk={a.risk_category} /></td>
                     <td style={{ ...tdStyle, color: a.has_assessment ? 'green' : '#b0691c', fontWeight: 600 }}>
                       {a.has_assessment ? 'Yes' : 'No'}
                     </td>
@@ -199,29 +196,6 @@ const AssignRadiologistHistory = () => {
               <button style={closeButtonStyle} onClick={() => setIsModalOpen(false)}>&times;</button>
             </div>
             <div style={modalBodyStyle}>
-              <table style={qaTableStyle}>
-                <thead>
-                  <tr>
-                    <th style={qaThStyle}>Question</th>
-                    <th style={qaThStyle}>Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedSession.responses && selectedSession.responses.length > 0 ? (
-                    selectedSession.responses.map((resp) => (
-                      <tr key={resp.qc_id}>
-                        <td style={qaTdStyle}>{resp.qc_question}</td>
-                        <td style={qaTdStyle}>{resp.qc_answer}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="2" style={qaTdStyle}>No responses found for this session.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
               <DoctorAssessmentForm
                 sessionId={selectedSession.qc_id}
                 initialData={selectedSession.assessment}

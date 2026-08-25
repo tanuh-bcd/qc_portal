@@ -93,17 +93,14 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/reset-password")
 def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    hospital = db.query(Hospital).filter(Hospital.qc_name == data.hospital_name).first()
-    if not hospital:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid hospital name")
-
     role = db.query(Role).filter(Role.qc_name == data.role).first()
     if not role:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role")
 
+    # Matches the /login lookup (email + role only) — Radiologists aren't scoped
+    # to a hospital, so a hospital filter here would never match their account.
     user = db.query(User).filter(
         User.qc_email == data.email,
-        User.qc_hospital_id == hospital.qc_id,
         User.qc_role_id == role.qc_id
     ).first()
 
@@ -120,7 +117,7 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
         send_template_email(db, "password_reset", data.email, {
             "full_name": user.qc_full_name or data.email,
             "email": data.email,
-            "hospital_name": data.hospital_name,
+            "hospital_name": user.hospital.qc_name if user.hospital else "",
             "role_name": data.role,
         })
     except Exception:

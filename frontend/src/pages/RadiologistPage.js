@@ -36,7 +36,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
   const [reviewError, setReviewError] = useState(null);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reasonModal, setReasonModal] = useState(null);
-  const PAGE_SIZE = 20;
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     if (!isEmbedded) {
@@ -173,20 +173,24 @@ const RadiologistPage = ({ isEmbedded = false }) => {
         || (c.radiologist_name || '').toLowerCase().includes(term)
         || (c.radiologist_email || '').toLowerCase().includes(term);
     }
-    return (c.qc_subject_id || '').toLowerCase().includes(term)
-      || (c.hospital || '').toLowerCase().includes(term);
+    return (c.qc_subject_id || '').toLowerCase().includes(term);
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  useEffect(() => {
+    const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (currentPage > pages) setCurrentPage(pages);
+  }, [filtered.length, currentPage]);
+
   const content = (
     <div style={contentStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-        <h2 style={{ color: '#333', margin: 0 }}>{isAdminView ? 'Radiologist History — Assigned Cases' : 'Radiologist Dashboard — Assigned Cases'}</h2>
+        <h2 style={{ color: '#333', margin: 0 }}>{isAdminView ? 'Radiologist History — Assigned Cases' : 'Assigned Cases'}</h2>
         <input
           type="text"
-          placeholder={isAdminView ? 'Search by QC ID, Hospital, or Radiologist...' : 'Search by QC ID or Hospital...'}
+          placeholder={isAdminView ? 'Search by QC ID, Hospital, or Radiologist...' : 'Search by QC ID...'}
           value={searchTerm}
           onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
           style={{ width: 260, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #c8e0e2', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
@@ -214,11 +218,18 @@ const RadiologistPage = ({ isEmbedded = false }) => {
               <thead>
                 <tr style={headerRowStyle}>
                   <th style={thStyle}>QC ID</th>
-                  <th style={thStyle}>Radiologist</th>
-                  <th style={thStyle}>Email</th>
-                  <th style={thStyle}>Hospital</th>
-                  <th style={thStyle}>Case/Study</th>
-                  <th style={thStyle}>Risk</th>
+                  {/* Radiologist, Email, Hospital, Case/Study and Risk are only
+                      meaningful in the cross-hospital admin history. A radiologist
+                      is looking at their own cases, so these repeat or don't apply. */}
+                  {isAdminView && (
+                    <>
+                      <th style={thStyle}>Radiologist</th>
+                      <th style={thStyle}>Email</th>
+                      <th style={thStyle}>Hospital</th>
+                      <th style={thStyle}>Case/Study</th>
+                      <th style={thStyle}>Risk</th>
+                    </>
+                  )}
                   <th style={thStyle}>Assessment</th>
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Reason</th>
@@ -258,11 +269,6 @@ const RadiologistPage = ({ isEmbedded = false }) => {
                 )) : paginated.map((c) => (
                   <tr key={c.case_id} style={rowStyle}>
                     <td style={tdStyle}>{c.qc_subject_id}</td>
-                    <td style={tdStyle}>{localStorage.getItem('userName') || '-'}</td>
-                    <td style={tdStyle}>{localStorage.getItem('userEmail') || '-'}</td>
-                    <td style={tdStyle}>{c.hospital || '-'}</td>
-                    <td style={tdStyle}>{c.case_id}</td>
-                    <td style={tdStyle}><RiskBadge risk={c.risk_category} /></td>
                     <td style={{ ...tdStyle, color: c.has_assessment ? 'green' : '#b0691c', fontWeight: 600 }}>
                       {c.has_assessment ? 'Yes' : 'No'}
                     </td>
@@ -321,29 +327,6 @@ const RadiologistPage = ({ isEmbedded = false }) => {
               </div>
             </div>
             <div style={modalBodyStyle}>
-              <table style={qaTableStyle}>
-                <thead>
-                  <tr>
-                    <th style={qaThStyle}>Question</th>
-                    <th style={qaThStyle}>Answer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedSession.responses && selectedSession.responses.length > 0 ? (
-                    selectedSession.responses.map((resp) => (
-                      <tr key={resp.qc_id}>
-                        <td style={qaTdStyle}>{resp.qc_question}</td>
-                        <td style={qaTdStyle}>{resp.qc_answer}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="2" style={qaTdStyle}>No responses found for this session.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
               <DoctorAssessmentForm
                 sessionId={selectedSession.qc_id}
                 initialData={selectedSession.assessment}

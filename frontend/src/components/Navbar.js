@@ -32,19 +32,6 @@ const Navbar = () => {
           </Link>
         </div>
         <div className="navbar-tabs">
-          <Link to="/qc" className={`nav-link ${location.pathname === '/qc' ? 'active' : ''}`}>
-            Questionnaire
-          </Link>
-          <Link to="/qc/demo" className={`nav-link ${location.pathname === '/qc/demo' ? 'active' : ''}`}>
-            Demo
-          </Link>
-          <Link to="/qc/stats" className={`nav-link ${location.pathname === '/qc/stats' ? 'active' : ''}`}>
-            Dashboard
-          </Link>
-          <Link to="/qc/login" className={`nav-link ${location.pathname === '/qc/login' ? 'active' : ''}`}>
-            Login
-          </Link>
-
         </div>
       </div>
     </nav>

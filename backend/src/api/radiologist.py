@@ -52,6 +52,7 @@ def get_my_cases(
             session_id=assessment.qc_patient_session_id,
             status=asg.qc_status,
             review_notes=asg.qc_review_notes,
+            has_assessment=True,
         ))
 
     return RadiologistCasesResponse(user_id=radiologist_id, role=current_user.get("role", ""), cases=cases)

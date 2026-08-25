@@ -78,8 +78,7 @@ const AdminPage = () => {
           </button>
         ))}
       </div>
-
-      <div style={{ marginTop: '20px' }}>
+      <div>
         {renderContent()}
       </div>
     </Layout>

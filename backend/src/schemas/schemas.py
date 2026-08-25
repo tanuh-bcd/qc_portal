@@ -35,7 +35,6 @@ class LoginRequest(BaseModel):
     password: str
 
 class ResetPasswordRequest(BaseModel):
-    hospital_name: str
     role: str
     email: EmailStr
     new_password: str
@@ -341,6 +340,7 @@ class RadiologistCaseItem(BaseModel):
     session_id: str
     status: str
     review_notes: Optional[str] = None
+    has_assessment: bool = True
 
 
 class RadiologistCasesResponse(BaseModel):
