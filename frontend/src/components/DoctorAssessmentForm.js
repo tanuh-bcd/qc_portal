@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// import ResumableUpload from './ResumableUpload';   // uploads disabled — files are read-only here
-import AdditionalDocs from './AdditionalDocs';
 import FileViewer from './FileViewer';
 
 const BIRADS_OPTIONS = [

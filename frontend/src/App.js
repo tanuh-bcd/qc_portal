@@ -4,15 +4,11 @@ import Navbar from './components/Navbar';
 import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminPage from './pages/AdminPage';
-import PatientPage from './pages/PatientPage';
 import RadiologistPage from './pages/RadiologistPage';
-import PublicQuestionnairePage from './pages/PublicQuestionnairePage';
 import Footer from './components/Footer';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const Stats = lazy(() => import('./components/Stats'));
-const Demo = lazy(() => import('./components/Demo'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
@@ -37,15 +33,11 @@ function App() {
           <Routes>
             {/* Public pages with Navbar — no login required */}
             <Route path="/qc" element={<PublicLayout />}>
-              <Route index element={<PublicQuestionnairePage />} />
-              <Route path="demo" element={<Demo />} />
-              <Route path="stats" element={<Stats />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="reset-password" element={<ResetPasswordPage />} />
             </Route>
             {/* Auth-protected pages — no Navbar */}
             <Route path="/qc/admin" element={<AdminPage />} />
-            <Route path="/qc/patient" element={<PatientPage />} />
             <Route path="/qc/radiologist" element={<RadiologistPage />} />
           </Routes>
         </Suspense>

@@ -5,19 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .api import (
     auth,
-    languages,
     patient,
     admin,
     doctor,
     radiologist,
-    jobs,
-    reminders,
-    stats,
-    public,
-    mammogram,
-    risk_categories,
-    model_weights,
-    risk_thresholds,
 )
 
 # Setup logging
@@ -50,19 +41,11 @@ app.add_middleware(
 
 # Routes
 app.include_router(auth.router, prefix="/api/v1/qc/auth", tags=["auth"])
-app.include_router(languages.router, prefix="/api/v1/qc/languages", tags=["languages"])
 app.include_router(patient.router, prefix="/api/v1/qc/patient", tags=["patient"])
 app.include_router(doctor.router, prefix="/api/v1/qc/doctor", tags=["doctor"])
 app.include_router(radiologist.router, prefix="/api/v1/qc/radiologist", tags=["radiologist"])
 app.include_router(admin.router, prefix="/api/v1/qc/admin", tags=["admin"])
-app.include_router(stats.router, prefix="/api/v1/qc/stats", tags=["stats"])
-app.include_router(public.router, prefix="/api/v1/qc", tags=["public"])
-app.include_router(mammogram.router, prefix="/api/v1/qc/mammogram", tags=["mammogram"])
-app.include_router(jobs.router, prefix="/api/internal/jobs", tags=["internal-jobs"])
-app.include_router(reminders.router, prefix="/api/v1/qc/reminders", tags=["reminders"])
-app.include_router(risk_categories.router, prefix="/api/v1/qc/risk-categories", tags=["risk-categories"])
-app.include_router(model_weights.router, prefix="/api/v1/qc/model-weights", tags=["model-weights"])
-app.include_router(risk_thresholds.router, prefix="/api/v1/qc/risk-thresholds", tags=["risk-thresholds"])
+
 
 
 @app.get("/api/health")

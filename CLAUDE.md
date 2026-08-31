@@ -66,7 +66,6 @@ frontend/
       AdminPage.js              # Tabbed: Admin/Subject/Clinician views
       PatientPage.js            # Staff: consent → questionnaire → thankyou
       DoctorPage.js             # Clinician: subject list + assessment modal
-      PublicQuestionnairePage.js # Unauthenticated questionnaire
     assets/locales/             # 11 language dirs, each with consent/questionnaire/thankyou JSON
   Dockerfile                    # node:20-alpine builder + nginx:alpine runtime
   nginx.conf                    # HTTPS, reverse proxy /api → backend:8000
@@ -183,8 +182,7 @@ Cross-database queries are joined in Python (not SQL joins).
 
 | Path | Component | Auth |
 |------|-----------|------|
-| `/` | `PublicQuestionnairePage` | No |
-| `/demo` | `Demo` (lazy) | No |
+| `/` | `LoginPage` | No |
 | `/stats` | `Stats` (lazy) | No |
 | `/login` | `LoginPage` | No |
 | `/reset-password` | `ResetPasswordPage` | No |

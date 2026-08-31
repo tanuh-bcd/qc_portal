@@ -5,10 +5,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict
 from .doctor import _get_attachment_flags, INSTITUTE_QUESTIONS
 from ..db.session import get_db, get_questionnaire_db
-from ..models.models import MRMCStudy, MRMCStudyParticipant, PatientSession, User, Hospital, Role, Machine, DoctorAssessment, Assignment
-from ..schemas.schemas import (
-    MRMCParticipantResponse, MRMCStudyCreate, MRMCStudyResponse, PatientResponse, HospitalCreate,
-    HospitalResponse, MachineCreate, MachineResponse, ClinicianOption,
+from ..models.models import PatientSession, User, Hospital, Role, Machine, DoctorAssessment, Assignment
+from ..schemas.schemas import ( ClinicianOption,
     RadiologistOption, SubjectListItem, AssignRadiologistRequest, AssignmentListItem,
     QCUserCreateRequest, QCUserResponse, RadiologistCasesResponse, RadiologistCaseItem,
 )
@@ -47,53 +45,6 @@ def check_super_admin(current_user: dict = Depends(check_admin_role)):
             detail="This operation is only allowed for Test hospital admins",
         )
     return current_user
-
-@router.post("/hospitals", response_model=HospitalResponse)
-def create_hospital(
-    hospital_in: HospitalCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(check_super_admin)
-):
-    hospital = db.query(Hospital).filter(Hospital.qc_email == hospital_in.qc_email).first()
-    if hospital:
-        raise HTTPException(
-            status_code=400,
-            detail="A hospital with this email already exists.",
-        )
-    from sqlalchemy import func
-    max_id = db.query(func.max(Hospital.qc_id)).scalar()
-    if max_id and max_id.startswith("clinic_"):
-        num = int(max_id.split("_")[1]) + 1
-    else:
-        num = 1
-    new_id = f"clinic_{num:05d}"
-
-    db_hospital = Hospital(
-        qc_id=new_id,
-        qc_name=hospital_in.qc_name,
-        qc_short_name=hospital_in.qc_short_name,
-        qc_contact_person=hospital_in.qc_contact_person,
-        qc_email=hospital_in.qc_email,
-        qc_address=hospital_in.qc_address,
-        qc_pincode=hospital_in.qc_pincode,
-        qc_state=hospital_in.qc_state,
-        qc_type=hospital_in.qc_type
-    )
-    db.add(db_hospital)
-    db.commit()
-    db.refresh(db_hospital)
-
-    try:
-        send_template_email(db, "hospital_added", hospital_in.qc_email, {
-            "hospital_name": hospital_in.qc_name,
-            "contact_person": hospital_in.qc_contact_person,
-            "contact_email": hospital_in.qc_email,
-            "address": hospital_in.qc_address or "",
-        })
-    except Exception:
-        pass
-
-    return db_hospital
 
 @router.post("/users", response_model=QCUserResponse)
 def create_user(
@@ -179,178 +130,6 @@ def get_roles(
     return db.query(Role).all()
 
 
-@router.post("/machines", response_model=MachineResponse)
-def create_machine(
-    machine_in: MachineCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(check_admin_role)
-):
-    hospital = db.query(Hospital).filter(Hospital.qc_id == machine_in.qc_hospital_id).first()
-    if not hospital:
-        raise HTTPException(status_code=404, detail="Hospital not found.")
-
-    if current_user.get("hospital_name") != "Test" and current_user.get("hospital_id") != machine_in.qc_hospital_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only create machine details for your own institution.",
-        )
-
-    if machine_in.qc_hospital_short_name and hospital.qc_short_name and machine_in.qc_hospital_short_name != hospital.qc_short_name:
-        raise HTTPException(
-            status_code=400,
-            detail="Hospital short name does not match the selected institute.",
-        )
-
-    db_machine = Machine(
-        qc_hospital_id=machine_in.qc_hospital_id,
-        qc_hospital_short_name=machine_in.qc_hospital_short_name or hospital.qc_short_name,
-        qc_machine=machine_in.qc_machine,
-        qc_make=machine_in.qc_make,
-        qc_technology=machine_in.qc_technology,
-        qc_no_of_machines=machine_in.qc_no_of_machines
-    )
-    db.add(db_machine)
-    db.commit()
-    db.refresh(db_machine)
-    return db_machine
-
-def require_admin(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "Admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
-    return current_user
-
-@router.post("/mrmc-studies", response_model=MRMCStudyResponse)
-def create_mrmc_study(
-    data: MRMCStudyCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    if data.arbiter_user_id in data.reader_user_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="A user cannot be assigned as both reader and arbiter"
-        )
-    if len(data.reader_user_ids) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="At least 2 readers (C1, C2) are required"
-        )
-    if not data.subject_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="At least one subject/case is required"
-        )
-    if not data.institution_ids:
-        raise HTTPException(
-            status_code=400,
-            detail="At least one institution is required"
-        )
-
-    study = MRMCStudy(
-        name=data.name,
-        hospital_id=current_user["hospital_id"],
-        created_by=current_user["id"]
-    )
-    db.add(study)
-    db.flush()  # populates study.id before commit
-
-    for uid in data.reader_user_ids:
-        db.add(MRMCStudyParticipant(
-            study_id=study.id,
-            user_id=uid,
-            is_reader=True,
-            assigned_count=len(data.subject_ids)
-        ))
-    db.add(MRMCStudyParticipant(
-        study_id=study.id,
-        user_id=data.arbiter_user_id,
-        is_arbiter=True,
-        assigned_count=0
-    ))
-
-    for session_id in data.subject_ids:
-        # STOPGAP: case-linking disabled until MRMCStudyCase exists.
-        # db.add(MRMCStudyCase(study_id=study.id, session_id=session_id))
-        pass
-
-    for institution_id in data.institution_ids:
-        # STOPGAP: institution-linking disabled until MRMCStudyInstitution
-        # exists. Needs a migration:
-        #   class MRMCStudyInstitution(Base):
-        #       __tablename__ = "mrmc_study_institutions"
-        #       id = Column(Integer, primary_key=True)
-        #       study_id = Column(Integer, ForeignKey("mrmc_studies.id"))
-        #       hospital_id = Column(String, ForeignKey("qc_hospitals.qc_id"))
-        # db.add(MRMCStudyInstitution(study_id=study.id, hospital_id=institution_id))
-        pass
-
-    db.commit()
-    db.refresh(study)
-    return study
-
-@router.get("/mrmc-studies/participants", response_model=List[MRMCParticipantResponse])
-def get_study_participants(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    rows = (
-        db.query(MRMCStudyParticipant, User.qc_full_name)
-        .join(User, MRMCStudyParticipant.user_id == User.qc_id)
-        .join(MRMCStudy, MRMCStudyParticipant.study_id == MRMCStudy.id)
-        .filter(MRMCStudy.hospital_id == current_user["hospital_id"])
-        .all()
-    )
-
-    aggregated = {}
-    for p, full_name in rows:
-        entry = aggregated.setdefault(p.user_id, {
-            "user_id": p.user_id,
-            "full_name": full_name,
-            "is_reader": False,
-            "is_arbiter": False,
-            "assigned_count": 0,
-            "submitted_count": 0,
-            "kappa_scores": []
-        })
-        entry["is_reader"] = entry["is_reader"] or p.is_reader
-        entry["is_arbiter"] = entry["is_arbiter"] or p.is_arbiter
-        entry["assigned_count"] += p.assigned_count or 0
-        entry["submitted_count"] += p.submitted_count or 0
-        if p.kappa_score is not None:
-            entry["kappa_scores"].append(p.kappa_score)
-
-    return [
-        MRMCParticipantResponse(
-            user_id=e["user_id"],
-            full_name=e["full_name"],
-            is_reader=e["is_reader"],
-            is_arbiter=e["is_arbiter"],
-            assigned_count=e["assigned_count"],
-            submitted_count=e["submitted_count"],
-            kappa_score=(sum(e["kappa_scores"]) / len(e["kappa_scores"])) if e["kappa_scores"] else None
-        )
-        for e in aggregated.values()
-    ]
-@router.get("/users/clinicians", response_model=List[ClinicianOption])
-def get_clinicians(
-    institution_id: List[str] = Query(...),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(check_admin_role)
-):
-    clinicians = (
-        db.query(User.qc_id, User.qc_full_name)
-        .filter(
-            User.qc_role_id == 2,
-            User.qc_hospital_id.in_(institution_id)
-        )
-        .order_by(User.qc_full_name)
-        .all()
-    )
-
-    return [
-        ClinicianOption(id=u.qc_id, full_name=u.qc_full_name)
-        for u in clinicians
-    ]
 
 def _get_subject_hospital(q_db: Session, app_db: Session, session_id: str):
     row = q_db.execute(text("""
@@ -429,47 +208,6 @@ class SubjectOption(BaseModel):
     subject_id: str
 
 
-@router.get("/mrmc/subjects", response_model=List[SubjectOption])
-def get_available_subjects(
-    institution_id: List[str] = Query(...),
-    q_db: Session = Depends(get_questionnaire_db),
-    app_db: Session = Depends(get_db),
-    current_user: dict = Depends(check_admin_role)
-):
-    hospitals = app_db.query(Hospital).filter(Hospital.qc_id.in_(institution_id)).all()
-    valid_names = [h.qc_name for h in hospitals]
-    if not valid_names:
-        return []
-
-    rows = q_db.execute(text("""
-        SELECT s.qc_session_id, pid.answer AS patient_id
-        FROM qc_session_table s
-        JOIN (
-            SELECT qc_session_id, MIN(qc_answer) AS answer
-            FROM qc_session_data_table
-            WHERE qc_question IN :inst_questions
-              AND qc_answer IN :valid_names
-            GROUP BY qc_session_id
-        ) hosp ON s.qc_session_id = hosp.qc_session_id
-        LEFT JOIN (
-            SELECT qc_session_id, MIN(qc_answer) AS answer
-            FROM qc_session_data_table
-            WHERE qc_question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
-            GROUP BY qc_session_id
-        ) pid ON s.qc_session_id = pid.qc_session_id
-        WHERE s.qc_snehita_lifetime_risk IS NOT NULL
-    """), {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_names)}).fetchall()
-
-    result = []
-    for session_id, patient_id in rows:
-        assessment = app_db.query(DoctorAssessment).filter(
-            DoctorAssessment.qc_patient_session_id == session_id
-        ).options(joinedload(DoctorAssessment.attachments)).first()
-        flags = _get_attachment_flags(assessment)
-        if flags["has_mammo_dicom"]:
-            result.append(SubjectOption(id=session_id, subject_id=patient_id or session_id))
-    return result
-
 
 @router.get("/subjects/{session_id}/clinicians", response_model=List[ClinicianOption])
 def get_subject_clinicians(
@@ -489,11 +227,6 @@ def get_subject_clinicians(
     )
     return [ClinicianOption(id=u.qc_id, full_name=u.qc_full_name) for u in clinicians]
 
-
-# --- QC Admin dashboard: subjects (=assessments) across all hospitals, radiologist
-# assignment, and radiologist roster. Built on the existing qc_doctor_assessments /
-# qc_assignments tables rather than the MRMC study machinery above, which models a
-# different (reader-agreement study) concept. ---
 
 def _bulk_risk_categories(q_db: Session, session_ids: List[str]) -> Dict[str, str]:
     if not session_ids:

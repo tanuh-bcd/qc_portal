@@ -49,16 +49,12 @@ class HospitalBase(BaseModel):
     qc_state: Optional[str] = None
     qc_type: Optional[str] = None
 
-class HospitalCreate(HospitalBase):
-    qc_state: str
-    qc_type: str
-    qc_short_name: str
-
 class HospitalResponse(HospitalBase):
     qc_id: str
 
     class Config:
         from_attributes = True
+
 
 class LanguageResponse(BaseModel):
     qc_code: str
@@ -110,6 +106,7 @@ class PatientResponse(PatientResponseCreate):
 
     class Config:
         from_attributes = True
+
 
 class AttachmentResponse(BaseModel):
     qc_id: int
@@ -201,48 +198,10 @@ class MachineBase(BaseModel):
             raise ValueError('no_of_machines must be a positive number')
         return v
 
-class MachineCreate(MachineBase):
-    qc_hospital_id: str
-    qc_hospital_short_name: Optional[str] = None
-
-class MachineResponse(MachineBase):
-    qc_id: int
-    qc_hospital_id: str
-    qc_hospital_short_name: Optional[str] = None
-
-    class Config:
-        from_attributes = True
-
 class UserResponse(BaseModel):
     qc_id: int
     qc_full_name: str
     qc_email: str
-
-    class Config:
-        from_attributes = True
-
-class MRMCStudyCreate(BaseModel):
-    name: str
-    institution_ids: List[str]
-    subject_ids: List[str]
-    reader_user_ids: List[int]
-    arbiter_user_id: int
-class MRMCParticipantResponse(BaseModel):
-    user_id: int
-    full_name: str
-    is_reader: bool
-    is_arbiter: bool
-    assigned_count: int
-    submitted_count: int
-    kappa_score: Optional[float]
-
-    class Config:
-        from_attributes = True
-
-class MRMCStudyResponse(BaseModel):
-    id: int
-    name: str
-    created_at: datetime.datetime
 
     class Config:
         from_attributes = True
@@ -358,102 +317,3 @@ class RadiologistReviewCompleteResponse(BaseModel):
     case_id: int
     status: str
     qc_completed_at: Optional[datetime.datetime] = None
-
-
-class RiskCategoryResponse(BaseModel):
-    id: int
-    risk_category: str
-    lifetime_risk_percentage: str
-    description: Optional[str] = None
-    recommendation: Optional[str] = None
-    version_number: int
-    display_order: int
-
-    class Config:
-        from_attributes = True
-
-
-class RiskCategoryVersionResponse(BaseModel):
-    version_number: int
-    is_active: bool
-    started_at: Optional[datetime.datetime] = None
-    ended_at: Optional[datetime.datetime] = None
-    created_at: datetime.datetime
-    categories: List[RiskCategoryResponse] = []
-
-    class Config:
-        from_attributes = True
-
-
-class RiskCategoryItemCreate(BaseModel):
-    risk_category: str
-    lifetime_risk_percentage: str
-    description: Optional[str] = None
-    recommendation: Optional[str] = None
-    display_order: int = 0
-
-
-class RiskCategoryVersionCreate(BaseModel):
-    categories: List[RiskCategoryItemCreate]
-
-class ModelWeightResponse(BaseModel):
-    id: int
-    feature_name: str
-    weight_value: float
-    version_number: int
-
-    class Config:
-        from_attributes = True
-
-
-class ModelWeightItemCreate(BaseModel):
-    feature_name: str
-    weight_value: float
-
-
-class ModelWeightsVersionCreate(BaseModel):
-    weights: List[ModelWeightItemCreate]
-
-
-class ModelWeightsVersionResponse(BaseModel):
-    version_number: int
-    is_active: bool
-    started_at: Optional[datetime.datetime] = None
-    ended_at: Optional[datetime.datetime] = None
-    created_at: datetime.datetime
-    weights: List[ModelWeightResponse] = []
-
-    class Config:
-        from_attributes = True
-
-class RiskThresholdResponse(BaseModel):
-    id: int
-    risk_category: str
-    min_percentage: Optional[float] = None
-    max_percentage: Optional[float] = None
-    version_number: int
-
-    class Config:
-        from_attributes = True
-
-
-class RiskThresholdItemCreate(BaseModel):
-    risk_category: str
-    min_percentage: Optional[float] = None
-    max_percentage: Optional[float] = None
-
-
-class RiskThresholdsVersionCreate(BaseModel):
-    thresholds: List[RiskThresholdItemCreate]
-
-
-class RiskThresholdsVersionResponse(BaseModel):
-    version_number: int
-    is_active: bool
-    started_at: Optional[datetime.datetime] = None
-    ended_at: Optional[datetime.datetime] = None
-    created_at: datetime.datetime
-    thresholds: List[RiskThresholdResponse] = []
-
-    class Config:
-        from_attributes = True
