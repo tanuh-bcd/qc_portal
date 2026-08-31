@@ -73,11 +73,6 @@ const CheckboxDropdown = ({ label, options, getId, getLabel, selected, onChange,
   );
 };
 
-/**
- * Draws the share as a "%" inside the slice itself, at the mid-angle, roughly
- * half way between the inner and outer radius. Slices under 6% are skipped so
- * the text never spills onto a neighbouring wedge.
- */
 const renderSliceLabel = (textColors) => ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
   if (!percent || percent < 0.06) return null;
   const RADIAN = Math.PI / 180;
@@ -213,14 +208,12 @@ const QCAdminDashboard = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [createForm, setCreateForm] = useState({ fullName: '', email: '', password: '' });
   const [createSelectedSubjects, setCreateSelectedSubjects] = useState(new Set());
   const [createAssignMode, setCreateAssignMode] = useState('random');
   const [createRandomCount, setCreateRandomCount] = useState('');
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignRadiologistId, setAssignRadiologistId] = useState('');
   const [assignSelectedSubjects, setAssignSelectedSubjects] = useState(new Set());
@@ -563,11 +556,6 @@ const QCAdminDashboard = () => {
   );
 };
 
-/* ---------- Layout ---------- */
-
-// Two columns: charts stacked on the left, form on the right.
-// `alignItems: stretch` makes both columns as tall as the taller one, so the
-// bottom of the Subjects card and the bottom of the form land on the same line.
 const dashboardRowStyle = {
   display: 'flex',
   gap: 20,

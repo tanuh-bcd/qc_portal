@@ -481,36 +481,6 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
   return (
     <div style={styles.form}>
       <form onSubmit={handleSubmit}>
-        {/* Mammography Views — read-only, Left on left, Right on right */}
-        <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <span style={styles.cardHeaderIcon}>&#128248;</span> Mammography Views
-            {allViewsPresent && (
-              <span style={{ marginLeft: 'auto', background: '#d4edda', color: '#155724', padding: '4px 12px', borderRadius: 12, fontSize: 13, fontWeight: 600 }}>
-                &#10003; All DICOMs available
-              </span>
-            )}
-          </div>
-          <div style={styles.cardBody}>
-            <div style={responsiveGrid(240, 20)}>
-              <div>
-                <div style={{ textAlign: 'center', fontWeight: 600, color: '#14868C', marginBottom: 10, fontSize: 14 }}>Left Breast</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <FileSlot label="CC Left" attachment={getAttachmentByType('mammo_cc_left')} onView={setViewingAttachment} />
-                  <FileSlot label="MLO Left" attachment={getAttachmentByType('mammo_mlo_left')} onView={setViewingAttachment} />
-                </div>
-              </div>
-              <div>
-                <div style={{ textAlign: 'center', fontWeight: 600, color: '#14868C', marginBottom: 10, fontSize: 14 }}>Right Breast</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <FileSlot label="CC Right" attachment={getAttachmentByType('mammo_cc_right')} onView={setViewingAttachment} />
-                  <FileSlot label="MLO Right" attachment={getAttachmentByType('mammo_mlo_right')} onView={setViewingAttachment} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Missing-file notice — states what is absent, no upload prompt */}
         {showMammoNotice && (
           <div style={{
@@ -529,7 +499,7 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
                 <div>Mammography views not on this case: {missingViews.join(', ')}</div>
               )}
               {missingReport && (
-                <div>Mammography report not on this case.</div>
+                <div>Mammography report not uploaded on this case.</div>
               )}
             </div>
           </div>
@@ -540,17 +510,45 @@ const DoctorAssessmentForm = ({ sessionId, initialData, onSaveSuccess, snehithaR
           <div style={styles.cardHeader}>
             <span style={styles.cardHeaderIcon}>&#129657;</span> Breast Composition &amp; Findings
           </div>
+
           <div style={responsiveGrid(320, 0)}>
-            <div style={{ ...styles.cardBody, borderRight: '2px solid #e8f4f5', borderBottom: '2px solid #e8f4f5' }}>
-              <BreastPanel side="left" data={leftBreast} onChange={setLeftBreast} readOnly={readOnly} />
+            <div
+              style={{
+                ...styles.cardBody,
+                borderRight: '2px solid #e8f4f5',
+                borderBottom: '2px solid #e8f4f5',
+              }}
+            >
+              <BreastPanel
+                side="left"
+                data={leftBreast}
+                readOnly={true}
+              />
             </div>
-            <div style={{ ...styles.cardBody, borderBottom: '2px solid #e8f4f5' }}>
-              <BreastPanel side="right" data={rightBreast} onChange={setRightBreast} readOnly={readOnly} />
+
+            <div
+              style={{
+                ...styles.cardBody,
+                borderBottom: '2px solid #e8f4f5',
+              }}
+            >
+              <BreastPanel
+                side="right"
+                data={rightBreast}
+                readOnly={true}
+              />
             </div>
           </div>
+
           <div style={{ ...styles.cardBody, borderTop: '2px solid #e8f4f5' }}>
             <label style={styles.label}>Mammography Report</label>
-            <FileSlot label="Mammography Report" attachment={getAttachmentByType('mammo_reading')} onView={setViewingAttachment} />
+
+            <FileSlot
+              label="Mammography Report"
+              attachment={getAttachmentByType('mammo_reading')}
+              onView={setViewingAttachment}
+              readOnly={true}
+            />
           </div>
         </div>
 

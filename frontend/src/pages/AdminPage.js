@@ -47,10 +47,12 @@ const AdminPage = () => {
     switch (activeTab) {
       case 'qc-admin':
         return <div style={contentStyle}><QCAdminDashboard /></div>;
-      case 'radiologist':
-        return <RadiologistPageContent />;
+      // isEmbedded keeps RadiologistPage from wrapping itself in a second Layout,
+      // which is what duplicated the app header, logout and user email here. It
+      // brings its own white background and padding, so no wrapper div — one
+      // would only add a band of empty space under the tab strip.
       case 'assign-history':
-        return <div style={contentStyle}><AssignRadiologistHistory /></div>;
+        return <RadiologistPage isEmbedded={true} />;
       default:
         return null;
     }
@@ -83,10 +85,6 @@ const AdminPage = () => {
       </div>
     </Layout>
   );
-};
-
-const RadiologistPageContent = () => {
-  return <RadiologistPage isEmbedded={true} />;
 };
 
 const tabContainerStyle = {

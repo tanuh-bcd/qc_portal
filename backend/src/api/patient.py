@@ -7,6 +7,7 @@ from ..core.config import settings
 from .auth import get_current_user
 from google.cloud import storage
 from google.auth import default as auth_default, impersonated_credentials
+from urllib.parse import urlparse
 from typing import List, Optional
 import uuid
 import datetime
@@ -90,6 +91,26 @@ def _get_storage_client():
     return storage.Client()
 
 
+def _resolve_gcs_blob(gcs_url, client):
+    """Parse a `gs://bucket/path/to/object` storage URL into a GCS blob handle.
+
+    Uses urlparse instead of a naive split so the bucket/path split is correct
+    even if the object path itself contains unusual characters. Falls back to
+    the configured default bucket only if the URL has no bucket segment at all
+    (kept for backward compatibility with any older stored URLs).
+    """
+    if not gcs_url or not gcs_url.startswith("gs://"):
+        raise HTTPException(status_code=400, detail="Invalid storage URL")
+
+    parsed = urlparse(gcs_url)
+    bucket_name = parsed.netloc or settings.GCP_STORAGE_BUCKET
+    blob_path = parsed.path.lstrip("/")
+    if not bucket_name or not blob_path:
+        raise HTTPException(status_code=400, detail="Invalid storage URL")
+
+    return client.bucket(bucket_name).blob(blob_path)
+
+
 @router.post("/upload-url")
 def generate_upload_url(
     request: Request,
@@ -134,47 +155,61 @@ def generate_upload_url(
     }
 
 
+def _authorize_attachment_access(attachment, db, current_user):
+    """
+    Raises HTTPException if the current user can't view this attachment.
+    Mirrors the auth branching in get_patient_session_detail():
+      - super viewers: always allowed
+      - radiologists: allowed only if assigned to this attachment's assessment
+      - everyone else: allowed only if the assessment belongs to their hospital
+    """
+    user_role = (current_user.get("role") or "").lower()
+    is_super_viewer = current_user.get("is_super_viewer", False) or \
+        current_user.get("email", "").lower().endswith("@tanuh.ai")
+ 
+    if is_super_viewer:
+        assessment = db.query(DoctorAssessment).filter(
+            DoctorAssessment.qc_id == attachment.qc_assessment_id
+        ).first()
+        if not assessment:
+            raise HTTPException(status_code=403, detail="Not authorized to view this file")
+        return
+ 
+    if user_role == "radiologist":
+        is_assigned = db.query(Assignment).filter(
+            Assignment.qc_assessment_id == attachment.qc_assessment_id,
+            Assignment.qc_radiologist_id == current_user.get("id"),
+        ).first() is not None
+        if not is_assigned:
+            raise HTTPException(status_code=403, detail="Not authorized to view this file")
+        return
+ 
+    hospital_id = current_user.get("hospital_id")
+    if not hospital_id:
+        raise HTTPException(status_code=400, detail="User hospital ID not found")
+ 
+    assessment = db.query(DoctorAssessment).filter(
+        DoctorAssessment.qc_id == attachment.qc_assessment_id,
+        DoctorAssessment.qc_hospital_id == hospital_id
+    ).first()
+    if not assessment:
+        raise HTTPException(status_code=403, detail="Not authorized to view this file")
+ 
+ 
 @router.get("/view-url/{attachment_id}")
 def get_view_url(
     attachment_id: int,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
-    hospital_id = current_user.get("hospital_id")
-    if not hospital_id:
-        raise HTTPException(status_code=400, detail="User hospital ID not found")
-
     attachment = db.query(Attachment).filter(Attachment.qc_id == attachment_id).first()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
+ 
+    _authorize_attachment_access(attachment, db, current_user)
 
-    is_super_viewer = current_user.get("is_super_viewer", False) or \
-        current_user.get("email", "").lower().endswith("@tanuh.ai")
-
-    if is_super_viewer:
-        assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.qc_id == attachment.qc_assessment_id
-        ).first()
-    else:
-        assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.qc_id == attachment.qc_assessment_id,
-            DoctorAssessment.qc_hospital_id == hospital_id
-        ).first()
-    if not assessment:
-        raise HTTPException(status_code=403, detail="Not authorized to view this file")
-
-    gcs_url = attachment.qc_storage_url
-    if not gcs_url or not gcs_url.startswith("gs://"):
-        raise HTTPException(status_code=400, detail="Invalid storage URL")
-
-    parts = gcs_url.split("/")
-    stored_bucket = parts[2] if len(parts) > 2 else None
-    blob_path = "/".join(parts[3:])
-
-    use_bucket = stored_bucket or settings.GCP_STORAGE_BUCKET
     client = _get_storage_client()
-    bucket = client.bucket(use_bucket)
-    blob = bucket.blob(blob_path)
+    blob = _resolve_gcs_blob(attachment.qc_storage_url, client)
 
     try:
         credentials, _ = auth_default()
@@ -186,7 +221,7 @@ def get_view_url(
             )
         else:
             signing_creds = credentials
-
+ 
         signed_url = blob.generate_signed_url(
             version="v4",
             expiration=datetime.timedelta(hours=1),
@@ -196,14 +231,14 @@ def get_view_url(
     except Exception as e:
         logger.warning("Signed URL generation failed: %s", e)
         raise HTTPException(status_code=500, detail="Could not generate signed URL")
-
+ 
     return {
         "view_url": signed_url,
         "file_name": attachment.qc_file_name,
         "mime_type": attachment.qc_mime_type,
     }
-
-
+ 
+ 
 @router.get("/view-file/{attachment_id}")
 def view_file(
     attachment_id: int,
@@ -211,61 +246,34 @@ def view_file(
     current_user: dict = Depends(get_current_user)
 ):
     from fastapi.responses import Response
-
-    hospital_id = current_user.get("hospital_id")
-    if not hospital_id:
-        raise HTTPException(status_code=400, detail="User hospital ID not found")
-
+ 
     attachment = db.query(Attachment).filter(Attachment.qc_id == attachment_id).first()
     if not attachment:
         raise HTTPException(status_code=404, detail="Attachment not found")
+ 
+    _authorize_attachment_access(attachment, db, current_user)
 
-    is_super_viewer = current_user.get("is_super_viewer", False) or \
-        current_user.get("email", "").lower().endswith("@tanuh.ai")
-
-    if is_super_viewer:
-        assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.qc_id == attachment.qc_assessment_id
-        ).first()
-    else:
-        assessment = db.query(DoctorAssessment).filter(
-            DoctorAssessment.qc_id == attachment.qc_assessment_id,
-            DoctorAssessment.qc_hospital_id == hospital_id
-        ).first()
-    if not assessment:
-        raise HTTPException(status_code=403, detail="Not authorized to view this file")
-
-    gcs_url = attachment.qc_storage_url
-    if not gcs_url or not gcs_url.startswith("gs://"):
-        raise HTTPException(status_code=400, detail="Invalid storage URL")
-
-    parts = gcs_url.split("/")
-    stored_bucket = parts[2] if len(parts) > 2 else None
-    blob_path = "/".join(parts[3:])
-
-    use_bucket = stored_bucket or settings.GCP_STORAGE_BUCKET
     client = _get_storage_client()
-    bucket = client.bucket(use_bucket)
-    blob = bucket.blob(blob_path)
+    blob = _resolve_gcs_blob(attachment.qc_storage_url, client)
 
     if not blob.exists():
         raise HTTPException(
             status_code=404,
-            detail=f"File not found in storage (bucket={use_bucket}, path={blob_path})"
+            detail=f"File not found in storage (bucket={blob.bucket.name}, path={blob.name})"
         )
-
+ 
     content = blob.download_as_bytes()
     mime = attachment.qc_mime_type or "application/octet-stream"
-
+ 
     if len(content) >= 132 and content[128:132] == b'DICM':
         mime = "application/dicom"
         try:
             import pydicom
             import io
-
+ 
             ds = pydicom.dcmread(io.BytesIO(content))
             transfer_syntax = ds.file_meta.TransferSyntaxUID
-
+ 
             is_compressed = transfer_syntax not in (
                 "1.2.840.10008.1.2",
                 "1.2.840.10008.1.2.1",
@@ -279,7 +287,7 @@ def view_file(
                 content = out_buf.getvalue()
         except Exception:
             pass
-
+ 
     return Response(
         content=content,
         media_type=mime,
@@ -287,8 +295,7 @@ def view_file(
             "Content-Disposition": f'inline; filename="{attachment.qc_file_name}"',
         },
     )
-
-
+ 
 @router.post("/upload-complete")
 def record_upload(
     session_id: str = Form(...),
