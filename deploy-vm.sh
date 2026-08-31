@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy-vm.sh — Manual deploy BCD Portal to GCP VM
+# deploy-vm.sh — Manual deploy QC Portal to GCP VM
 #
 # NOTE: Prefer GitHub Actions (push to main) for deployments.
 #       This script is for manual/emergency deploys only.
@@ -13,18 +13,18 @@
 # Usage:
 #   gcloud compute ssh <INSTANCE_NAME> --zone=<ZONE> --project=bcd-prototypes
 #   # Then on the VM:
-#   cd ~/bcd_portal && ./deploy-vm.sh
+#   cd ~/qc_bcd_portal && ./deploy-vm.sh
 
 set -euo pipefail
 
-echo "=== BCD Portal Manual Deployment ==="
+echo "=== QC Portal Manual Deployment ==="
 
 # 1. Pull latest code
 if [ -d ".git" ]; then
   echo "Pulling latest code..."
   git pull origin main
 else
-  echo "ERROR: Run this script from the bcd_portal repo root."
+  echo "ERROR: Run this script from the qc_bcd_portal repo root."
   exit 1
 fi
 

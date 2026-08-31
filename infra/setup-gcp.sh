@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# setup-gcp.sh — One-time GCP infrastructure setup for BCD Portal
+# setup-gcp.sh — One-time GCP infrastructure setup for QC Portal
+# (same GCP project as BCD Portal, separate VM + Artifact Registry repo)
 #
 # Prerequisites:
 #   - gcloud CLI authenticated as a project owner/editor
@@ -19,9 +20,11 @@
 set -euo pipefail
 
 PROJECT_ID="bcd-prototypes"
+# Reusing the existing BCD Portal service account since QC shares the same GCP project.
 SERVICE_ACCOUNT="tanuh-bcd-portal@${PROJECT_ID}.iam.gserviceaccount.com"
 REGION="asia-south1"
-VM_INSTANCE="instance-20260521-104425"
+# TODO: fill in the dedicated QC VM instance name/zone once provisioned.
+VM_INSTANCE=""
 VM_ZONE="asia-south1-c"
 
 if [ -z "$VM_INSTANCE" ] || [ -z "$VM_ZONE" ]; then
@@ -74,7 +77,7 @@ gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
   --role="roles/secretmanager.secretAccessor"
 
 # Artifact Registry reader (for docker pull on the VM)
-gcloud artifacts repositories add-iam-policy-binding bcd-portal \
+gcloud artifacts repositories add-iam-policy-binding qc-bcd-portal \
   --location="${REGION}" \
   --member="serviceAccount:${SERVICE_ACCOUNT}" \
   --role="roles/artifactregistry.reader" \
@@ -82,14 +85,14 @@ gcloud artifacts repositories add-iam-policy-binding bcd-portal \
 
 echo ""
 echo "=== Phase 2: Create Artifact Registry Repository ==="
-gcloud artifacts repositories create bcd-portal \
+gcloud artifacts repositories create qc-bcd-portal \
   --repository-format=docker \
   --location="${REGION}" \
-  --description="BCD Portal Docker images" \
+  --description="QC Portal Docker images" \
   --project="${PROJECT_ID}" 2>/dev/null || echo "Artifact Registry repo already exists"
 
 # Grant AR writer for the SA (for GitHub Actions push)
-gcloud artifacts repositories add-iam-policy-binding bcd-portal \
+gcloud artifacts repositories add-iam-policy-binding qc-bcd-portal \
   --location="${REGION}" \
   --member="serviceAccount:${SERVICE_ACCOUNT}" \
   --role="roles/artifactregistry.writer" \
@@ -120,7 +123,7 @@ gcloud iam workload-identity-pools providers create-oidc github-provider \
 # Allow the GitHub repo to impersonate the service account
 gcloud iam service-accounts add-iam-policy-binding "${SERVICE_ACCOUNT}" \
   --role="roles/iam.workloadIdentityUser" \
-  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/tanuh-bcd/bcd_portal" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/ManishaTanuh/qc_bcd_portal" \
   --project="${PROJECT_ID}"
 
 echo ""
@@ -134,5 +137,5 @@ echo "     VM_ZONE: ${VM_ZONE}"
 echo "  3. In GitHub repo settings > Variables, add:"
 echo "     GCP_PROJECT_NUMBER = ${PROJECT_NUMBER}"
 echo "  4. Delete gcp-service-account.json from the VM:"
-echo "     gcloud compute ssh ${VM_INSTANCE} --zone=${VM_ZONE} --project=${PROJECT_ID} -- 'rm -f ~/bcd_portal/gcp-service-account.json'"
+echo "     gcloud compute ssh ${VM_INSTANCE} --zone=${VM_ZONE} --project=${PROJECT_ID} -- 'rm -f ~/qc_bcd_portal/gcp-service-account.json'"
 echo "  5. Test: push to main and check GitHub Actions"

@@ -2,9 +2,9 @@
 
 ## Project Overview
 
-**BCD Portal (PinkShieldAI)** — a clinical breast cancer screening and data collection platform used across hospitals in India. Built by the TANUH Foundation at IISc Bengaluru under the Ministry of Education. Provides patient questionnaire collection, risk scoring, clinical assessments with DICOM/image uploads, and analytics dashboards.
+**QC Portal (PinkShieldAI)** — a clinical breast cancer screening and data collection platform used across hospitals in India, forked from BCD Portal into its own deployment for QC/radiology-review workflows (QC admin, radiology assignment). Built by the TANUH Foundation at IISc Bengaluru under the Ministry of Education. Provides patient questionnaire collection, risk scoring, clinical assessments with DICOM/image uploads, and analytics dashboards.
 
-**GitHub:** `tanuh-bcd/bcd_portal` (formerly `tanuh_bcd_portal`)
+**GitHub:** `tanuh-bcd/qc_portal` (forked from `tanuh_bcd_portal`)
 
 ## Tech Stack
 
@@ -12,7 +12,7 @@
 - **Frontend:** React 19 (Create React App), React Router v7, i18next (11 languages)
 - **Database:** MySQL on Google Cloud SQL (two databases on the same instance)
 - **Storage:** Google Cloud Storage for clinical files and consent images
-- **Container Registry:** Artifact Registry (`asia-south1-docker.pkg.dev/bcd-prototypes/bcd-portal/`)
+- **Container Registry:** Artifact Registry (`asia-south1-docker.pkg.dev/bcd-prototypes/qc-bcd-portal/`) — same GCP project as BCD Portal, separate repo
 - **CI/CD:** GitHub Actions with Workload Identity Federation
 - **Mobile:** React Native app in `react_native_app/` (Android, offline-capable with SQLite)
 
@@ -158,8 +158,8 @@ Cross-database queries are joined in Python (not SQL joins).
 
 ## Authentication & Secrets
 
-- **Application Default Credentials (ADC):** VM has `tanuh-bcd-portal@bcd-prototypes.iam.gserviceaccount.com` attached
-- **Secret Manager:** Config loads from env vars first, falls back to Secret Manager with `bcd-` prefix. Secrets are cached in-memory. Use `infra/create-secrets.sh` to populate from `.env`
+- **Application Default Credentials (ADC):** VM has `tanuh-bcd-portal@bcd-prototypes.iam.gserviceaccount.com` attached (shared with BCD Portal, same project)
+- **Secret Manager:** Config loads from env vars first, falls back to Secret Manager with a configurable prefix (`SECRET_PREFIX` env var, see `backend/src/core/secrets.py`) — QC uses `qc-bcd-` so its secrets never collide with BCD Portal's `bcd-` namespace. Secrets are cached in-memory. Use `infra/create-secrets.sh` to populate from `.env`
 - **WIF:** GitHub Actions authenticates via OIDC → WIF pool `github-actions` → impersonates the SA
 - **No service account keys needed** in production
 
@@ -172,11 +172,11 @@ Cross-database queries are joined in Python (not SQL joins).
 4. Build + push frontend image to Artifact Registry (with `REACT_APP_*` build args)
 5. SSH into VM → pull latest images via `docker-compose.prod.yml` → restart → health check
 
-**VM:** `instance-20260521-104425` in `asia-south1-c`, deploy dir: `~/bcd_portal`
+**VM:** dedicated QC VM (TBD — set in `infra/setup-gcp.sh`, `.github/workflows/deploy.yml`), same GCP project/zone family as BCD Portal's `asia-south1-c`, deploy dir: `~/qc_bcd_portal`
 
 **Docker (prod):** pulls from Artifact Registry. Backend: Gunicorn 4 workers, 2GB/1.5CPU. Frontend: Nginx with SSL (Let's Encrypt), 512MB/0.5CPU.
 
-**Domain:** `bc-portal-dev.tanuh.ai` (Nginx HTTPS with Let's Encrypt certs)
+**Domain:** `qc-bc-portal-dev.tanuh.ai` (Nginx HTTPS with Let's Encrypt certs)
 
 ## Frontend Routes
 

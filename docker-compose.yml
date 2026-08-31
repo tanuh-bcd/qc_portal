@@ -3,13 +3,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: bcd-backend
+    container_name: qc-backend
     ports:
       - "8000:8000"
     env_file:
       - .env
     networks:
-      - bcdnet
+      - qcnet
     restart: always
     deploy:
       resources:
@@ -26,7 +26,7 @@ services:
       dockerfile: Dockerfile
       args:
         REACT_APP_API_URL: ""
-    container_name: bcd-frontend
+    container_name: qc-frontend
     ports:
       - "80:80"
       - "443:443"
@@ -35,7 +35,7 @@ services:
     depends_on:
       - backend
     networks:
-      - bcdnet
+      - qcnet
     restart: always
     deploy:
       resources:
@@ -47,5 +47,5 @@ services:
           cpus: "0.1"
 
 networks:
-  bcdnet:
+  qcnet:
     driver: bridge

@@ -1,12 +1,12 @@
 services:
   backend:
-    image: asia-south1-docker.pkg.dev/bcd-prototypes/bcd-portal/backend:latest
-    container_name: bcd-backend
+    image: asia-south1-docker.pkg.dev/bcd-prototypes/qc-bcd-portal/backend:latest
+    container_name: qc-backend
     env_file: .env
     ports:
       - "8000:8000"
     networks:
-      - bcdnet
+      - qcnet
     restart: always
     deploy:
       resources:
@@ -18,8 +18,8 @@ services:
           cpus: "0.5"
 
   frontend:
-    image: asia-south1-docker.pkg.dev/bcd-prototypes/bcd-portal/frontend:latest
-    container_name: bcd-frontend
+    image: asia-south1-docker.pkg.dev/bcd-prototypes/qc-bcd-portal/frontend:latest
+    container_name: qc-frontend
     ports:
       - "80:80"
       - "443:443"
@@ -28,7 +28,7 @@ services:
     depends_on:
       - backend
     networks:
-      - bcdnet
+      - qcnet
     restart: always
     deploy:
       resources:
@@ -40,5 +40,5 @@ services:
           cpus: "0.1"
 
 networks:
-  bcdnet:
+  qcnet:
     driver: bridge

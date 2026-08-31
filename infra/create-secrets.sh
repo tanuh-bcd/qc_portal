@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# create-secrets.sh — Create Secret Manager secrets for BCD Portal
+# create-secrets.sh — Create Secret Manager secrets for QC Portal
 #
 # This script reads values from the local .env file and creates
 # corresponding secrets in Google Secret Manager.
@@ -15,7 +15,9 @@
 set -euo pipefail
 
 PROJECT_ID="bcd-prototypes"
-PREFIX="bcd-"
+# Distinct prefix from BCD Portal's "bcd-" so this never overwrites its secrets
+# in the shared Secret Manager. Must match SECRET_PREFIX in backend/src/core/secrets.py.
+PREFIX="qc-bcd-"
 ENV_FILE="${1:-.env}"
 
 if [ ! -f "$ENV_FILE" ]; then
