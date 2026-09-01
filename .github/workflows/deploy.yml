@@ -1,0 +1,105 @@
+name: Deploy QC Portal to GCP VM
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GCP_PROJECT_ID: bcd-prototypes
+  GCP_REGION: asia-south1
+  AR_REPO: qc-bcd-portal
+  VM_ZONE: asia-south1-b
+  VM_INSTANCE: qc-bcd-portal-instance
+  WIF_PROVIDER: projects/135552380858/locations/global/workloadIdentityPools/github-actions/providers/github-qc-portal
+  SERVICE_ACCOUNT: tanuh-bcd-portal@bcd-prototypes.iam.gserviceaccount.com
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP via WIF
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Fetch frontend build vars from Secret Manager
+        id: secrets
+        uses: google-github-actions/get-secretmanager-secrets@v2
+        with:
+          secrets: |-
+            REACT_APP_WEBSITE_URL:bcd-prototypes/qc-bcd-REACT_APP_WEBSITE_URL
+            REACT_APP_LINKEDIN_URL:bcd-prototypes/qc-bcd-REACT_APP_LINKEDIN_URL
+            REACT_APP_TWITTER_URL:bcd-prototypes/qc-bcd-REACT_APP_TWITTER_URL
+            REACT_APP_YOUTUBE_URL:bcd-prototypes/qc-bcd-REACT_APP_YOUTUBE_URL
+            REACT_APP_MIXPANEL_TOKEN:bcd-prototypes/qc-bcd-REACT_APP_MIXPANEL_TOKEN
+
+      - name: Build and push backend image
+        run: |
+          IMAGE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/backend:${{ github.sha }}
+          IMAGE_LATEST=${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/backend:latest
+          docker build -t $IMAGE -t $IMAGE_LATEST -f backend/Dockerfile .
+          docker push $IMAGE
+          docker push $IMAGE_LATEST
+
+      - name: Build and push frontend image
+        run: |
+          IMAGE=${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/frontend:${{ github.sha }}
+          IMAGE_LATEST=${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/frontend:latest
+          docker build \
+            --build-arg REACT_APP_API_URL="" \
+            --build-arg REACT_APP_WEBSITE_URL="${{ steps.secrets.outputs.REACT_APP_WEBSITE_URL }}" \
+            --build-arg REACT_APP_LINKEDIN_URL="${{ steps.secrets.outputs.REACT_APP_LINKEDIN_URL }}" \
+            --build-arg REACT_APP_TWITTER_URL="${{ steps.secrets.outputs.REACT_APP_TWITTER_URL }}" \
+            --build-arg REACT_APP_YOUTUBE_URL="${{ steps.secrets.outputs.REACT_APP_YOUTUBE_URL }}" \
+            --build-arg REACT_APP_MIXPANEL_TOKEN="${{ steps.secrets.outputs.REACT_APP_MIXPANEL_TOKEN }}" \
+            -t $IMAGE -t $IMAGE_LATEST \
+            -f frontend/Dockerfile frontend
+          docker push $IMAGE
+          docker push $IMAGE_LATEST
+
+      - name: Deploy to VM
+        uses: google-github-actions/ssh-compute@v1
+        with:
+          instance_name: ${{ env.VM_INSTANCE }}
+          zone: ${{ env.VM_ZONE }}
+          user: bharath_user
+          ssh_private_key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          command: |
+            set -e
+            cd ~/qc_portal
+            git checkout -- . 2>/dev/null || true
+            git clean -fd 2>/dev/null || true
+            git pull --rebase origin main
+            docker compose -f docker-compose.prod.yml down --remove-orphans
+            docker build --no-cache \
+              -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/backend:latest \
+              -f backend/Dockerfile .
+            docker build --no-cache \
+              --build-arg REACT_APP_API_URL="" \
+              --build-arg REACT_APP_WEBSITE_URL="${{ steps.secrets.outputs.REACT_APP_WEBSITE_URL }}" \
+              --build-arg REACT_APP_LINKEDIN_URL="${{ steps.secrets.outputs.REACT_APP_LINKEDIN_URL }}" \
+              --build-arg REACT_APP_TWITTER_URL="${{ steps.secrets.outputs.REACT_APP_TWITTER_URL }}" \
+              --build-arg REACT_APP_YOUTUBE_URL="${{ steps.secrets.outputs.REACT_APP_YOUTUBE_URL }}" \
+              --build-arg REACT_APP_MIXPANEL_TOKEN="${{ steps.secrets.outputs.REACT_APP_MIXPANEL_TOKEN }}" \
+              -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/frontend:latest \
+              -f frontend/Dockerfile frontend
+            docker compose -f docker-compose.prod.yml up -d
+            docker container prune -f
+            docker image prune -af
+            sleep 10
+            curl -sf http://localhost:8000/api/health

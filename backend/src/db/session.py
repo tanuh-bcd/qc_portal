@@ -90,13 +90,21 @@ def _build_direct_engine(db_name):
     )
 
 
-# Clinician DB (bcd_application2)
-engine = _build_engine(settings.MYSQL_DB)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Questionnaire DB (bcd_questionnaire)
-questionnaire_engine = _build_engine(settings.MYSQL_DB_QUESTIONNAIRE)
-QuestionnaireSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=questionnaire_engine)
+# Local SQLite override for QC tables (dev only)
+_local_db = os.environ.get("QC_LOCAL_DB")
+if _local_db and os.path.isfile(_local_db):
+    engine = create_engine(
+        f"sqlite:///{_local_db}",
+        connect_args={"check_same_thread": False},
+    )
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    questionnaire_engine = engine
+    QuestionnaireSessionLocal = SessionLocal
+else:
+    engine = _build_engine(settings.MYSQL_DB)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    questionnaire_engine = _build_engine(settings.MYSQL_DB_QUESTIONNAIRE)
+    QuestionnaireSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=questionnaire_engine)
 
 
 def get_db():

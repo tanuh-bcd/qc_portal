@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text
 from ..db.session import get_db, get_questionnaire_db
+from ..db.sql_compat import expand_in
 from ..models.models import DoctorAssessment, Attachment, Hospital, Assignment
 from ..schemas.schemas import PatientSessionListItem, PatientSessionDetail
 from .auth import get_current_user
@@ -73,16 +74,18 @@ def get_hospital_summary(
         return []
 
     valid_names = [h.qc_name for h in hospitals]
-    params = {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_names)}
+    params = {}
+    inst_ph = expand_in("iq", INSTITUTE_QUESTIONS, params)
+    vn_ph = expand_in("vn", valid_names, params)
 
-    session_hosp_rows = q_db.execute(text("""
+    session_hosp_rows = q_db.execute(text(f"""
         SELECT s.qc_session_id, sd_inst.answer AS hospital_name
         FROM qc_session_table s
         JOIN (
             SELECT qc_session_id, MIN(qc_answer) AS answer
             FROM qc_session_data_table
-            WHERE qc_question IN :inst_questions
-              AND qc_answer IN :valid_names
+            WHERE qc_question IN {inst_ph}
+              AND qc_answer IN {vn_ph}
             GROUP BY qc_session_id
         ) sd_inst ON s.qc_session_id = sd_inst.qc_session_id
         WHERE s.qc_snehita_lifetime_risk IS NOT NULL
@@ -175,6 +178,8 @@ def get_patient_sessions(
         if not valid_names:
             return []
 
+        params = {}
+        vn_ph = expand_in("vn", valid_names, params)
         rows = q_db.execute(text(f"""
             SELECT s.qc_session_id, s.qc_session_start_time, s.qc_snehita_lifetime_risk,
                    pid.answer AS patient_id, s.qc_risk_category,
@@ -185,7 +190,7 @@ def get_patient_sessions(
                 FROM qc_session_data_table
                 WHERE qc_question IN ('Institute Name', 'Institute Name:',
                                    'Enter the Hospital ID(If any, else leave):', 'Q45')
-                  AND qc_answer IN :valid_names
+                  AND qc_answer IN {vn_ph}
                 GROUP BY qc_session_id
             ) hosp ON s.qc_session_id = hosp.qc_session_id
             LEFT JOIN (
@@ -197,7 +202,7 @@ def get_patient_sessions(
             ) pid ON s.qc_session_id = pid.qc_session_id
             WHERE s.qc_snehita_lifetime_risk IS NOT NULL
             ORDER BY {order_clause}
-        """), {"valid_names": tuple(valid_names)}).fetchall()
+        """), params).fetchall()
     else:
         hospital_id = current_user.get("hospital_id")
         if not hospital_id:
@@ -207,19 +212,21 @@ def get_patient_sessions(
         if not hospital_name:
             raise HTTPException(status_code=400, detail="Hospital not found")
 
+        params = {"hospital_name": hospital_name}
+        q1_ph = expand_in("q1", INSTITUTE_QUESTIONS, params)
         rows = q_db.execute(text(f"""
             SELECT s.qc_session_id, s.qc_session_start_time, s.qc_snehita_lifetime_risk,
-                   pid.answer AS patient_id, s.qc_risk_category,
+                   pid.qc_answer AS patient_id, s.qc_risk_category,
                    NULL AS hospital_name
             FROM qc_session_table s
             JOIN qc_session_data_table sd ON s.qc_session_id = sd.qc_session_id
             LEFT JOIN qc_session_data_table pid ON s.qc_session_id = pid.qc_session_id
               AND pid.qc_question IN ('Enter your Patient ID(if any, else leave):', 'Enter your subject ID:', 'Q44')
-            WHERE sd.qc_question IN :q1
+            WHERE sd.qc_question IN {q1_ph}
               AND sd.qc_answer = :hospital_name
               AND s.qc_snehita_lifetime_risk IS NOT NULL
             ORDER BY {order_clause}
-        """), {"q1": INSTITUTE_QUESTIONS, "hospital_name": hospital_name}).fetchall()
+        """), params).fetchall()
 
     result = []
     for row in rows:

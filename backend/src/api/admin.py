@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict
 from .doctor import _get_attachment_flags, INSTITUTE_QUESTIONS
 from ..db.session import get_db, get_questionnaire_db
+from ..db.sql_compat import expand_in
 from ..models.models import PatientSession, User, Hospital, Role, Machine, DoctorAssessment, Assignment
 from ..schemas.schemas import ( ClinicianOption,
     RadiologistOption, SubjectListItem, AssignRadiologistRequest, AssignmentListItem,
@@ -132,11 +133,13 @@ def get_roles(
 
 
 def _get_subject_hospital(q_db: Session, app_db: Session, session_id: str):
-    row = q_db.execute(text("""
+    params = {"sid": session_id}
+    inst_ph = expand_in("iq", INSTITUTE_QUESTIONS, params)
+    row = q_db.execute(text(f"""
         SELECT qc_answer FROM qc_session_data_table
-        WHERE qc_session_id = :sid AND qc_question IN :inst_questions
+        WHERE qc_session_id = :sid AND qc_question IN {inst_ph}
         LIMIT 1
-    """), {"sid": session_id, "inst_questions": INSTITUTE_QUESTIONS}).fetchone()
+    """), params).fetchone()
     if not row:
         return None
     return app_db.query(Hospital).filter(Hospital.qc_name == row[0]).first()
@@ -231,9 +234,11 @@ def get_subject_clinicians(
 def _bulk_risk_categories(q_db: Session, session_ids: List[str]) -> Dict[str, str]:
     if not session_ids:
         return {}
-    rows = q_db.execute(text("""
-        SELECT qc_session_id, qc_risk_category FROM qc_session_table WHERE qc_session_id IN :ids
-    """), {"ids": tuple(session_ids)}).fetchall()
+    params = {}
+    ids_ph = expand_in("id", session_ids, params)
+    rows = q_db.execute(text(f"""
+        SELECT qc_session_id, qc_risk_category FROM qc_session_table WHERE qc_session_id IN {ids_ph}
+    """), params).fetchall()
     return {r[0]: r[1] for r in rows}
 
 

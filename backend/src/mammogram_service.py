@@ -3,6 +3,7 @@ from collections import Counter, defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, text
 from .models.models import Attachment, DoctorAssessment, Hospital, PatientSession, Machine
+from .db.sql_compat import expand_in
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +25,13 @@ INSTITUTE_QUESTIONS = ('Institute Name', 'Institute Name:', 'Enter the Hospital 
 VALID_BIRADS = {'0', '1', '2', '3', '4', '5'}
 
 
-def _get_institute_filter():
-    return """
+def _get_institute_filter(inst_ph, vn_ph):
+    return f"""
     JOIN (
         SELECT qc_session_id AS session_id, MAX(qc_answer) as answer
         FROM qc_session_data_table
-        WHERE qc_question IN :inst_questions
-          AND qc_answer IN :valid_names
+        WHERE qc_question IN {inst_ph}
+          AND qc_answer IN {vn_ph}
         GROUP BY qc_session_id
     ) sd_inst ON s.qc_session_id = sd_inst.session_id
     """
@@ -55,8 +56,10 @@ def get_total_subjects_count(db: Session, questionnaire_db: Session) -> int:
     if not valid_hospitals:
         return 0
 
-    inst_filter = _get_institute_filter()
-    params = {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_hospitals)}
+    params = {}
+    inst_ph = expand_in("iq", INSTITUTE_QUESTIONS, params)
+    vn_ph = expand_in("vn", valid_hospitals, params)
+    inst_filter = _get_institute_filter(inst_ph, vn_ph)
 
     total_res = questionnaire_db.execute(text(f"""
         SELECT COUNT(DISTINCT s.qc_session_id) as total
@@ -166,8 +169,10 @@ def get_mammogram_by_hospital(db: Session, questionnaire_db: Session) -> list:
 
     subject_counts_by_name = {}
     if valid_hospitals:
-        inst_filter = _get_institute_filter()
-        params = {"inst_questions": INSTITUTE_QUESTIONS, "valid_names": tuple(valid_hospitals)}
+        params = {}
+        inst_ph = expand_in("iq", INSTITUTE_QUESTIONS, params)
+        vn_ph = expand_in("vn", valid_hospitals, params)
+        inst_filter = _get_institute_filter(inst_ph, vn_ph)
         subj_rows = questionnaire_db.execute(text(f"""
             SELECT sd_inst.answer AS institute, COUNT(DISTINCT s.qc_session_id) AS subjects
             FROM qc_session_table s {inst_filter}

@@ -7,7 +7,7 @@ _client = None
 _cache = {}
 
 GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "bcd-prototypes")
-SECRET_PREFIX = os.getenv("SECRET_PREFIX", "bcd-")
+SECRET_PREFIX = os.getenv("SECRET_PREFIX", "qc-bcd-")
 
 
 def _get_client():

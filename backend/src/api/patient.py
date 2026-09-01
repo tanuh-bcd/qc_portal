@@ -94,16 +94,16 @@ def _get_storage_client():
 def _resolve_gcs_blob(gcs_url, client):
     """Parse a `gs://bucket/path/to/object` storage URL into a GCS blob handle.
 
-    Uses urlparse instead of a naive split so the bucket/path split is correct
-    even if the object path itself contains unusual characters. Falls back to
-    the configured default bucket only if the URL has no bucket segment at all
-    (kept for backward compatibility with any older stored URLs).
+    Always reads from the configured GCP_STORAGE_BUCKET regardless of the
+    bucket name embedded in the URL. This ensures QC portal reads from its
+    own anonymized bucket even when URLs synced from BCD reference the
+    original bucket.
     """
     if not gcs_url or not gcs_url.startswith("gs://"):
         raise HTTPException(status_code=400, detail="Invalid storage URL")
 
     parsed = urlparse(gcs_url)
-    bucket_name = parsed.netloc or settings.GCP_STORAGE_BUCKET
+    bucket_name = settings.GCP_STORAGE_BUCKET
     blob_path = parsed.path.lstrip("/")
     if not bucket_name or not blob_path:
         raise HTTPException(status_code=400, detail="Invalid storage URL")

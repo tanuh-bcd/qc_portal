@@ -24,8 +24,8 @@ PROJECT_ID="bcd-prototypes"
 SERVICE_ACCOUNT="tanuh-bcd-portal@${PROJECT_ID}.iam.gserviceaccount.com"
 REGION="asia-south1"
 # TODO: fill in the dedicated QC VM instance name/zone once provisioned.
-VM_INSTANCE=""
-VM_ZONE="asia-south1-c"
+VM_INSTANCE="qc-bcd-portal-instance"
+VM_ZONE="asia-south1-b"
 
 if [ -z "$VM_INSTANCE" ] || [ -z "$VM_ZONE" ]; then
   echo "ERROR: Set VM_INSTANCE and VM_ZONE at the top of this script."
@@ -105,25 +105,20 @@ echo "=== Phase 3: Workload Identity Federation for GitHub Actions ==="
 PROJECT_NUMBER=$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')
 echo "Project number: ${PROJECT_NUMBER}"
 
-# Create WIF pool
-gcloud iam workload-identity-pools create github-pool \
+# Reuse the existing WIF pool (github-actions) shared with BCD portal.
+# Only create a QC-specific OIDC provider under it.
+gcloud iam workload-identity-pools providers create-oidc github-qc-portal \
   --location=global \
-  --display-name="GitHub Actions Pool" \
-  --project="${PROJECT_ID}" 2>/dev/null || echo "WIF pool already exists"
-
-# Create OIDC provider for GitHub
-gcloud iam workload-identity-pools providers create-oidc github-provider \
-  --location=global \
-  --workload-identity-pool=github-pool \
+  --workload-identity-pool=github-actions \
   --issuer-uri="https://token.actions.githubusercontent.com" \
   --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
-  --display-name="GitHub Provider" \
+  --display-name="GitHub QC Portal Provider" \
   --project="${PROJECT_ID}" 2>/dev/null || echo "WIF provider already exists"
 
-# Allow the GitHub repo to impersonate the service account
+# Allow the QC GitHub repo to impersonate the service account
 gcloud iam service-accounts add-iam-policy-binding "${SERVICE_ACCOUNT}" \
   --role="roles/iam.workloadIdentityUser" \
-  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-pool/attribute.repository/ManishaTanuh/qc_bcd_portal" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-actions/attribute.repository/ManishaTanuh/qc_bcd_portal" \
   --project="${PROJECT_ID}"
 
 echo ""
