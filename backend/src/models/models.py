@@ -126,12 +126,6 @@ class ReminderConfiguration(Base):
     updated_by = Column(String(255))
     updated_at = Column(DateTime)
 
-class Language(Base):
-    __tablename__ = "qc_languages"
-
-    qc_code = Column(String(5), primary_key=True)
-    qc_name = Column(String(50), nullable=False)
-
 class Question(Base):
     __tablename__ = "qc_questions"
 

@@ -46,7 +46,7 @@ def _get_bucket():
     # We borrow the same auth mechanism as GCSStorage without creating a full
     # Storage instance — just need the bucket reference.
     client = GCSStorage._get_gcs_client()
-    return client.bucket(os.getenv("GCS_BUCKET", "tanuh-bcd-bucket"))
+    return client.bucket(os.getenv("GCS_BUCKET", "breast-cancer-image-dataset"))
 
 
 def _gcs_prefix() -> str:

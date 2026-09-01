@@ -55,14 +55,6 @@ class HospitalResponse(HospitalBase):
     class Config:
         from_attributes = True
 
-
-class LanguageResponse(BaseModel):
-    qc_code: str
-    qc_name: str
-
-    class Config:
-        from_attributes = True
-
 class QuestionOptionResponse(BaseModel):
     qc_id: int
     qc_option_value: str
