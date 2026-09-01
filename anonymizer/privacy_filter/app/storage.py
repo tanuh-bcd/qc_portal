@@ -8,7 +8,7 @@ Local backend
 
 GCS backend
 ───────────
-  Bucket  : GCS_BUCKET   (default: tanuh-bcd-bucket)
+  Bucket  : GCS_BUCKET   (default: breast-cancer-image-dataset)
   Prefix  : GCS_PREFIX   (default: privacy-app)
   Layout  :
     privacy-app/uploads/<job_id>__<filename>
@@ -85,8 +85,8 @@ class GCSStorage(Storage):  # pragma: no cover - exercised in cloud
     """
     Stores files in gs://<GCS_BUCKET>/<GCS_PREFIX>/{uploads,redacted}/<key>
 
-    Default target: gs://tanuh-bcd-bucket/privacy-app/uploads/...
-                    gs://tanuh-bcd-bucket/privacy-app/redacted/...
+    Default target: gs://breast-cancer-image-dataset/privacy-app/uploads/...
+                    gs://breast-cancer-image-dataset/privacy-app/redacted/...
     """
 
     def __init__(self, bucket: str, prefix: str = "privacy-app") -> None:
@@ -237,7 +237,7 @@ def get_storage() -> Storage:
 
     ENV vars:
         STORAGE_BACKEND          local | gcs        (default: local)
-        GCS_BUCKET               GCS bucket name    (default: tanuh-bcd-bucket)
+        GCS_BUCKET               GCS bucket name    (default: breast-cancer-image-dataset)
         GCS_PREFIX               folder prefix      (default: privacy-app)
         GCS_CREDENTIALS_JSON     path to GCS SA JSON (priority 1)
         GOOGLE_APPLICATION_CREDENTIALS  path to SA JSON (priority 2)
@@ -245,7 +245,7 @@ def get_storage() -> Storage:
     """
     backend = os.getenv("STORAGE_BACKEND", "local").lower()
     if backend == "gcs":
-        bucket = os.getenv("GCS_BUCKET") or os.getenv("PRIVACY_GCS_BUCKET", "dpi-privacy-temp")
+        bucket = os.getenv("GCS_BUCKET") or os.getenv("PRIVACY_GCS_BUCKET", "breast-cancer-image-dataset")
         prefix = os.getenv("GCS_PREFIX", "privacy-app")
         logger.info(
             f"Storage backend: GCS  bucket={bucket}  prefix={prefix}"

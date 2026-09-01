@@ -76,10 +76,18 @@ const RadiologistPage = ({ isEmbedded = false }) => {
       }
     }
     fetchCases();
+
+    const saved = sessionStorage.getItem(CASE_VIEW_STORAGE_KEY);
+    if (saved) {
+      try {
+        const { sessionId, caseItem } = JSON.parse(saved);
+        if (sessionId && caseItem) fetchSessionDetail(sessionId, caseItem);
+      } catch {
+        sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
+      }
+    }
   }, [navigate, isEmbedded]);
 
-  // While the case is open full screen, lock the page behind it and let Esc go back.
-  // Esc is ignored when a dialog is stacked on top — that dialog owns the key.
   useEffect(() => {
     if (!isCaseViewOpen) return;
     const prevOverflow = document.body.style.overflow;
@@ -128,6 +136,8 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     }
   };
 
+  const CASE_VIEW_STORAGE_KEY = 'qc_case_view_state';
+
   const fetchSessionDetail = async (sessionId, caseItem) => {
     try {
       setSelectedCase(caseItem);
@@ -144,6 +154,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
         const data = await response.json();
         setSelectedSession(data);
         setIsCaseViewOpen(true);
+        sessionStorage.setItem(CASE_VIEW_STORAGE_KEY, JSON.stringify({ sessionId, caseItem }));
       } else {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.indexOf('application/json') !== -1) {
@@ -162,6 +173,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
   const closeCaseView = () => {
     setIsCaseViewOpen(false);
     setSelectedSession(null);
+    sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
   };
 
   const closeReviewDialog = () => {
