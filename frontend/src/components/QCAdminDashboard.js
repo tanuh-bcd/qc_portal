@@ -3,13 +3,10 @@ import { PieChart, Pie, Cell } from 'recharts';
 
 const API_BASE = process.env.REACT_APP_API_URL || '';
 
-const RISK_COLORS = { Baseline: '#6ee7b7', Evident: '#fde047', Significant: '#fb923c', High: '#fb7185' };
-const RISK_ORDER = ['Baseline', 'Evident', 'Significant', 'High'];
-
 const authHeaders = () => ({ 'Authorization': `Bearer ${localStorage.getItem('token')}` });
 
-// Shared by both the create form and the assign modal so the two paths
-// always pick cases the same way.
+// Shared by both the create form and the assign modals so every path picks
+// cases the same way.
 const pickRandomSubjects = (pool, count) =>
   [...pool].sort(() => Math.random() - 0.5).slice(0, count).map((s) => s.qc_subject_id);
 
@@ -39,11 +36,15 @@ async function apiPost(path, payload) {
 
 const CheckboxDropdown = ({ label, options, getId, getLabel, selected, onChange, disabled }) => {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const toggle = (id) => {
     const next = new Set(selected);
     next.has(id) ? next.delete(id) : next.add(id);
     onChange(next);
   };
+  const filtered = search.trim()
+    ? options.filter((o) => getLabel(o).toLowerCase().includes(search.trim().toLowerCase()))
+    : options;
   return (
     <div style={{ position: 'relative' }}>
       <button
@@ -57,14 +58,79 @@ const CheckboxDropdown = ({ label, options, getId, getLabel, selected, onChange,
       </button>
       {open && (
         <div style={ddPanelStyle}>
-          {options.length === 0 && <div style={{ padding: 10, fontSize: 13, color: '#888' }}>No options available</div>}
-          {options.map((o) => {
+          <input
+            type="text"
+            autoFocus
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={ddSearchInputStyle}
+          />
+          {filtered.length === 0 && (
+            <div style={{ padding: 10, fontSize: 13, color: '#888' }}>
+              {options.length === 0 ? 'No options available' : 'No matches'}
+            </div>
+          )}
+          {filtered.map((o) => {
             const id = getId(o);
             return (
               <label key={id} style={ddOptionStyle}>
                 <input type="checkbox" checked={selected.has(id)} onChange={() => toggle(id)} style={{ marginRight: 8 }} />
                 {getLabel(o)}
               </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Single-select counterpart to CheckboxDropdown — used for "Select Radiologist" /
+// "Select Mammo Tech" so both pickers look and behave identically, search included.
+const SearchableSelect = ({ placeholder, options, getId, getLabel, value, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const filtered = search.trim()
+    ? options.filter((o) => getLabel(o).toLowerCase().includes(search.trim().toLowerCase()))
+    : options;
+  const selectedOption = options.find((o) => String(getId(o)) === String(value));
+  const pick = (id) => {
+    onChange(id);
+    setOpen(false);
+    setSearch('');
+  };
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={ddButtonStyle}
+      >
+        {selectedOption ? getLabel(selectedOption) : placeholder}
+        <span style={{ marginLeft: 8 }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={ddPanelStyle}>
+          <input
+            type="text"
+            autoFocus
+            placeholder="Search..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={ddSearchInputStyle}
+          />
+          {filtered.length === 0 && (
+            <div style={{ padding: 10, fontSize: 13, color: '#888' }}>
+              {options.length === 0 ? 'No options available' : 'No matches'}
+            </div>
+          )}
+          {filtered.map((o) => {
+            const id = getId(o);
+            return (
+              <div key={id} style={ddOptionStyle} onClick={() => pick(id)}>
+                {getLabel(o)}
+              </div>
             );
           })}
         </div>
@@ -107,9 +173,9 @@ const DonutStat = ({ title, completed, total, pending, extraLabel, extraValue })
             <Pie
               data={data}
               dataKey="value"
-              innerRadius={65}
-              outerRadius={100}
-              startAngle={100}
+              innerRadius={85}
+              outerRadius={130}
+              startAngle={130}
               endAngle={-270}
               labelLine={false}
               label={total > 0 ? renderSliceLabel({ Completed: '#ffffff', Pending: '#ffffff' }) : false}
@@ -143,77 +209,24 @@ const DonutStat = ({ title, completed, total, pending, extraLabel, extraValue })
   );
 };
 
-const SubjectsPie = ({ assigned, unassigned }) => {
-  const total = assigned + unassigned;
-  const denom = total || 1;
-  const data = total > 0
-    ? [{ name: 'Assigned', value: assigned }, { name: 'Unassigned', value: unassigned }]
-    : [{ name: 'Unassigned', value: 1 }];
-  const pct = (v) => Math.round((v / denom) * 100);
-  return (
-    <div style={cardStyle}>
-      <div style={cardTitleStyle}>Subjects</div>
-
-      <div style={cardBodyStyle}>
-        <div style={{ width: 260, height: 160 }}>
-          <PieChart width={260} height={160}>
-            <Pie
-              data={data}
-              dataKey="value"
-              outerRadius={70}
-              labelLine={false}
-              label={total > 0 ? renderSliceLabel({ Assigned: '#ffffff', Unassigned: '#0f5f63' }) : false}
-              isAnimationActive={false}
-            >
-              <Cell fill={total > 0 ? '#14868C' : '#a7e8d0'} stroke="none" />
-              <Cell fill="#a7e8d0" stroke="none" />
-            </Pie>
-          </PieChart>
-        </div>
-      </div>
-
-      <div style={{ ...cardFooterStyle, fontSize: 13, textAlign: 'left' }}>
-        <div style={legendRowStyle}><span style={{ ...legendDotStyle, background: '#14868C' }} />Assigned&nbsp;<strong>{assigned} ({pct(assigned)}%)</strong></div>
-        <div style={legendRowStyle}><span style={{ ...legendDotStyle, background: '#a7e8d0' }} />Unassigned&nbsp;<strong>{unassigned} ({pct(unassigned)}%)</strong></div>
-        <div style={{ marginTop: 6, color: '#888' }}>Total Subjects&nbsp;<strong>{total}</strong></div>
-      </div>
-    </div>
-  );
-};
-
-const riskLabel = (risk) => (risk ? risk.replace(' Risk', '') : null);
-
-const RiskBadge = ({ risk }) => {
-  const label = riskLabel(risk);
-  if (!label) return <span style={{ color: '#aaa' }}>-</span>;
-  return (
-    <span style={{
-      display: 'inline-block', padding: '3px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600,
-      backgroundColor: RISK_COLORS[label] || '#eee', color: '#111',
-    }}>{label}</span>
-  );
-};
-
-const StatusBadge = ({ status }) => (
-  <span style={{
-    display: 'inline-block', padding: '3px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600,
-    backgroundColor: status === 'Completed' ? '#e3f5e9' : '#fdf0da',
-    color: status === 'Completed' ? '#1e7e4b' : '#b0691c',
-  }}>{status}</span>
-);
-
 const QCAdminDashboard = () => {
   const [subjects, setSubjects] = useState([]);
   const [radiologists, setRadiologists] = useState([]);
+  const [mammotechs, setMammotechs] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Create User (Radiologist or Mammo Tech)
+  const [createRole, setCreateRole] = useState('Mammo Tech');
   const [createForm, setCreateForm] = useState({ fullName: '', email: '', password: '' });
   const [createSelectedSubjects, setCreateSelectedSubjects] = useState(new Set());
   const [createAssignMode, setCreateAssignMode] = useState('random');
   const [createRandomCount, setCreateRandomCount] = useState('');
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Assign Radiologist (cases whose Mammo Tech review is Accepted)
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignRadiologistId, setAssignRadiologistId] = useState('');
   const [assignSelectedSubjects, setAssignSelectedSubjects] = useState(new Set());
@@ -221,17 +234,27 @@ const QCAdminDashboard = () => {
   const [assignMode, setAssignMode] = useState('manual');
   const [randomCount, setRandomCount] = useState('');
 
+  // Assign Mammo Tech (cases with an assessment submitted)
+  const [assignMTModalOpen, setAssignMTModalOpen] = useState(false);
+  const [assignMammoTechId, setAssignMammoTechId] = useState('');
+  const [assignMTSelectedSubjects, setAssignMTSelectedSubjects] = useState(new Set());
+  const [assigningMT, setAssigningMT] = useState(false);
+  const [assignMTMode, setAssignMTMode] = useState('manual');
+  const [mtRandomCount, setMtRandomCount] = useState('');
+
   const loadAll = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [subjectsData, radiologistsData, assignmentsData] = await Promise.all([
+      const [subjectsData, radiologistsData, mammotechsData, assignmentsData] = await Promise.all([
         apiGet('/api/v1/qc/admin/subjects'),
         apiGet('/api/v1/qc/admin/radiologists'),
+        apiGet('/api/v1/qc/admin/mammotechs'),
         apiGet('/api/v1/qc/admin/assignments'),
       ]);
       setSubjects(subjectsData);
       setRadiologists(radiologistsData);
+      setMammotechs(mammotechsData);
       setAssignments(assignmentsData);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data');
@@ -242,35 +265,58 @@ const QCAdminDashboard = () => {
 
   useEffect(() => { loadAll(); }, []);
 
-  const unassignedSubjects = subjects.filter(s => s.assignment_status === 'Unassigned');
-  const assignedCount = subjects.length - unassignedSubjects.length;
+  // Mammo Tech assignment list: assessment_submitted = Yes (every subject qualifies —
+  // every row here already has an assessment) and not yet assigned to a Mammo Tech.
+  const mammoTechUnassigned = subjects.filter(s => s.mammo_tech_status === 'Unassigned');
+  // Radiologist assignment list: status = Accepted (i.e. the Mammo Tech's image-quality
+  // review passed). Both manual and random pools are capped at this same "how many
+  // cases have been Accepted" count, so random-assign can never ask for more than
+  // that — already-completed cases are still excluded server-side either way.
+  const radiologistEligible = subjects.filter(s => s.mammo_tech_status === 'Accepted');
+
   const completedCount = assignments.filter(a => a.status === 'Completed').length;
   const pendingCount = assignments.length - completedCount;
   const acceptanceRate = assignments.length ? Math.round((completedCount / assignments.length) * 100) : 0;
 
-  const riskCounts = subjects.reduce((acc, s) => {
-    const label = riskLabel(s.risk_category);
-    if (label) acc[label] = (acc[label] || 0) + 1;
-    return acc;
-  }, {});
+  const createManualPool = createRole === 'Radiologist' ? radiologistEligible : mammoTechUnassigned;
+  const createRandomPool = createManualPool;
 
-  const handleCreateRadiologist = async () => {
+  // Live validation for the "Number of Cases" inputs — computed on every render
+  // instead of only at submit time, so the red error and the disabled Create/Assign
+  // button stay in sync with whatever count is currently typed.
+  const randomCountError = (countStr, pool, notEnoughMessage) => {
+    if (countStr === '') return null;
+    const count = Number(countStr);
+    if (!count || count <= 0) return 'Enter a valid number of cases to randomly assign.';
+    if (count > pool.length) return notEnoughMessage;
+    return null;
+  };
+
+  const createRandomError = createAssignMode === 'random'
+    ? randomCountError(createRandomCount, createRandomPool, createRole === 'Radiologist'
+        ? `You have ${createRandomPool.length} case(s) accepted.`
+        : `Only ${createRandomPool.length} eligible subject(s) available.`)
+    : null;
+
+  const assignRandomError = assignMode === 'random'
+    ? randomCountError(randomCount, radiologistEligible, `You have ${radiologistEligible.length} case(s) accepted.`)
+    : null;
+
+  const assignMTRandomError = assignMTMode === 'random'
+    ? randomCountError(mtRandomCount, mammoTechUnassigned, `Only ${mammoTechUnassigned.length} unassigned subject(s) available.`)
+    : null;
+
+  const handleCreateUser = async () => {
     if (!createForm.fullName || !createForm.email || !createForm.password) {
       alert('Full Name, Email and Password are required.');
       return;
     }
+    // The Create button is disabled while createRandomError is set, but guard here
+    // too in case the pool shrank between render and click.
+    if (createAssignMode === 'random' && createRandomError) return;
     let caseIds;
     if (createAssignMode === 'random') {
-      const count = Number(createRandomCount);
-      if (!count || count <= 0) {
-        alert('Enter a valid number of cases to randomly assign.');
-        return;
-      }
-      if (count > unassignedSubjects.length) {
-        alert(`Only ${unassignedSubjects.length} unassigned subject(s) available.`);
-        return;
-      }
-      caseIds = pickRandomSubjects(unassignedSubjects, count);
+      caseIds = pickRandomSubjects(createRandomPool, Number(createRandomCount));
     } else {
       caseIds = Array.from(createSelectedSubjects);
     }
@@ -281,13 +327,13 @@ const QCAdminDashboard = () => {
         full_name: createForm.fullName,
         email: createForm.email,
         password: createForm.password,
-        role: 'Radiologist',
+        role: createRole,
         cases: caseIds,
       });
       const failedNote = result.failed_cases && result.failed_cases.length
         ? ` (${result.failed_cases.length} subject(s) could not be matched: ${result.failed_cases.join(', ')})`
         : '';
-      alert(`Radiologist created and ${result.assigned_cases} case(s) assigned.${failedNote}`);
+      alert(`${createRole} created and ${result.assigned_cases} case(s) assigned.${failedNote}`);
       setCreateForm({ fullName: '', email: '', password: '' });
       setCreateSelectedSubjects(new Set());
       setCreateRandomCount('');
@@ -313,19 +359,13 @@ const QCAdminDashboard = () => {
       alert('Select a radiologist.');
       return;
     }
+    // The Assign button is disabled while assignRandomError is set, but guard here
+    // too in case the pool shrank between render and click.
+    if (assignMode === 'random' && assignRandomError) return;
 
     let subjectIds;
     if (assignMode === 'random') {
-      const count = Number(randomCount);
-      if (!count || count <= 0) {
-        alert('Enter a valid number of cases to randomly assign.');
-        return;
-      }
-      if (count > unassignedSubjects.length) {
-        alert(`Only ${unassignedSubjects.length} unassigned subject(s) available.`);
-        return;
-      }
-      subjectIds = pickRandomSubjects(unassignedSubjects, count);
+      subjectIds = pickRandomSubjects(radiologistEligible, Number(randomCount));
     } else {
       if (assignSelectedSubjects.size === 0) {
         alert('Select a radiologist and at least one subject.');
@@ -340,14 +380,63 @@ const QCAdminDashboard = () => {
         radiologist_id: Number(assignRadiologistId),
         subject_ids: subjectIds,
       });
+      const notAcceptedNote = result.not_mammo_tech_accepted_subject_ids && result.not_mammo_tech_accepted_subject_ids.length
+        ? ` ${result.not_mammo_tech_accepted_subject_ids.length} case(s) skipped — Mammo Tech review isn't Accepted yet.`
+        : '';
       alert(`Assigned ${result.assigned_count} subject(s)${result.reassigned_count ? ` (${result.reassigned_count} reassigned)` : ''}.` +
-        (result.blocked_completed_subject_ids.length ? ` ${result.blocked_completed_subject_ids.length} already-completed case(s) were skipped.` : ''));
+        (result.blocked_completed_subject_ids.length ? ` ${result.blocked_completed_subject_ids.length} already-completed case(s) were skipped.` : '') +
+        notAcceptedNote);
       closeAssignModal();
       loadAll();
     } catch (err) {
       alert(`Error: ${err.message}`);
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const closeAssignMTModal = () => {
+    setAssignMTModalOpen(false);
+    setAssignMammoTechId('');
+    setAssignMTSelectedSubjects(new Set());
+    setAssignMTMode('manual');
+    setMtRandomCount('');
+  };
+
+  const handleAssignMammoTech = async () => {
+    if (!assignMammoTechId) {
+      alert('Select a Mammo Tech.');
+      return;
+    }
+    // The Assign button is disabled while assignMTRandomError is set, but guard
+    // here too in case the pool shrank between render and click.
+    if (assignMTMode === 'random' && assignMTRandomError) return;
+
+    let subjectIds;
+    if (assignMTMode === 'random') {
+      subjectIds = pickRandomSubjects(mammoTechUnassigned, Number(mtRandomCount));
+    } else {
+      if (assignMTSelectedSubjects.size === 0) {
+        alert('Select a Mammo Tech and at least one subject.');
+        return;
+      }
+      subjectIds = Array.from(assignMTSelectedSubjects);
+    }
+
+    setAssigningMT(true);
+    try {
+      const result = await apiPost('/api/v1/qc/admin/assign-mammotech', {
+        mammo_tech_id: Number(assignMammoTechId),
+        subject_ids: subjectIds,
+      });
+      alert(`Assigned ${result.assigned_count} subject(s)${result.reassigned_count ? ` (${result.reassigned_count} reassigned)` : ''}.` +
+        (result.blocked_completed_subject_ids.length ? ` ${result.blocked_completed_subject_ids.length} already-completed case(s) were skipped.` : ''));
+      closeAssignMTModal();
+      loadAll();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setAssigningMT(false);
     }
   };
 
@@ -368,26 +457,42 @@ const QCAdminDashboard = () => {
             extraValue={`${acceptanceRate}%`}
           />
         </div>
-        {/* <div style={chartSlotStyle}>
-          <SubjectsPie assigned={assignedCount} unassigned={unassignedSubjects.length} />
-        </div> */}
       </div>
 
-      {/* Right column — Create Radiologist */}
+      {/* Right column — Create User */}
       <div style={formColumnStyle}>
         <div style={{ ...cardStyle, textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12 }}>
-            <div style={{ ...cardTitleStyle, marginBottom: 0 }}>Create Radiologist</div>
-            <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
-              Assign Radiologist
-            </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ ...cardTitleStyle, marginBottom: 0 }}>Create User</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => setAssignMTModalOpen(true)} style={secondaryButtonStyle}>
+                Assign Mammo Tech
+              </button>
+              <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
+                Assign Radiologist
+              </button>
+            </div>
+          </div>
+
+          <div style={fieldStyle}>
+            <label style={labelStyle}>Role</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => { setCreateRole('Mammo Tech'); setCreateSelectedSubjects(new Set()); }}
+                style={modeButtonStyle(createRole === 'Mammo Tech')}>
+                Mammo Tech
+              </button>
+              <button type="button" onClick={() => { setCreateRole('Radiologist'); setCreateSelectedSubjects(new Set()); }}
+                style={modeButtonStyle(createRole === 'Radiologist')}>
+                Radiologist
+              </button>
+            </div>
           </div>
 
           <div style={fieldStyle}>
             <label style={labelStyle}>Full Name</label>
             <input
               style={inputStyle}
-              name="qc-new-radiologist-name"
+              name="qc-new-user-name"
               autoComplete="off"
               spellCheck={false}
               value={createForm.fullName}
@@ -401,7 +506,7 @@ const QCAdminDashboard = () => {
               style={inputStyle}
               type="text"
               inputMode="email"
-              name="qc-new-radiologist-email"
+              name="qc-new-user-email"
               autoComplete="off"
               spellCheck={false}
               value={createForm.email}
@@ -415,7 +520,7 @@ const QCAdminDashboard = () => {
               <input
                 style={{ ...inputStyle, paddingRight: 34 }}
                 type={showPassword ? 'text' : 'password'}
-                name="qc-new-radiologist-password"
+                name="qc-new-user-password"
                 autoComplete="new-password"
                 value={createForm.password}
                 onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
@@ -445,7 +550,7 @@ const QCAdminDashboard = () => {
               <label style={labelStyle}>Assign Subjects</label>
               <CheckboxDropdown
                 label="Select Subjects"
-                options={unassignedSubjects}
+                options={createManualPool}
                 getId={(s) => s.qc_subject_id}
                 getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'}`}
                 selected={createSelectedSubjects}
@@ -459,14 +564,12 @@ const QCAdminDashboard = () => {
                 style={inputStyle}
                 type="number"
                 min="1"
-                max={unassignedSubjects.length}
+                max={createRandomPool.length}
                 placeholder="e.g. 50"
                 value={createRandomCount}
                 onChange={(e) => setCreateRandomCount(e.target.value)}
               />
-              <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
-                {unassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned to the new radiologist.
-              </div>
+              {createRandomError && <div style={errorTextStyle}>{createRandomError}</div>}
             </div>
           )}
 
@@ -474,15 +577,84 @@ const QCAdminDashboard = () => {
               lands on the same line as the bottom of the Subjects card. */}
           <div style={formFooterStyle}>
             <div style={{ fontSize: 12, color: '#888' }}>
-              Total Subjects: {subjects.length} · Unassigned: {unassignedSubjects.length}
+              Total Subjects with Assessments: {subjects.length} · Eligible for {createRole}: {createManualPool.length}
             </div>
-            <button type="button" disabled={creating} onClick={handleCreateRadiologist}
-              style={{ ...primaryButtonStyle, opacity: creating ? 0.7 : 1 }}>
-              {creating ? 'Creating...' : 'Create Radiologist'}
+            <button type="button" disabled={creating || !!createRandomError} onClick={handleCreateUser}
+              style={{ ...primaryButtonStyle, opacity: (creating || createRandomError) ? 0.7 : 1 }}>
+              {creating ? 'Creating...' : `Create ${createRole}`}
             </button>
           </div>
         </div>
       </div>
+
+      {assignMTModalOpen && (
+        <div style={modalOverlayStyle} onClick={closeAssignMTModal}>
+          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Assign Mammo Tech</h3>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Mammo Tech</label>
+              <SearchableSelect
+                placeholder="Select Mammo Tech"
+                options={mammotechs}
+                getId={(m) => m.id}
+                getLabel={(m) => `${m.full_name || m.email} (${m.email})`}
+                value={assignMammoTechId}
+                onChange={setAssignMammoTechId}
+              />
+            </div>
+
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Assignment Mode</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={() => setAssignMTMode('random')}
+                  style={modeButtonStyle(assignMTMode === 'random')}>
+                  Random Assign
+                </button>
+                <button type="button" onClick={() => setAssignMTMode('manual')}
+                  style={modeButtonStyle(assignMTMode === 'manual')}>
+                  Select Manually
+                </button>
+              </div>
+            </div>
+
+            {assignMTMode === 'manual' ? (
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Subjects</label>
+                <CheckboxDropdown
+                  label="Select Subjects"
+                  options={mammoTechUnassigned}
+                  getId={(s) => s.qc_subject_id}
+                  getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'}`}
+                  selected={assignMTSelectedSubjects}
+                  onChange={setAssignMTSelectedSubjects}
+                />
+              </div>
+            ) : (
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Number of Cases</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="1"
+                  max={mammoTechUnassigned.length}
+                  placeholder="e.g. 50"
+                  value={mtRandomCount}
+                  onChange={(e) => setMtRandomCount(e.target.value)}
+                />
+                {assignMTRandomError && <div style={errorTextStyle}>{assignMTRandomError}</div>}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={closeAssignMTModal} style={secondaryButtonStyle}>Cancel</button>
+              <button type="button" disabled={assigningMT || !!assignMTRandomError} onClick={handleAssignMammoTech}
+                style={{ ...primaryButtonStyle, opacity: (assigningMT || assignMTRandomError) ? 0.7 : 1 }}>
+                {assigningMT ? 'Assigning...' : 'Assign Mammo Tech'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {assignModalOpen && (
         <div style={modalOverlayStyle} onClick={closeAssignModal}>
@@ -490,12 +662,14 @@ const QCAdminDashboard = () => {
             <h3 style={{ marginTop: 0 }}>Assign Radiologist</h3>
             <div style={fieldStyle}>
               <label style={labelStyle}>Radiologist</label>
-              <select style={inputStyle} value={assignRadiologistId} onChange={(e) => setAssignRadiologistId(e.target.value)}>
-                <option value="">Select Radiologist</option>
-                {radiologists.map((r) => (
-                  <option key={r.id} value={r.id}>{r.full_name || r.email} ({r.email})</option>
-                ))}
-              </select>
+              <SearchableSelect
+                placeholder="Select Radiologist"
+                options={radiologists}
+                getId={(r) => r.id}
+                getLabel={(r) => `${r.full_name || r.email} (${r.email})`}
+                value={assignRadiologistId}
+                onChange={setAssignRadiologistId}
+              />
             </div>
 
             <div style={fieldStyle}>
@@ -517,7 +691,7 @@ const QCAdminDashboard = () => {
                 <label style={labelStyle}>Subjects</label>
                 <CheckboxDropdown
                   label="Select Subjects"
-                  options={subjects}
+                  options={radiologistEligible}
                   getId={(s) => s.qc_subject_id}
                   getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'} (${s.assignment_status})`}
                   selected={assignSelectedSubjects}
@@ -531,21 +705,19 @@ const QCAdminDashboard = () => {
                   style={inputStyle}
                   type="number"
                   min="1"
-                  max={unassignedSubjects.length}
+                  max={radiologistEligible.length}
                   placeholder="e.g. 50"
                   value={randomCount}
                   onChange={(e) => setRandomCount(e.target.value)}
                 />
-                <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
-                  {unassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned.
-                </div>
+                {assignRandomError && <div style={errorTextStyle}>{assignRandomError}</div>}
               </div>
             )}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
               <button type="button" onClick={closeAssignModal} style={secondaryButtonStyle}>Cancel</button>
-              <button type="button" disabled={assigning} onClick={handleAssignRadiologist}
-                style={{ ...primaryButtonStyle, opacity: assigning ? 0.7 : 1 }}>
+              <button type="button" disabled={assigning || !!assignRandomError} onClick={handleAssignRadiologist}
+                style={{ ...primaryButtonStyle, opacity: (assigning || assignRandomError) ? 0.7 : 1 }}>
                 {assigning ? 'Assigning...' : 'Assign Radiologist'}
               </button>
             </div>
@@ -603,9 +775,9 @@ const cardBodyStyle = {
 
 // Stats/legend sit flush at the bottom of the card.
 const cardFooterStyle = {
-  marginTop: 12,
-  paddingTop: 12,
   borderTop: '1px solid #f1f5f7',
+  marginBottom: 50,
+  paddingTop: 30,
 };
 
 const cardTitleStyle = { fontSize: 14, fontWeight: 700, color: '#333', marginBottom: 12 };
@@ -613,9 +785,6 @@ const cardTitleStyle = { fontSize: 14, fontWeight: 700, color: '#333', marginBot
 const donutCenterStyle = {
   position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center',
 };
-
-const legendRowStyle = { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 };
-const legendDotStyle = { width: 10, height: 10, borderRadius: '50%', display: 'inline-block' };
 
 /* ---------- Form ---------- */
 
@@ -629,6 +798,8 @@ const formFooterStyle = {
   gap: 12,
   flexWrap: 'wrap',
 };
+
+const errorTextStyle = { fontSize: 12, color: '#dc3545', marginTop: 6, fontWeight: 600 };
 
 const fieldStyle = { marginBottom: 14 };
 const labelStyle = { display: 'block', marginBottom: 5, fontWeight: 500, fontSize: 13 };
@@ -669,6 +840,12 @@ const ddPanelStyle = {
 
 const ddOptionStyle = {
   display: 'flex', alignItems: 'center', padding: '8px 12px', fontSize: 13, cursor: 'pointer', borderBottom: '1px solid #f5f5f5',
+};
+
+const ddSearchInputStyle = {
+  position: 'sticky', top: 0, zIndex: 1, width: '100%', boxSizing: 'border-box',
+  padding: '8px 12px', fontSize: 13, border: 'none', borderBottom: '1px solid #e0e0e0',
+  background: '#fff', outline: 'none',
 };
 
 const modalOverlayStyle = {

@@ -6,7 +6,7 @@ from .conftest import get_token
 
 class TestAssessmentSubmission:
     """Test the full assessment flow: session exists in bcd_questionnaire,
-    assessment saved in bcd_application2."""
+    assessment saved in qc_bcd_portal."""
 
     def _get_valid_session_id(self, client):
         """Get a real session ID from bcd_questionnaire via the public endpoint."""

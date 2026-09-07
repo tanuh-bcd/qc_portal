@@ -86,7 +86,7 @@ docker-compose.prod.yml         # Prod: pull from Artifact Registry
 
 The app uses **two separate MySQL databases** on the same Cloud SQL instance (`bcd-prototypes:asia-south1:tanuh-bcd-questionnaire-dev`):
 
-### `bcd_application2` — Clinical/admin data (SQLAlchemy ORM)
+### `qc_bcd_portal` — Clinical/admin data (SQLAlchemy ORM)
 
 | Table | Purpose |
 |-------|---------|

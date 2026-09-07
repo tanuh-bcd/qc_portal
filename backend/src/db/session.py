@@ -90,7 +90,7 @@ def _build_direct_engine(db_name):
     )
 
 
-# Clinician DB (bcd_application2)
+# Clinician DB (qc_portal)
 engine = _build_engine(settings.MYSQL_DB)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

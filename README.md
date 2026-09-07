@@ -124,7 +124,7 @@ For multiple files of the same type (e.g. multiple DICOM slices), a sequence num
 
 ### Database Reference
 
-File metadata (URL, filename, type, MIME type) is stored in the `attachments` table in `bcd_application2`, linked to `doctor_assessments` via `assessment_id`.
+File metadata (URL, filename, type, MIME type) is stored in the `attachments` table in `qc_bcd_portal`, linked to `doctor_assessments` via `assessment_id`.
 
 ```sql
 SELECT file_type, file_name, storage_url FROM attachments WHERE assessment_id = ?;

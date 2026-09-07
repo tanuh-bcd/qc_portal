@@ -2,9 +2,9 @@ import json
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text
+from sqlalchemy import text, func
 from ..db.session import get_db, get_questionnaire_db
-from ..models.models import DoctorAssessment, Attachment, Hospital, Assignment
+from ..models.models import DoctorAssessment, Attachment, Hospital, Assignment, Role
 from ..schemas.schemas import PatientSessionListItem, PatientSessionDetail
 from .auth import get_current_user
 from typing import Dict, List
@@ -268,15 +268,22 @@ def get_patient_session_detail(
     is_super_viewer = current_user.get("is_super_viewer", False) or \
         current_user.get("email", "").lower().endswith("@tanuh.ai")
 
-    if user_role == "radiologist":
-        # Radiologists aren't scoped to a hospital — they're authorized per-case via
-        # qc_assignments instead, since they review cases assigned to them across hospitals.
+    if user_role in ("radiologist", "mammo tech"):
+        # Radiologists and Mammo Techs aren't scoped to a hospital — they're authorized
+        # per-case via qc_assignments instead, since they review cases assigned to them
+        # across hospitals. A Mammo Tech is only authorized once their own qc_role_id-tagged
+        # assignment row exists; a Radiologist also matches legacy (pre-Mammo-Tech) untagged rows.
         assessment_for_auth = app_db.query(DoctorAssessment).filter(
             DoctorAssessment.qc_patient_session_id == session_id
         ).first()
+        role_row = app_db.query(Role).filter(func.lower(Role.qc_name) == user_role).first()
+        role_id = role_row.qc_id if role_row else None
+        role_condition = (Assignment.qc_role_id == role_id) if user_role == "mammo tech" \
+            else ((Assignment.qc_role_id == role_id) | (Assignment.qc_role_id.is_(None)))
         is_assigned = assessment_for_auth is not None and app_db.query(Assignment).filter(
             Assignment.qc_assessment_id == assessment_for_auth.qc_id,
             Assignment.qc_radiologist_id == current_user.get("id"),
+            role_condition,
         ).first() is not None
         if not is_assigned:
             raise HTTPException(status_code=403, detail="Not authorized to view this case")

@@ -2,6 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+// Kept in sync with LoginPage's ROLE_VALUE_TO_NAME — "Mammo Tech" can't be
+// produced by title-casing the <select> value the way admin/radiologist can.
+const ROLE_VALUE_TO_NAME = {
+  admin: 'Admin',
+  radiologist: 'Radiologist',
+  mammotech: 'Mammo Tech',
+};
+
 const ResetPasswordPage = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +58,7 @@ const ResetPasswordPage = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
+          role: ROLE_VALUE_TO_NAME[formData.role] || formData.role,
           email: formData.email,
           new_password: formData.newPassword
         }),
@@ -60,7 +68,7 @@ const ResetPasswordPage = () => {
 
       if (response.ok) {
         toast.success('Password reset successfully! Please login with your new password.');
-        navigate('/qc/login');
+        navigate('/');
       } else {
         toast.error(data.detail || 'Failed to reset password');
       }
@@ -101,6 +109,7 @@ const ResetPasswordPage = () => {
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
                 <option value="radiologist">Radiologist</option>
+                <option value="mammotech">Mammo Tech</option>
               </select>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -130,7 +139,7 @@ const ResetPasswordPage = () => {
             </button>
           </form>
           <div style={{ marginTop: '16px', textAlign: 'center' }}>
-            <button onClick={() => navigate('/qc/login')} style={{ background: 'none', border: 'none', color: '#14868C', cursor: 'pointer', textDecoration: 'underline' }}>
+            <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: '#14868C', cursor: 'pointer', textDecoration: 'underline' }}>
               Back to Login
             </button>
           </div>

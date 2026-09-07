@@ -18,7 +18,7 @@ const AdminPage = () => {
     const hospital = localStorage.getItem('hospitalName');
 
     if (!token || !['admin', 'radiologist'].includes(role)) {
-      navigate('/qc/login');
+      navigate('/');
     } else {
       setUserRole(role);
       setHospitalName(hospital || '');
@@ -35,12 +35,13 @@ const AdminPage = () => {
     localStorage.removeItem('hospitalName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
-    navigate('/qc/login');
+    navigate('/');
   };
 
   const tabs = [
     { id: 'qc-admin', label: 'QC Admin' },
     { id: 'assign-history', label: 'Radiologist History' },
+    { id: 'mammotech-history', label: 'Mammo Tech History' },
   ];
 
   const renderContent = () => {
@@ -52,7 +53,9 @@ const AdminPage = () => {
       // brings its own white background and padding, so no wrapper div — one
       // would only add a band of empty space under the tab strip.
       case 'assign-history':
-        return <RadiologistPage isEmbedded={true} />;
+        return <RadiologistPage isEmbedded={true} roleFilter="radiologist" />;
+      case 'mammotech-history':
+        return <RadiologistPage isEmbedded={true} roleFilter="mammotech" />;
       default:
         return null;
     }

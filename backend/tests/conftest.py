@@ -90,15 +90,17 @@ def _seed_test_data():
 
     session.add(Hospital(qc_id="clinic_00001", qc_name="TestHospital", qc_contact_person="Dr. Test", qc_email="test@hospital.com"))
     session.add(Hospital(qc_id="clinic_00002", qc_name="Test", qc_contact_person="Super Admin", qc_email="super@test.com"))
-    for name in ["Admin", "Radiologist"]:
+    for name in ["Admin", "Radiologist", "Mammo Tech"]:
         session.add(Role(qc_name=name))
     session.commit()
 
     admin_role = session.query(Role).filter(Role.qc_name == "Admin").first()
     radiologist_role = session.query(Role).filter(Role.qc_name == "Radiologist").first()
+    mammo_tech_role = session.query(Role).filter(Role.qc_name == "Mammo Tech").first()
 
     session.add(User(qc_email="admin@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=admin_role.qc_id, qc_is_active=True, qc_full_name="Admin User"))
     session.add(User(qc_email="radiologist@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=radiologist_role.qc_id, qc_is_active=True, qc_full_name="Dr. Radiologist"))
+    session.add(User(qc_email="mammotech@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=mammo_tech_role.qc_id, qc_is_active=True, qc_full_name="Mammo Tech One"))
     session.commit()
     session.close()
 

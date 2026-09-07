@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import './LoginPage.css';
 
+// The login API matches this against qc_roles.qc_name exactly, and localStorage
+// role checks elsewhere lowercase it — "Mammo Tech" can't be produced by simply
+// title-casing the <select> value the way admin/radiologist can.
+const ROLE_VALUE_TO_NAME = {
+  admin: 'Admin',
+  radiologist: 'Radiologist',
+  mammotech: 'Mammo Tech',
+};
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -41,7 +50,7 @@ const LoginPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
+          role: ROLE_VALUE_TO_NAME[formData.role] || formData.role,
           email: formData.email,
           password: formData.password
         }),
@@ -63,6 +72,8 @@ const LoginPage = () => {
           navigate('/qc/admin');
         } else if (roleLower === 'radiologist') {
           navigate('/qc/radiologist');
+        } else if (roleLower === 'mammotech') {
+          navigate('/qc/mammotech');
         }
       } else {
         const errorMsg = data.detail || 'Credentials wrong';
@@ -109,6 +120,7 @@ const LoginPage = () => {
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
                 <option value="radiologist">Radiologist</option>
+                <option value="mammotech">Mammo Tech</option>
               </select>
             </div>
             <div className="login-field">

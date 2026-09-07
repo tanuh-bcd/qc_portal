@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator, Field
+from pydantic import BaseModel, EmailStr, field_validator, model_validator, Field
 from typing import Optional, List
 import datetime
 
@@ -243,10 +243,19 @@ class SubjectListItem(BaseModel):
     radiologist_id: Optional[int] = None
     radiologist_name: Optional[str] = None
     radiologist_email: Optional[str] = None
+    mammo_tech_status: str = "Unassigned"
+    mammo_tech_id: Optional[int] = None
+    mammo_tech_name: Optional[str] = None
+    mammo_tech_email: Optional[str] = None
 
 
 class AssignRadiologistRequest(BaseModel):
     radiologist_id: int
+    subject_ids: List[str]
+
+
+class AssignMammoTechRequest(BaseModel):
+    mammo_tech_id: int
     subject_ids: List[str]
 
 
@@ -309,3 +318,34 @@ class RadiologistReviewCompleteResponse(BaseModel):
     case_id: int
     status: str
     qc_completed_at: Optional[datetime.datetime] = None
+
+
+class RadiologistBreastReviewRequest(BaseModel):
+    accepted: bool
+    comment: Optional[str] = None
+
+    @model_validator(mode="after")
+    def comment_required_when_rejected(self):
+        if self.accepted is False and not (self.comment or "").strip():
+            raise ValueError("Comment is required when annotation is not accepted")
+        return self
+
+
+class MammoTechCaseItem(BaseModel):
+    qc_subject_id: str
+    hospital: Optional[str] = None
+    case_id: int
+    session_id: str
+    status: str
+    has_assessment: bool = True
+
+
+class MammoTechCasesResponse(BaseModel):
+    success: bool = True
+    user_id: int
+    role: str
+    cases: List[MammoTechCaseItem]
+
+
+class MammoTechReviewRequest(BaseModel):
+    quality_accepted: bool

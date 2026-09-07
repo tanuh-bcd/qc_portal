@@ -53,7 +53,7 @@ TRUNCATE TABLE questions;
 TRUNCATE TABLE languages;
 SET FOREIGN_KEY_CHECKS = 1;
 
-USE `bcd_application2`;
+USE `qc_bcd_portal`;
 
 INSERT INTO `languages` (`code`, `name`) VALUES
 ('or','ଓଡ଼ିଆ'),

@@ -7,30 +7,33 @@ import BreastCaseReviewPanel from '../components/BreastCaseReviewPanel';
 const RISK_COLORS = { Baseline: '#6ee7b7', Evident: '#fde047', Significant: '#fb923c', High: '#fb7185' };
 const riskLabel = (risk) => (risk ? risk.replace(' Risk', '') : null);
 
-// Reasons a reader can tick when a case isn't ready to be completed. Worded for
-// mammography — the views, sides and DICOM problems that come up on these cases.
-// More than one can apply, so these are checkboxes. "Other" opens a text box.
-const USABLE_REASON = 'Usable';
-const OTHER_REASON = 'Other';
-const REVIEW_REASONS = [
-  USABLE_REASON,
-  'Not usable: both breasts in one frame',
-  'Not usable: compressed DICOM',
-  'Not usable: missing CC or MLO view',
-  'Not usable: missing left/right side',
-  'Not usable: poor quality / unclear image',
-  'Not usable: missing clinical information',
-  OTHER_REASON,
-];
-
-// Reasons are saved one per line. Older records were joined with '; ', so fall
-// back to that separator only when there are no newlines — otherwise a semicolon
-// typed inside an "Other" description would get split apart.
+// Legacy (pre-two-stage-review) notes were plain text: either free-form review
+// notes, or a checklist of "Not usable: ..." reasons joined one per line (older
+// records used '; ' instead). Only used as a read-only fallback for old cases.
 const splitReasons = (notes) => {
   const text = String(notes || '').trim();
   if (!text) return [];
   const parts = text.includes('\n') ? text.split(/\r?\n/) : text.split(/;\s*/);
   return parts.map(p => p.trim()).filter(Boolean);
+};
+
+// Current-format notes are JSON: {"left": {"accepted": bool, "comment": str|null}, "right": {...}}.
+// Returns null for legacy plain-text notes so callers can fall back to splitReasons.
+const parseReviewNotes = (notes) => {
+  if (!notes) return null;
+  try {
+    const parsed = JSON.parse(notes);
+    return parsed && typeof parsed === 'object' && (parsed.left || parsed.right) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const describeBreastReview = (side, entry) => {
+  if (!entry) return null;
+  const label = side === 'left' ? 'Left' : 'Right';
+  const verdict = entry.accepted ? 'Accepted' : 'Rejected';
+  return entry.comment ? `${label}: ${verdict} — ${entry.comment}` : `${label}: ${verdict}`;
 };
 
 const RiskBadge = ({ risk }) => {
@@ -44,12 +47,16 @@ const RiskBadge = ({ risk }) => {
   );
 };
 
-const RadiologistPage = ({ isEmbedded = false }) => {
+const RadiologistPage = ({ isEmbedded = false, roleFilter = 'radiologist' }) => {
   const navigate = useNavigate();
   const role = (localStorage.getItem('role') || '').toLowerCase();
   // Admins (embedded in AdminPage, or viewing the standalone route directly) see the
   // full cross-hospital assignment history instead of a single radiologist's own cases.
+  // roleFilter picks which role's assignments that history shows (embedded only) —
+  // AdminPage reuses this same component for both the Radiologist and Mammo Tech
+  // history tabs instead of duplicating the table.
   const isAdminView = isEmbedded || role === 'admin';
+  const assigneeLabel = roleFilter === 'mammotech' ? 'Mammo Tech' : 'Radiologist';
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,10 +65,8 @@ const RadiologistPage = ({ isEmbedded = false }) => {
   const [isCaseViewOpen, setIsCaseViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [reviewStage, setReviewStage] = useState(null); // null | 'confirm' | 'notes' | 'reason'
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [reviewReasons, setReviewReasons] = useState([]);
-  const [reviewOtherText, setReviewOtherText] = useState('');
+  const [reviewStage, setReviewStage] = useState(null); // null | 'left' | 'left-comment' | 'right' | 'right-comment'
+  const [reviewComment, setReviewComment] = useState('');
   const [reviewError, setReviewError] = useState(null);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reasonModal, setReasonModal] = useState(null);
@@ -71,7 +76,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     if (!isEmbedded) {
       const token = localStorage.getItem('token');
       if (!token || (role !== 'radiologist' && role !== 'admin')) {
-        navigate('/qc/login');
+        navigate('/');
         return;
       }
     }
@@ -86,7 +91,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
         sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
       }
     }
-  }, [navigate, isEmbedded]);
+  }, [navigate, isEmbedded, roleFilter]);
 
   useEffect(() => {
     if (!isCaseViewOpen) return;
@@ -112,7 +117,9 @@ const RadiologistPage = ({ isEmbedded = false }) => {
         return;
       }
       const apiUrl = process.env.REACT_APP_API_URL || '';
-      const endpoint = isAdminView ? '/api/v1/qc/admin/assignments' : '/api/v1/qc/radiologist/cases';
+      const endpoint = isAdminView
+        ? `/api/v1/qc/admin/assignments?assignment_role=${roleFilter}`
+        : '/api/v1/qc/radiologist/cases';
       const response = await fetch(`${apiUrl}${endpoint}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -178,60 +185,33 @@ const RadiologistPage = ({ isEmbedded = false }) => {
 
   const closeReviewDialog = () => {
     setReviewStage(null);
-    setReviewNotes('');
-    setReviewReasons([]);
-    setReviewOtherText('');
+    setReviewComment('');
     setReviewError(null);
   };
 
-  // "Usable" contradicts every "Not usable" line, so it can't be ticked
-  // alongside them — picking either side clears the other.
-  const toggleReason = (reason) => {
-    setReviewError(null);
-    setReviewReasons((prev) => {
-      if (prev.includes(reason)) return prev.filter(r => r !== reason);
-      if (reason === USABLE_REASON) return [USABLE_REASON];
-      return [...prev.filter(r => r !== USABLE_REASON), reason];
-    });
-  };
-
-  const handleSubmitReview = async () => {
-    const isFlag = reviewStage === 'reason';
-    let notes;
-    if (isFlag) {
-      if (reviewReasons.length === 0) {
-        setReviewError('Select at least one reason.');
-        return;
-      }
-      if (reviewReasons.includes(OTHER_REASON) && !reviewOtherText.trim()) {
-        setReviewError('Describe the other reason.');
-        return;
-      }
-      notes = reviewReasons
-        .map(r => (r === OTHER_REASON ? `Other: ${reviewOtherText.trim()}` : r))
-        .join('\n');
-    } else {
-      if (!reviewNotes.trim()) {
-        setReviewError('Review notes are required.');
-        return;
-      }
-      notes = reviewNotes.trim();
-    }
+  // Posts a Left/Right Breast Annotation decision. Yes on Left advances to the
+  // Right stage; Yes on Right (or any rejection, which just records the mandatory
+  // comment) finishes the dialog and refreshes the case.
+  const submitBreastReview = async (side, accepted, comment) => {
     try {
       setReviewSubmitting(true);
       setReviewError(null);
       const token = localStorage.getItem('token');
       const apiUrl = process.env.REACT_APP_API_URL || '';
-      const endpoint = isFlag ? 'flag' : 'complete';
-      const response = await fetch(`${apiUrl}/api/v1/qc/radiologist/cases/${selectedCase.case_id}/${endpoint}`, {
+      const response = await fetch(`${apiUrl}/api/v1/qc/radiologist/cases/${selectedCase.case_id}/review-${side}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
+        body: JSON.stringify({ accepted, comment: comment || null }),
       });
       if (response.ok) {
-        closeReviewDialog();
-        closeCaseView();
-        fetchCases();
+        if (side === 'left' && accepted) {
+          setReviewComment('');
+          setReviewStage('right');
+        } else {
+          closeReviewDialog();
+          closeCaseView();
+          fetchCases();
+        }
       } else {
         const contentType = response.headers.get('content-type');
         const errorData = contentType && contentType.indexOf('application/json') !== -1 ? await response.json() : null;
@@ -245,6 +225,15 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     }
   };
 
+  const handleSubmitComment = () => {
+    if (!reviewComment.trim()) {
+      setReviewError('Comment is required.');
+      return;
+    }
+    const side = reviewStage === 'left-comment' ? 'left' : 'right';
+    submitBreastReview(side, false, reviewComment.trim());
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -252,7 +241,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('isSuperViewer');
-    navigate('/qc/login');
+    navigate('/');
   };
 
   const filtered = cases.filter(c => {
@@ -324,11 +313,11 @@ const RadiologistPage = ({ isEmbedded = false }) => {
               <thead>
                 <tr style={headerRowStyle}>
                   <th style={thStyle}>QC ID</th>
-                  {/* Radiologist and Email are only meaningful in the cross-hospital
-                      admin history. A radiologist is looking at their own cases. */}
+                  {/* Assignee and Email are only meaningful in the cross-hospital
+                      admin history. A radiologist/mammo tech is looking at their own cases. */}
                   {isAdminView && (
                     <>
-                      <th style={thStyle}>Radiologist</th>
+                      <th style={thStyle}>{assigneeLabel}</th>
                       <th style={thStyle}>Email</th>
                     </>
                   )}
@@ -419,7 +408,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
                 selectedCase?.status === 'Completed' ? (
                   <span style={completedBadgeStyle}>Completed</span>
                 ) : (
-                  <button style={reviewButtonStyle} onClick={() => setReviewStage('confirm')}>
+                  <button style={reviewButtonStyle} onClick={() => setReviewStage('left')}>
                     Review
                   </button>
                 )
@@ -445,83 +434,55 @@ const RadiologistPage = ({ isEmbedded = false }) => {
         </div>
       )}
 
-      {reviewStage === 'confirm' && (
+      {(reviewStage === 'left' || reviewStage === 'right') && (
         <div style={modalOverlayStyle} onClick={closeReviewDialog}>
           <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Confirm Review</h3>
-            <p style={{ color: '#495057' }}>
-              Are you sure you want to review and complete QC ID: {selectedCase?.qc_subject_id}?
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button style={dangerDialogBtnStyle} onClick={() => setReviewStage('reason')}>No</button>
-              <button style={primaryDialogBtnStyle} onClick={() => setReviewStage('notes')}>Yes</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {reviewStage === 'reason' && (
-        <div style={modalOverlayStyle} onClick={closeReviewDialog}>
-          <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Review</h3>
-            <p style={{ color: '#7c8a8d', fontSize: 13, marginTop: 0, marginBottom: 14 }}>
-              Tick everything that applies to QC ID {selectedCase?.qc_subject_id}.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {REVIEW_REASONS.map((reason) => {
-                const checked = reviewReasons.includes(reason);
-                return (
-                  <label key={reason} style={reasonRowStyle(checked)}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleReason(reason)}
-                      style={checkboxInputStyle}
-                    />
-                    <span>{reason}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {reviewReasons.includes(OTHER_REASON) && (
-              <textarea
-                autoFocus
-                style={{ ...reviewTextareaStyle, minHeight: 80, marginTop: 10 }}
-                value={reviewOtherText}
-                onChange={(e) => { setReviewOtherText(e.target.value); setReviewError(null); }}
-                placeholder="Describe the reason..."
-              />
-            )}
+            <h3 style={{ marginTop: 0 }}>
+              {reviewStage === 'left' ? 'Left Breast Annotation Accepted?' : 'Right Breast Annotation Accepted?'}
+            </h3>
+            <p style={{ color: '#495057' }}>QC ID: {selectedCase?.qc_subject_id}</p>
             {reviewError && <p style={{ color: 'red', fontSize: 13, marginTop: 8, marginBottom: 0 }}>{reviewError}</p>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-              <button style={secondaryDialogBtnStyle} onClick={closeReviewDialog} disabled={reviewSubmitting}>Cancel</button>
-              <button style={primaryDialogBtnStyle} onClick={handleSubmitReview} disabled={reviewSubmitting}>
-                {reviewSubmitting ? 'Saving...' : 'Submit'}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+              <button
+                style={dangerDialogBtnStyle}
+                disabled={reviewSubmitting}
+                onClick={() => setReviewStage(reviewStage === 'left' ? 'left-comment' : 'right-comment')}
+              >
+                No
+              </button>
+              <button
+                style={primaryDialogBtnStyle}
+                disabled={reviewSubmitting}
+                onClick={() => submitBreastReview(reviewStage, true, null)}
+              >
+                {reviewSubmitting ? 'Saving...' : 'Yes'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {reviewStage === 'notes' && (
+      {(reviewStage === 'left-comment' || reviewStage === 'right-comment') && (
         <div style={modalOverlayStyle} onClick={closeReviewDialog}>
           <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Review Notes</h3>
+            <h3 style={{ marginTop: 0 }}>
+              {reviewStage === 'left-comment' ? 'Left Breast Annotation — Comment' : 'Right Breast Annotation — Comment'}
+            </h3>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#495057', marginBottom: 6 }}>
-              Notes <span style={{ color: '#dc3545' }}>*</span>
+              Comment <span style={{ color: '#dc3545' }}>*</span>
             </label>
             <textarea
               autoFocus
               style={reviewTextareaStyle}
-              value={reviewNotes}
-              onChange={(e) => { setReviewNotes(e.target.value); setReviewError(null); }}
-              placeholder="Enter your review notes before completing this case..."
+              value={reviewComment}
+              onChange={(e) => { setReviewComment(e.target.value); setReviewError(null); }}
+              placeholder="Describe why the annotation isn't accepted..."
             />
             {reviewError && <p style={{ color: 'red', fontSize: 13, marginTop: 6 }}>{reviewError}</p>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
               <button style={secondaryDialogBtnStyle} onClick={closeReviewDialog} disabled={reviewSubmitting}>Cancel</button>
-              <button style={primaryDialogBtnStyle} onClick={handleSubmitReview} disabled={reviewSubmitting}>
-                {reviewSubmitting ? 'Saving...' : 'OK'}
+              <button style={primaryDialogBtnStyle} onClick={handleSubmitComment} disabled={reviewSubmitting}>
+                {reviewSubmitting ? 'Saving...' : 'Submit'}
               </button>
             </div>
           </div>
@@ -533,9 +494,17 @@ const RadiologistPage = ({ isEmbedded = false }) => {
           <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginTop: 0 }}>Reason — QC ID: {reasonModal.qc_subject_id}</h3>
             <ul style={reasonListStyle}>
-              {splitReasons(reasonModal.review_notes).map((reason, i) => (
-                <li key={i} style={reasonListItemStyle}>{reason}</li>
-              ))}
+              {(() => {
+                const parsed = parseReviewNotes(reasonModal.review_notes);
+                if (parsed) {
+                  const lines = [describeBreastReview('left', parsed.left), describeBreastReview('right', parsed.right)]
+                    .filter(Boolean);
+                  return lines.map((line, i) => <li key={i} style={reasonListItemStyle}>{line}</li>);
+                }
+                return splitReasons(reasonModal.review_notes).map((reason, i) => (
+                  <li key={i} style={reasonListItemStyle}>{reason}</li>
+                ));
+              })()}
             </ul>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
               <button style={primaryDialogBtnStyle} onClick={() => setReasonModal(null)}>Close</button>
@@ -595,11 +564,18 @@ const tdStyle = {
   textAlign: 'center',
 };
 
+const STATUS_COLORS = {
+  Completed: 'green',
+  Accepted: 'green',
+  'In-Progress': '#2563eb',
+  Rejected: '#dc3545',
+};
+
 const statusCellStyle = (status) => ({
   padding: '12px',
   verticalAlign: 'middle',
   textAlign: 'center',
-  color: status === 'Completed' ? 'green' : '#b0691c',
+  color: STATUS_COLORS[status] || '#b0691c',
   fontWeight: 'bold',
 });
 
@@ -684,29 +660,6 @@ const confirmDialogStyle = {
   borderRadius: 10,
   padding: 24,
   boxShadow: '0 5px 15px rgba(0,0,0,0.3)',
-};
-
-const reasonRowStyle = (checked) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '8px 10px',
-  borderRadius: 8,
-  fontSize: 14,
-  color: checked ? '#0e6a6f' : '#495057',
-  fontWeight: checked ? 600 : 400,
-  background: checked ? '#f0fafb' : 'transparent',
-  cursor: 'pointer',
-  userSelect: 'none',
-});
-
-const checkboxInputStyle = {
-  width: 16,
-  height: 16,
-  accentColor: '#14868C',
-  cursor: 'pointer',
-  flexShrink: 0,
-  margin: 0,
 };
 
 const reasonListStyle = {
