@@ -1,4 +1,4 @@
-from sqlalchemy import text, func
+from sqlalchemy import text, func, or_
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
@@ -19,7 +19,8 @@ router = APIRouter()
 
 RADIOLOGIST_ROLE_NAME = "Radiologist"
 ADMIN_ROLE_NAME = "Admin"
-ALLOWED_QC_ROLES = {RADIOLOGIST_ROLE_NAME.lower(), ADMIN_ROLE_NAME.lower()}
+MAMMO_TECH_ROLE_NAME = "Mammo Tech"
+ALLOWED_QC_ROLES = {RADIOLOGIST_ROLE_NAME.lower(), ADMIN_ROLE_NAME.lower(), MAMMO_TECH_ROLE_NAME.lower()}
 
 
 def _get_role_by_name(db: Session, name: str):
@@ -97,9 +98,9 @@ def create_user(
 
     assigned_count = 0
     failed_cases: List[str] = []
-    if user_in.cases and role.qc_name.lower() == RADIOLOGIST_ROLE_NAME.lower():
-        assigned_count, failed_cases, _, _ = _assign_subjects_to_radiologist(
-            db, q_db, db_user.qc_id, user_in.cases, current_user.get("id")
+    if user_in.cases and role.qc_name.lower() in (RADIOLOGIST_ROLE_NAME.lower(), MAMMO_TECH_ROLE_NAME.lower()):
+        assigned_count, failed_cases, _, _ = _assign_subjects_to_role(
+            db, q_db, db_user.qc_id, role, user_in.cases, current_user.get("id")
         )
 
     try:
@@ -242,7 +243,13 @@ def _bulk_risk_categories(q_db: Session, session_ids: List[str]) -> Dict[str, st
     return {r[0]: r[1] for r in rows}
 
 
-def _all_subjects_with_status(app_db: Session, q_db: Session) -> List[SubjectListItem]:
+def _all_subjects_with_status(app_db: Session, q_db: Session, for_role: str = "radiologist") -> List[SubjectListItem]:
+    """for_role scopes which assignments count towards "current"/"unassigned":
+    "radiologist" (default, matches every caller before Mammo Tech existed) matches
+    legacy untagged rows (qc_role_id IS NULL) plus rows explicitly tagged Radiologist;
+    "mammo_tech" matches only rows explicitly tagged Mammo Tech. Without this filter,
+    a Mammo Tech assignment could be picked up as "the" assignment for a subject in
+    the default (Radiologist) view once both kinds of assignment exist."""
     assessments = app_db.query(DoctorAssessment).all()
     if not assessments:
         return []
@@ -252,9 +259,17 @@ def _all_subjects_with_status(app_db: Session, q_db: Session) -> List[SubjectLis
     hospitals = {h.qc_id: h.qc_name for h in app_db.query(Hospital).all()}
 
     assessment_ids = [a.qc_id for a in assessments]
-    assignments = app_db.query(Assignment).filter(
-        Assignment.qc_assessment_id.in_(assessment_ids)
-    ).order_by(Assignment.qc_id.asc()).all()
+    assignments_query = app_db.query(Assignment).filter(Assignment.qc_assessment_id.in_(assessment_ids))
+    if for_role == "mammo_tech":
+        mammo_role = _get_role_by_name(app_db, MAMMO_TECH_ROLE_NAME)
+        assignments_query = assignments_query.filter(Assignment.qc_role_id == (mammo_role.qc_id if mammo_role else -1))
+    else:
+        radiologist_role = _get_role_by_name(app_db, RADIOLOGIST_ROLE_NAME)
+        radiologist_role_id = radiologist_role.qc_id if radiologist_role else -1
+        assignments_query = assignments_query.filter(
+            or_(Assignment.qc_role_id.is_(None), Assignment.qc_role_id == radiologist_role_id)
+        )
+    assignments = assignments_query.order_by(Assignment.qc_id.asc()).all()
     # Last (highest qc_id) assignment per assessment wins as the "current" one.
     assignment_by_assessment = {}
     for asg in assignments:
@@ -298,16 +313,28 @@ def _resolve_subject_ids_to_assessments(app_db: Session, q_db: Session, subject_
     return resolved, missing
 
 
-def _assign_subjects_to_radiologist(app_db: Session, q_db: Session, radiologist_id: int,
-                                     subject_ids: List[str], assigned_by_id: Optional[int]):
-    """Creates/reassigns qc_assignments rows for the given subjects. Returns
-    (assigned_count, failed_subject_ids, reassigned_count, blocked_completed_ids)."""
+def _assign_subjects_to_role(app_db: Session, q_db: Session, assignee_id: int, role: Role,
+                              subject_ids: List[str], assigned_by_id: Optional[int]):
+    """Creates/reassigns qc_assignments rows for the given subjects, tagging each
+    with the role it was made for (qc_role_id). Existing-assignment lookups are
+    scoped to that same role, so a Mammo Tech assignment and a Radiologist
+    assignment can coexist as separate active rows on the same assessment.
+    Radiologist assignments also match legacy rows with qc_role_id IS NULL,
+    since every row created before this role-tagging existed left it unset.
+    Returns (assigned_count, failed_subject_ids, reassigned_count, blocked_completed_ids)."""
+    is_radiologist_role = role.qc_name.lower() == RADIOLOGIST_ROLE_NAME.lower()
     resolved, missing = _resolve_subject_ids_to_assessments(app_db, q_db, subject_ids)
     assessment_ids = list(resolved.values())
-    existing = {
-        a.qc_assessment_id: a for a in
-        app_db.query(Assignment).filter(Assignment.qc_assessment_id.in_(assessment_ids)).all()
-    } if assessment_ids else {}
+    existing = {}
+    if assessment_ids:
+        existing_query = app_db.query(Assignment).filter(Assignment.qc_assessment_id.in_(assessment_ids))
+        if is_radiologist_role:
+            existing_query = existing_query.filter(
+                or_(Assignment.qc_role_id.is_(None), Assignment.qc_role_id == role.qc_id)
+            )
+        else:
+            existing_query = existing_query.filter(Assignment.qc_role_id == role.qc_id)
+        existing = {a.qc_assessment_id: a for a in existing_query.all()}
 
     assigned_count = 0
     reassigned_count = 0
@@ -317,33 +344,44 @@ def _assign_subjects_to_radiologist(app_db: Session, q_db: Session, radiologist_
         if current is None:
             app_db.add(Assignment(
                 qc_assessment_id=assessment_id,
-                qc_radiologist_id=radiologist_id,
+                qc_radiologist_id=assignee_id,
                 qc_assigned_by=assigned_by_id,
                 qc_status="Pending",
+                qc_role_id=role.qc_id,
             ))
             assigned_count += 1
         elif current.qc_status == "Completed":
             blocked_completed_ids.append(subject_id)
-        elif current.qc_radiologist_id != radiologist_id:
+        elif current.qc_radiologist_id != assignee_id:
             current.qc_assigned_by = assigned_by_id
-            current.qc_radiologist_id = radiologist_id
+            current.qc_radiologist_id = assignee_id
+            current.qc_role_id = role.qc_id
             reassigned_count += 1
             assigned_count += 1
-        # else: already assigned to the same radiologist — no-op.
+        # else: already assigned to the same assignee — no-op.
     app_db.commit()
     return assigned_count, missing, reassigned_count, blocked_completed_ids
 
 
+def _assign_subjects_to_radiologist(app_db: Session, q_db: Session, radiologist_id: int,
+                                     subject_ids: List[str], assigned_by_id: Optional[int]):
+    role = _get_role_by_name(app_db, RADIOLOGIST_ROLE_NAME)
+    return _assign_subjects_to_role(app_db, q_db, radiologist_id, role, subject_ids, assigned_by_id)
+
+
 @router.get("/subjects", response_model=List[SubjectListItem])
 def get_all_subjects(
+    for_role: str = Query("radiologist", pattern="^(radiologist|mammo_tech)$"),
     q_db: Session = Depends(get_questionnaire_db),
     app_db: Session = Depends(get_db),
     current_user: dict = Depends(check_admin_role)
 ):
     """All assessments ("subjects") across every hospital, with their current
     assignment status — the source of truth for the QC Admin dashboard. Deliberately
-    unpaginated: the dashboard needs the full set to compute its summary cards."""
-    return _all_subjects_with_status(app_db, q_db)
+    unpaginated: the dashboard needs the full set to compute its summary cards.
+    for_role scopes assignment_status/radiologist_* to that role's own assignments
+    (see _all_subjects_with_status); defaults to "radiologist" for every existing caller."""
+    return _all_subjects_with_status(app_db, q_db, for_role=for_role)
 
 
 @router.get("/radiologists", response_model=List[RadiologistOption])
@@ -365,11 +403,12 @@ def get_assignments(
     radiologist_id: Optional[int] = None,
     hospital_id: Optional[str] = None,
     status_filter: Optional[str] = Query(None, alias="status"),
+    for_role: str = Query("radiologist", pattern="^(radiologist|mammo_tech)$"),
     q_db: Session = Depends(get_questionnaire_db),
     app_db: Session = Depends(get_db),
     current_user: dict = Depends(check_admin_role)
 ):
-    subjects_by_assessment = {s.assessment_id: s for s in _all_subjects_with_status(app_db, q_db)}
+    subjects_by_assessment = {s.assessment_id: s for s in _all_subjects_with_status(app_db, q_db, for_role=for_role)}
 
     hospital_name_filter = None
     if hospital_id:
@@ -377,6 +416,13 @@ def get_assignments(
         hospital_name_filter = hospital.qc_name if hospital else hospital_id
 
     query = app_db.query(Assignment)
+    if for_role == "mammo_tech":
+        mammo_role = _get_role_by_name(app_db, MAMMO_TECH_ROLE_NAME)
+        query = query.filter(Assignment.qc_role_id == (mammo_role.qc_id if mammo_role else -1))
+    else:
+        radiologist_role = _get_role_by_name(app_db, RADIOLOGIST_ROLE_NAME)
+        radiologist_role_id = radiologist_role.qc_id if radiologist_role else -1
+        query = query.filter(or_(Assignment.qc_role_id.is_(None), Assignment.qc_role_id == radiologist_role_id))
     if radiologist_id:
         query = query.filter(Assignment.qc_radiologist_id == radiologist_id)
     if status_filter:

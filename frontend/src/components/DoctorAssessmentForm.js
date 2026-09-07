@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import FileViewer from './FileViewer';
 
-const BIRADS_OPTIONS = [
+export const BIRADS_OPTIONS = [
   { value: '0', label: '0 — Incomplete' },
   { value: '1', label: '1 — Negative' },
   { value: '2', label: '2 — Benign' },
@@ -11,13 +11,13 @@ const BIRADS_OPTIONS = [
   { value: '6', label: '6 — Known Malignancy' },
 ];
 
-const BIRADS_4_SUB = [
+export const BIRADS_4_SUB = [
   { value: '4A', label: '4A — Low suspicion' },
   { value: '4B', label: '4B — Moderate suspicion' },
   { value: '4C', label: '4C — High suspicion' },
 ];
 
-const DENSITY_OPTIONS = [
+export const DENSITY_OPTIONS = [
   { value: 'A', label: 'A — Almost entirely fatty' },
   { value: 'B', label: 'B — Scattered fibroglandular' },
   { value: 'C', label: 'C — Heterogeneously dense' },

@@ -3,6 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import './LoginPage.css';
 
+// Maps the lowercase <select> value to the exact Role.qc_name string the backend
+// expects (auth.py does an exact match) — a naive title-case doesn't work for
+// "mammo tech" -> "Mammo Tech".
+const ROLE_VALUE_TO_NAME = { admin: 'Admin', radiologist: 'Radiologist', 'mammo tech': 'Mammo Tech' };
+
 const LoginPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -41,7 +46,7 @@ const LoginPage = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
+          role: ROLE_VALUE_TO_NAME[formData.role] || formData.role,
           email: formData.email,
           password: formData.password
         }),
@@ -63,6 +68,8 @@ const LoginPage = () => {
           navigate('/qc/admin');
         } else if (roleLower === 'radiologist') {
           navigate('/qc/radiologist');
+        } else if (roleLower === 'mammo tech') {
+          navigate('/qc/mammo-tech');
         }
       } else {
         const errorMsg = data.detail || 'Credentials wrong';
@@ -109,6 +116,7 @@ const LoginPage = () => {
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
                 <option value="radiologist">Radiologist</option>
+                <option value="mammo tech">Mammo Tech</option>
               </select>
             </div>
             <div className="login-field">

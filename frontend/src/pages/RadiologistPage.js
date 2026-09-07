@@ -3,25 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import DoctorAssessmentForm from '../components/DoctorAssessmentForm';
 import BreastCaseReviewPanel from '../components/BreastCaseReviewPanel';
+import DicomCaseViewer from '../components/DicomCaseViewer';
 
 const RISK_COLORS = { Baseline: '#6ee7b7', Evident: '#fde047', Significant: '#fb923c', High: '#fb7185' };
 const riskLabel = (risk) => (risk ? risk.replace(' Risk', '') : null);
-
-// Reasons a reader can tick when a case isn't ready to be completed. Worded for
-// mammography — the views, sides and DICOM problems that come up on these cases.
-// More than one can apply, so these are checkboxes. "Other" opens a text box.
-const USABLE_REASON = 'Usable';
-const OTHER_REASON = 'Other';
-const REVIEW_REASONS = [
-  USABLE_REASON,
-  'Not usable: both breasts in one frame',
-  'Not usable: compressed DICOM',
-  'Not usable: missing CC or MLO view',
-  'Not usable: missing left/right side',
-  'Not usable: poor quality / unclear image',
-  'Not usable: missing clinical information',
-  OTHER_REASON,
-];
 
 // Reasons are saved one per line. Older records were joined with '; ', so fall
 // back to that separator only when there are no newlines — otherwise a semicolon
@@ -58,12 +43,6 @@ const RadiologistPage = ({ isEmbedded = false }) => {
   const [isCaseViewOpen, setIsCaseViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [reviewStage, setReviewStage] = useState(null); // null | 'confirm' | 'notes' | 'reason'
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [reviewReasons, setReviewReasons] = useState([]);
-  const [reviewOtherText, setReviewOtherText] = useState('');
-  const [reviewError, setReviewError] = useState(null);
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reasonModal, setReasonModal] = useState(null);
   const PAGE_SIZE = 10;
 
@@ -71,7 +50,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     if (!isEmbedded) {
       const token = localStorage.getItem('token');
       if (!token || (role !== 'radiologist' && role !== 'admin')) {
-        navigate('/qc/login');
+        navigate('/');
         return;
       }
     }
@@ -88,19 +67,21 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     }
   }, [navigate, isEmbedded]);
 
+  // Only the admin-embedded read-only case view needs this — the radiologist's
+  // own view renders DicomCaseViewer instead, which manages Esc/body-overflow itself.
   useEffect(() => {
-    if (!isCaseViewOpen) return;
+    if (!isCaseViewOpen || !isAdminView) return;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (e) => {
-      if (e.key === 'Escape' && !reviewStage && !reasonModal) closeCaseView();
+      if (e.key === 'Escape' && !reasonModal) closeCaseView();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
       document.body.style.overflow = prevOverflow;
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [isCaseViewOpen, reviewStage, reasonModal]);
+  }, [isCaseViewOpen, isAdminView, reasonModal]);
 
   const fetchCases = async () => {
     try {
@@ -176,75 +157,6 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
   };
 
-  const closeReviewDialog = () => {
-    setReviewStage(null);
-    setReviewNotes('');
-    setReviewReasons([]);
-    setReviewOtherText('');
-    setReviewError(null);
-  };
-
-  // "Usable" contradicts every "Not usable" line, so it can't be ticked
-  // alongside them — picking either side clears the other.
-  const toggleReason = (reason) => {
-    setReviewError(null);
-    setReviewReasons((prev) => {
-      if (prev.includes(reason)) return prev.filter(r => r !== reason);
-      if (reason === USABLE_REASON) return [USABLE_REASON];
-      return [...prev.filter(r => r !== USABLE_REASON), reason];
-    });
-  };
-
-  const handleSubmitReview = async () => {
-    const isFlag = reviewStage === 'reason';
-    let notes;
-    if (isFlag) {
-      if (reviewReasons.length === 0) {
-        setReviewError('Select at least one reason.');
-        return;
-      }
-      if (reviewReasons.includes(OTHER_REASON) && !reviewOtherText.trim()) {
-        setReviewError('Describe the other reason.');
-        return;
-      }
-      notes = reviewReasons
-        .map(r => (r === OTHER_REASON ? `Other: ${reviewOtherText.trim()}` : r))
-        .join('\n');
-    } else {
-      if (!reviewNotes.trim()) {
-        setReviewError('Review notes are required.');
-        return;
-      }
-      notes = reviewNotes.trim();
-    }
-    try {
-      setReviewSubmitting(true);
-      setReviewError(null);
-      const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || '';
-      const endpoint = isFlag ? 'flag' : 'complete';
-      const response = await fetch(`${apiUrl}/api/v1/qc/radiologist/cases/${selectedCase.case_id}/${endpoint}`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
-      });
-      if (response.ok) {
-        closeReviewDialog();
-        closeCaseView();
-        fetchCases();
-      } else {
-        const contentType = response.headers.get('content-type');
-        const errorData = contentType && contentType.indexOf('application/json') !== -1 ? await response.json() : null;
-        setReviewError((errorData && errorData.detail) || `Failed to submit (${response.status})`);
-      }
-    } catch (err) {
-      console.error(err);
-      setReviewError('An error occurred while submitting.');
-    } finally {
-      setReviewSubmitting(false);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -252,7 +164,7 @@ const RadiologistPage = ({ isEmbedded = false }) => {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('isSuperViewer');
-    navigate('/qc/login');
+    navigate('/');
   };
 
   const filtered = cases.filter(c => {
@@ -401,131 +313,44 @@ const RadiologistPage = ({ isEmbedded = false }) => {
       )}
 
       {/* Full-screen case view. Sits above the app header and the admin tab strip,
-          so the case fills the viewport with no chrome behind it. */}
+          so the case fills the viewport with no chrome behind it. The admin's
+          read-only "Radiologist History" view keeps the passive display; the
+          radiologist's own view gets the interactive per-image DICOM viewer. */}
       {isCaseViewOpen && selectedSession && (
-        <div style={caseViewStyle}>
-          <div style={caseViewHeaderStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
-              <button style={backButtonStyle} onClick={closeCaseView}>&#8592; Back to cases</button>
-              <div style={{ minWidth: 0 }}>
-                <h3 style={{ margin: 0, fontSize: 17, color: '#233' }}>QC ID: {selectedCase?.qc_subject_id}</h3>
-                {selectedCase?.hospital_name && (
-                  <div style={{ fontSize: 12.5, color: '#7c8a8d', marginTop: 2 }}>{selectedCase.hospital_name}</div>
-                )}
+        isAdminView ? (
+          <div style={caseViewStyle}>
+            <div style={caseViewHeaderStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
+                <button style={backButtonStyle} onClick={closeCaseView}>&#8592; Back to cases</button>
+                <div style={{ minWidth: 0 }}>
+                  <h3 style={{ margin: 0, fontSize: 17, color: '#233' }}>QC ID: {selectedCase?.qc_subject_id}</h3>
+                  {selectedCase?.hospital_name && (
+                    <div style={{ fontSize: 12.5, color: '#7c8a8d', marginTop: 2 }}>{selectedCase.hospital_name}</div>
+                  )}
+                </div>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              {role === 'radiologist' && (
-                selectedCase?.status === 'Completed' ? (
-                  <span style={completedBadgeStyle}>Completed</span>
-                ) : (
-                  <button style={reviewButtonStyle} onClick={() => setReviewStage('confirm')}>
-                    Review
-                  </button>
-                )
-              )}
+            <div style={caseViewBodyStyle}>
+              <div style={caseViewInnerStyle}>
+                <BreastCaseReviewPanel
+                  sessionId={selectedSession.qc_id}
+                  initialData={selectedSession.assessment}
+                />
+                <DoctorAssessmentForm
+                  sessionId={selectedSession.qc_id}
+                  initialData={selectedSession.assessment}
+                />
+              </div>
             </div>
           </div>
-          <div style={caseViewBodyStyle}>
-            <div style={caseViewInnerStyle}>
-              <BreastCaseReviewPanel
-                sessionId={selectedSession.qc_id}
-                initialData={selectedSession.assessment}
-              />
-              <DoctorAssessmentForm
-                sessionId={selectedSession.qc_id}
-                initialData={selectedSession.assessment}
-                onSaveSuccess={() => {
-                  fetchCases();
-                  setTimeout(closeCaseView, 2000);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {reviewStage === 'confirm' && (
-        <div style={modalOverlayStyle} onClick={closeReviewDialog}>
-          <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Confirm Review</h3>
-            <p style={{ color: '#495057' }}>
-              Are you sure you want to review and complete QC ID: {selectedCase?.qc_subject_id}?
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              <button style={dangerDialogBtnStyle} onClick={() => setReviewStage('reason')}>No</button>
-              <button style={primaryDialogBtnStyle} onClick={() => setReviewStage('notes')}>Yes</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {reviewStage === 'reason' && (
-        <div style={modalOverlayStyle} onClick={closeReviewDialog}>
-          <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, marginBottom: 4 }}>Review</h3>
-            <p style={{ color: '#7c8a8d', fontSize: 13, marginTop: 0, marginBottom: 14 }}>
-              Tick everything that applies to QC ID {selectedCase?.qc_subject_id}.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {REVIEW_REASONS.map((reason) => {
-                const checked = reviewReasons.includes(reason);
-                return (
-                  <label key={reason} style={reasonRowStyle(checked)}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleReason(reason)}
-                      style={checkboxInputStyle}
-                    />
-                    <span>{reason}</span>
-                  </label>
-                );
-              })}
-            </div>
-            {reviewReasons.includes(OTHER_REASON) && (
-              <textarea
-                autoFocus
-                style={{ ...reviewTextareaStyle, minHeight: 80, marginTop: 10 }}
-                value={reviewOtherText}
-                onChange={(e) => { setReviewOtherText(e.target.value); setReviewError(null); }}
-                placeholder="Describe the reason..."
-              />
-            )}
-            {reviewError && <p style={{ color: 'red', fontSize: 13, marginTop: 8, marginBottom: 0 }}>{reviewError}</p>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-              <button style={secondaryDialogBtnStyle} onClick={closeReviewDialog} disabled={reviewSubmitting}>Cancel</button>
-              <button style={primaryDialogBtnStyle} onClick={handleSubmitReview} disabled={reviewSubmitting}>
-                {reviewSubmitting ? 'Saving...' : 'Submit'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {reviewStage === 'notes' && (
-        <div style={modalOverlayStyle} onClick={closeReviewDialog}>
-          <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Review Notes</h3>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#495057', marginBottom: 6 }}>
-              Notes <span style={{ color: '#dc3545' }}>*</span>
-            </label>
-            <textarea
-              autoFocus
-              style={reviewTextareaStyle}
-              value={reviewNotes}
-              onChange={(e) => { setReviewNotes(e.target.value); setReviewError(null); }}
-              placeholder="Enter your review notes before completing this case..."
-            />
-            {reviewError && <p style={{ color: 'red', fontSize: 13, marginTop: 6 }}>{reviewError}</p>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-              <button style={secondaryDialogBtnStyle} onClick={closeReviewDialog} disabled={reviewSubmitting}>Cancel</button>
-              <button style={primaryDialogBtnStyle} onClick={handleSubmitReview} disabled={reviewSubmitting}>
-                {reviewSubmitting ? 'Saving...' : 'OK'}
-              </button>
-            </div>
-          </div>
-        </div>
+        ) : (
+          <DicomCaseViewer
+            initialCaseItem={selectedCase}
+            initialSessionDetail={selectedSession}
+            assignedCases={cases}
+            onClose={() => { closeCaseView(); fetchCases(); }}
+          />
+        )
       )}
 
       {reasonModal && (
@@ -595,11 +420,13 @@ const tdStyle = {
   textAlign: 'center',
 };
 
+const STATUS_COLORS = { Completed: 'green', 'In-Progress': '#1c5f8f' };
+
 const statusCellStyle = (status) => ({
   padding: '12px',
   verticalAlign: 'middle',
   textAlign: 'center',
-  color: status === 'Completed' ? 'green' : '#b0691c',
+  color: STATUS_COLORS[status] || '#b0691c',
   fontWeight: 'bold',
 });
 
@@ -657,26 +484,6 @@ const backButtonStyle = {
   flexShrink: 0,
 };
 
-const reviewButtonStyle = {
-  padding: '8px 18px',
-  borderRadius: 8,
-  border: 'none',
-  background: '#14868C',
-  color: '#fff',
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-};
-
-const completedBadgeStyle = {
-  padding: '4px 12px',
-  borderRadius: 12,
-  fontSize: 13,
-  fontWeight: 600,
-  backgroundColor: '#e3f5e9',
-  color: '#1e7e4b',
-};
-
 const confirmDialogStyle = {
   backgroundColor: '#fff',
   width: '90%',
@@ -684,29 +491,6 @@ const confirmDialogStyle = {
   borderRadius: 10,
   padding: 24,
   boxShadow: '0 5px 15px rgba(0,0,0,0.3)',
-};
-
-const reasonRowStyle = (checked) => ({
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-  padding: '8px 10px',
-  borderRadius: 8,
-  fontSize: 14,
-  color: checked ? '#0e6a6f' : '#495057',
-  fontWeight: checked ? 600 : 400,
-  background: checked ? '#f0fafb' : 'transparent',
-  cursor: 'pointer',
-  userSelect: 'none',
-});
-
-const checkboxInputStyle = {
-  width: 16,
-  height: 16,
-  accentColor: '#14868C',
-  cursor: 'pointer',
-  flexShrink: 0,
-  margin: 0,
 };
 
 const reasonListStyle = {
@@ -728,45 +512,11 @@ const reasonListItemStyle = {
   borderLeft: '3px solid #d7ecec',
 };
 
-const reviewTextareaStyle = {
-  width: '100%',
-  minHeight: 100,
-  padding: '10px 14px',
-  borderRadius: 8,
-  border: '1px solid #d0d7de',
-  fontSize: 14,
-  boxSizing: 'border-box',
-  resize: 'vertical',
-  fontFamily: 'inherit',
-};
-
-const secondaryDialogBtnStyle = {
-  padding: '9px 18px',
-  borderRadius: 8,
-  border: '1px solid #c8e0e2',
-  background: '#fff',
-  color: '#495057',
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-};
-
 const primaryDialogBtnStyle = {
   padding: '9px 18px',
   borderRadius: 8,
   border: 'none',
   background: '#14868C',
-  color: '#fff',
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-};
-
-const dangerDialogBtnStyle = {
-  padding: '9px 18px',
-  borderRadius: 8,
-  border: 'none',
-  background: '#dc3545',
   color: '#fff',
   fontWeight: 600,
   fontSize: 13,

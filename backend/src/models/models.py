@@ -256,7 +256,7 @@ class Assignment(Base):
     qc_assessment_id = Column(Integer, ForeignKey("qc_doctor_assessments.qc_id"), nullable=False)
     qc_radiologist_id = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=False)
     qc_assigned_by = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=True)
-    qc_status = Column(Enum("Pending", "Completed"), nullable=False, server_default=text("'Pending'"))
+    qc_status = Column(Enum("Pending", "In-Progress", "Rejected", "Completed"), nullable=False, server_default=text("'Pending'"))
     qc_assigned_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
     qc_completed_at = Column(TIMESTAMP, nullable=True)
     qc_role_id = Column(Integer, ForeignKey("qc_roles.qc_id"), nullable=True)

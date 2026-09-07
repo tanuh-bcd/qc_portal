@@ -25,7 +25,7 @@ def seed_data():
             print("Hospital already exists")
 
         # 2. Create Roles
-        roles = ["Admin", "Radiologist"]
+        roles = ["Admin", "Radiologist", "Mammo Tech"]
         for role_name in roles:
             role = db.query(models.Role).filter(models.Role.qc_name == role_name).first()
             if not role:

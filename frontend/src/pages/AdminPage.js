@@ -18,13 +18,15 @@ const AdminPage = () => {
     const hospital = localStorage.getItem('hospitalName');
 
     if (!token || !['admin', 'radiologist'].includes(role)) {
-      navigate('/qc/login');
+      navigate('/');
     } else {
       setUserRole(role);
       setHospitalName(hospital || '');
 
       if (role === 'radiologist') {
         navigate('/qc/radiologist');
+      } else if (role === 'mammo tech') {
+        navigate('/qc/mammo-tech');
       }
     }
   }, [navigate]);
@@ -35,7 +37,7 @@ const AdminPage = () => {
     localStorage.removeItem('hospitalName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
-    navigate('/qc/login');
+    navigate('/');
   };
 
   const tabs = [

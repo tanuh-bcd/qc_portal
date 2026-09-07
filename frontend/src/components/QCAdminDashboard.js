@@ -208,12 +208,17 @@ const QCAdminDashboard = () => {
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedSection, setExpandedSection] = useState(null); // null | 'radiologist' | 'mammotech'
   const [createForm, setCreateForm] = useState({ fullName: '', email: '', password: '' });
-  const [createSelectedSubjects, setCreateSelectedSubjects] = useState(new Set());
-  const [createAssignMode, setCreateAssignMode] = useState('random');
-  const [createRandomCount, setCreateRandomCount] = useState('');
   const [creating, setCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [mammoSubjects, setMammoSubjects] = useState([]);
+  const [createMTForm, setCreateMTForm] = useState({ fullName: '', email: '', password: '' });
+  const [createMTSelectedSubjects, setCreateMTSelectedSubjects] = useState(new Set());
+  const [createMTAssignMode, setCreateMTAssignMode] = useState('random');
+  const [createMTRandomCount, setCreateMTRandomCount] = useState('');
+  const [creatingMT, setCreatingMT] = useState(false);
+  const [showMTPassword, setShowMTPassword] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assignRadiologistId, setAssignRadiologistId] = useState('');
   const [assignSelectedSubjects, setAssignSelectedSubjects] = useState(new Set());
@@ -225,14 +230,16 @@ const QCAdminDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [subjectsData, radiologistsData, assignmentsData] = await Promise.all([
+      const [subjectsData, radiologistsData, assignmentsData, mammoSubjectsData] = await Promise.all([
         apiGet('/api/v1/qc/admin/subjects'),
         apiGet('/api/v1/qc/admin/radiologists'),
         apiGet('/api/v1/qc/admin/assignments'),
+        apiGet('/api/v1/qc/admin/subjects?for_role=mammo_tech'),
       ]);
       setSubjects(subjectsData);
       setRadiologists(radiologistsData);
       setAssignments(assignmentsData);
+      setMammoSubjects(mammoSubjectsData);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data');
     } finally {
@@ -242,7 +249,12 @@ const QCAdminDashboard = () => {
 
   useEffect(() => { loadAll(); }, []);
 
+  const toggleSection = (section) => {
+    setExpandedSection((prev) => (prev === section ? null : section));
+  };
+
   const unassignedSubjects = subjects.filter(s => s.assignment_status === 'Unassigned');
+  const mammoUnassignedSubjects = mammoSubjects.filter(s => s.assignment_status === 'Unassigned');
   const assignedCount = subjects.length - unassignedSubjects.length;
   const completedCount = assignments.filter(a => a.status === 'Completed').length;
   const pendingCount = assignments.length - completedCount;
@@ -259,44 +271,68 @@ const QCAdminDashboard = () => {
       alert('Full Name, Email and Password are required.');
       return;
     }
-    let caseIds;
-    if (createAssignMode === 'random') {
-      const count = Number(createRandomCount);
-      if (!count || count <= 0) {
-        alert('Enter a valid number of cases to randomly assign.');
-        return;
-      }
-      if (count > unassignedSubjects.length) {
-        alert(`Only ${unassignedSubjects.length} unassigned subject(s) available.`);
-        return;
-      }
-      caseIds = pickRandomSubjects(unassignedSubjects, count);
-    } else {
-      caseIds = Array.from(createSelectedSubjects);
-    }
 
     setCreating(true);
     try {
-      const result = await apiPost('/api/v1/qc/admin/users', {
+      await apiPost('/api/v1/qc/admin/users', {
         full_name: createForm.fullName,
         email: createForm.email,
         password: createForm.password,
         role: 'Radiologist',
-        cases: caseIds,
       });
-      const failedNote = result.failed_cases && result.failed_cases.length
-        ? ` (${result.failed_cases.length} subject(s) could not be matched: ${result.failed_cases.join(', ')})`
-        : '';
-      alert(`Radiologist created and ${result.assigned_cases} case(s) assigned.${failedNote}`);
+      alert('Radiologist created successfully.');
       setCreateForm({ fullName: '', email: '', password: '' });
-      setCreateSelectedSubjects(new Set());
-      setCreateRandomCount('');
-      setCreateAssignMode('manual');
       loadAll();
     } catch (err) {
       alert(`Error: ${err.message}`);
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCreateMammoTech = async () => {
+    if (!createMTForm.fullName || !createMTForm.email || !createMTForm.password) {
+      alert('Full Name, Email and Password are required.');
+      return;
+    }
+    let caseIds;
+    if (createMTAssignMode === 'random') {
+      const count = Number(createMTRandomCount);
+      if (!count || count <= 0) {
+        alert('Enter a valid number of cases to randomly assign.');
+        return;
+      }
+      if (count > mammoUnassignedSubjects.length) {
+        alert(`Only ${mammoUnassignedSubjects.length} unassigned subject(s) available.`);
+        return;
+      }
+      caseIds = pickRandomSubjects(mammoUnassignedSubjects, count);
+    } else {
+      caseIds = Array.from(createMTSelectedSubjects);
+    }
+
+    setCreatingMT(true);
+    try {
+      const result = await apiPost('/api/v1/qc/admin/users', {
+        full_name: createMTForm.fullName,
+        email: createMTForm.email,
+        password: createMTForm.password,
+        role: 'Mammo Tech',
+        cases: caseIds,
+      });
+      const failedNote = result.failed_cases && result.failed_cases.length
+        ? ` (${result.failed_cases.length} subject(s) could not be matched: ${result.failed_cases.join(', ')})`
+        : '';
+      alert(`Mammo Tech created and ${result.assigned_cases} case(s) assigned.${failedNote}`);
+      setCreateMTForm({ fullName: '', email: '', password: '' });
+      setCreateMTSelectedSubjects(new Set());
+      setCreateMTRandomCount('');
+      setCreateMTAssignMode('random');
+      loadAll();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setCreatingMT(false);
     }
   };
 
@@ -373,113 +409,180 @@ const QCAdminDashboard = () => {
         </div> */}
       </div>
 
-      {/* Right column — Create Radiologist */}
+      {/* Right column — Create Radiologist / Create Mammo Tech accordions */}
       <div style={formColumnStyle}>
         <div style={{ ...cardStyle, textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12 }}>
-            <div style={{ ...cardTitleStyle, marginBottom: 0 }}>Create Radiologist</div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
             <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
               Assign Radiologist
             </button>
           </div>
 
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Full Name</label>
-            <input
-              style={inputStyle}
-              name="qc-new-radiologist-name"
-              autoComplete="off"
-              spellCheck={false}
-              value={createForm.fullName}
-              onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>User Email</label>
-            {/* type="text" + inputMode keeps the email keyboard on mobile without
-                triggering the browser's saved-email autofill on this field. */}
-            <input
-              style={inputStyle}
-              type="text"
-              inputMode="email"
-              name="qc-new-radiologist-email"
-              autoComplete="off"
-              spellCheck={false}
-              value={createForm.email}
-              onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
-          </div>
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Password</label>
-            <div style={{ position: 'relative' }}>
-              {/* autoComplete="new-password" tells the browser this is a password
-                  being set, not the signed-in admin's own saved password. */}
-              <input
-                style={{ ...inputStyle, paddingRight: 34 }}
-                type={showPassword ? 'text' : 'password'}
-                name="qc-new-radiologist-password"
-                autoComplete="new-password"
-                value={createForm.password}
-                onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
-              <span onClick={() => setShowPassword(!showPassword)}
-                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
-                {showPassword ? '🙈' : '👁️'}
-              </span>
+          {/* Create Radiologist — independent of case assignment; no Radiologist
+              is created as a side effect of creating a Mammo Tech, or vice versa. */}
+          <div style={accordionStyle}>
+            <div style={accordionHeaderStyle} onClick={() => toggleSection('radiologist')}>
+              Create Radiologist
+              <span>{expandedSection === 'radiologist' ? '▲' : '▼'}</span>
             </div>
-          </div>
+            {expandedSection === 'radiologist' && (
+              <div style={accordionContentStyle}>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input
+                    style={inputStyle}
+                    name="qc-new-radiologist-name"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createForm.fullName}
+                    onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>User Email</label>
+                  {/* type="text" + inputMode keeps the email keyboard on mobile without
+                      triggering the browser's saved-email autofill on this field. */}
+                  <input
+                    style={inputStyle}
+                    type="text"
+                    inputMode="email"
+                    name="qc-new-radiologist-email"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    {/* autoComplete="new-password" tells the browser this is a password
+                        being set, not the signed-in admin's own saved password. */}
+                    <input
+                      style={{ ...inputStyle, paddingRight: 34 }}
+                      type={showPassword ? 'text' : 'password'}
+                      name="qc-new-radiologist-password"
+                      autoComplete="new-password"
+                      value={createForm.password}
+                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
+                    <span onClick={() => setShowPassword(!showPassword)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
+                      {showPassword ? '🙈' : '👁️'}
+                    </span>
+                  </div>
+                </div>
 
-          <div style={fieldStyle}>
-            <label style={labelStyle}>Assignment Mode</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={() => setCreateAssignMode('random')}
-                style={modeButtonStyle(createAssignMode === 'random')}>
-                Random Assign
-              </button>
-              <button type="button" onClick={() => setCreateAssignMode('manual')}
-                style={modeButtonStyle(createAssignMode === 'manual')}>
-                Select Manually
-              </button>
-            </div>
-          </div>
-
-          {createAssignMode === 'manual' ? (
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Assign Subjects</label>
-              <CheckboxDropdown
-                label="Select Subjects"
-                options={unassignedSubjects}
-                getId={(s) => s.qc_subject_id}
-                getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'}`}
-                selected={createSelectedSubjects}
-                onChange={setCreateSelectedSubjects}
-              />
-            </div>
-          ) : (
-            <div style={fieldStyle}>
-              <label style={labelStyle}>Number of Cases</label>
-              <input
-                style={inputStyle}
-                type="number"
-                min="1"
-                max={unassignedSubjects.length}
-                placeholder="e.g. 50"
-                value={createRandomCount}
-                onChange={(e) => setCreateRandomCount(e.target.value)}
-              />
-              <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
-                {unassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned to the new radiologist.
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" disabled={creating} onClick={handleCreateRadiologist}
+                    style={{ ...primaryButtonStyle, opacity: creating ? 0.7 : 1 }}>
+                    {creating ? 'Creating...' : 'Create Radiologist'}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
-          {/* marginTop:auto pins this to the bottom edge of the card, so it
-              lands on the same line as the bottom of the Subjects card. */}
-          <div style={formFooterStyle}>
-            <div style={{ fontSize: 12, color: '#888' }}>
-              Total Subjects: {subjects.length} · Unassigned: {unassignedSubjects.length}
+          {/* Create Mammo Tech — a separate user-creation workflow with the same
+              random/manual case-assignment UX as Radiologist assignment reuses. */}
+          <div style={{ ...accordionStyle, marginBottom: 0 }}>
+            <div style={accordionHeaderStyle} onClick={() => toggleSection('mammotech')}>
+              Create Mammo Tech
+              <span>{expandedSection === 'mammotech' ? '▲' : '▼'}</span>
             </div>
-            <button type="button" disabled={creating} onClick={handleCreateRadiologist}
-              style={{ ...primaryButtonStyle, opacity: creating ? 0.7 : 1 }}>
-              {creating ? 'Creating...' : 'Create Radiologist'}
-            </button>
+            {expandedSection === 'mammotech' && (
+              <div style={accordionContentStyle}>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input
+                    style={inputStyle}
+                    name="qc-new-mammotech-name"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createMTForm.fullName}
+                    onChange={(e) => setCreateMTForm({ ...createMTForm, fullName: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>User Email</label>
+                  <input
+                    style={inputStyle}
+                    type="text"
+                    inputMode="email"
+                    name="qc-new-mammotech-email"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createMTForm.email}
+                    onChange={(e) => setCreateMTForm({ ...createMTForm, email: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      style={{ ...inputStyle, paddingRight: 34 }}
+                      type={showMTPassword ? 'text' : 'password'}
+                      name="qc-new-mammotech-password"
+                      autoComplete="new-password"
+                      value={createMTForm.password}
+                      onChange={(e) => setCreateMTForm({ ...createMTForm, password: e.target.value })} />
+                    <span onClick={() => setShowMTPassword(!showMTPassword)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
+                      {showMTPassword ? '🙈' : '👁️'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Assignment Mode</label>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => setCreateMTAssignMode('random')}
+                      style={modeButtonStyle(createMTAssignMode === 'random')}>
+                      Random Assign
+                    </button>
+                    <button type="button" onClick={() => setCreateMTAssignMode('manual')}
+                      style={modeButtonStyle(createMTAssignMode === 'manual')}>
+                      Select Manually
+                    </button>
+                  </div>
+                </div>
+
+                {createMTAssignMode === 'manual' ? (
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Select Cases / Subjects</label>
+                    <CheckboxDropdown
+                      label="Select Subjects"
+                      options={mammoUnassignedSubjects}
+                      getId={(s) => s.qc_subject_id}
+                      getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'}`}
+                      selected={createMTSelectedSubjects}
+                      onChange={setCreateMTSelectedSubjects}
+                    />
+                  </div>
+                ) : (
+                  <div style={fieldStyle}>
+                    <label style={labelStyle}>Number of Cases</label>
+                    <input
+                      style={inputStyle}
+                      type="number"
+                      min="1"
+                      max={mammoUnassignedSubjects.length}
+                      placeholder="e.g. 50"
+                      value={createMTRandomCount}
+                      onChange={(e) => setCreateMTRandomCount(e.target.value)}
+                    />
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                      {mammoUnassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned to the new Mammo Tech.
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 12, color: '#888' }}>
+                    Total Subjects: {mammoSubjects.length} · Unassigned: {mammoUnassignedSubjects.length}
+                  </div>
+                  <button type="button" disabled={creatingMT} onClick={handleCreateMammoTech}
+                    style={{ ...primaryButtonStyle, opacity: creatingMT ? 0.7 : 1 }}>
+                    {creatingMT ? 'Creating...' : 'Create Mammo Tech'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -619,15 +722,28 @@ const legendDotStyle = { width: 10, height: 10, borderRadius: '50%', display: 'i
 
 /* ---------- Form ---------- */
 
-const formFooterStyle = {
-  marginTop: 'auto',
-  paddingTop: 14,
-  borderTop: '1px solid #f1f5f7',
+const accordionStyle = {
+  marginBottom: 10,
+  border: '1px solid #ddd',
+  borderRadius: 4,
+  overflow: 'hidden',
+};
+
+const accordionHeaderStyle = {
+  padding: 15,
+  backgroundColor: '#f8f9fa',
+  cursor: 'pointer',
   display: 'flex',
-  alignItems: 'center',
   justifyContent: 'space-between',
-  gap: 12,
-  flexWrap: 'wrap',
+  alignItems: 'center',
+  fontWeight: 'bold',
+  color: '#333',
+};
+
+const accordionContentStyle = {
+  padding: 20,
+  borderTop: '1px solid #ddd',
+  backgroundColor: 'white',
 };
 
 const fieldStyle = { marginBottom: 14 };

@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminPage from './pages/AdminPage';
 import RadiologistPage from './pages/RadiologistPage';
+import MammoTechPage from './pages/MammoTechPage';
 import Footer from './components/Footer';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -32,13 +33,14 @@ function App() {
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             {/* Public pages with Navbar — no login required */}
-            <Route path="/qc" element={<PublicLayout />}>
-              <Route path="login" element={<LoginPage />} />
+            <Route path="/" element={<LoginPage />}>
+              {/* <Route path="login" element={<LoginPage />} /> */}
               <Route path="reset-password" element={<ResetPasswordPage />} />
             </Route>
             {/* Auth-protected pages — no Navbar */}
             <Route path="/qc/admin" element={<AdminPage />} />
             <Route path="/qc/radiologist" element={<RadiologistPage />} />
+            <Route path="/qc/mammo-tech" element={<MammoTechPage />} />
           </Routes>
         </Suspense>
         <Footer />
