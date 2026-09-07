@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -31,8 +31,10 @@ function App() {
       <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
+            <Route path="/" element={<Navigate to="/qc/login" replace />} />
             {/* Public pages with Navbar — no login required */}
             <Route path="/qc" element={<PublicLayout />}>
+              <Route index element={<Navigate to="/qc/login" replace />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="reset-password" element={<ResetPasswordPage />} />
             </Route>
