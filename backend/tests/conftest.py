@@ -90,15 +90,17 @@ def _seed_test_data():
 
     session.add(Hospital(qc_id="clinic_00001", qc_name="TestHospital", qc_contact_person="Dr. Test", qc_email="test@hospital.com"))
     session.add(Hospital(qc_id="clinic_00002", qc_name="Test", qc_contact_person="Super Admin", qc_email="super@test.com"))
-    for name in ["Admin", "Radiologist"]:
+    for name in ["Admin", "Radiologist", "Mammo Tech"]:
         session.add(Role(qc_name=name))
     session.commit()
 
     admin_role = session.query(Role).filter(Role.qc_name == "Admin").first()
     radiologist_role = session.query(Role).filter(Role.qc_name == "Radiologist").first()
+    mammo_tech_role = session.query(Role).filter(Role.qc_name == "Mammo Tech").first()
 
     session.add(User(qc_email="admin@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=admin_role.qc_id, qc_is_active=True, qc_full_name="Admin User"))
     session.add(User(qc_email="radiologist@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=radiologist_role.qc_id, qc_is_active=True, qc_full_name="Dr. Radiologist"))
+    session.add(User(qc_email="mammotech@test.com", qc_password_hash=get_password_hash("password123"), qc_hospital_id="clinic_00001", qc_role_id=mammo_tech_role.qc_id, qc_is_active=True, qc_full_name="Tina Mammo Tech"))
     session.commit()
     session.close()
 
@@ -121,3 +123,77 @@ def get_token(role="Admin", email=None, hospital_id="clinic_00001"):
     if email is None:
         email = f"{role.lower()}@test.com"
     return create_access_token(data={"sub": email, "hospital_id": hospital_id, "role": role})
+
+
+def create_case(hospital_id="clinic_00001", doctor_email="radiologist@test.com"):
+    """Creates a minimal PatientSession + DoctorAssessment ("case") directly via
+    the ORM. The public questionnaire/assessment submission endpoints this would
+    normally go through are not currently wired up on this branch, so admin/
+    radiologist/mammo-tech assignment tests build the case directly instead.
+    Returns (subject_id, assessment_id) — subject_id is what the admin
+    subject-assignment endpoints key on (DoctorAssessment.qc_sub_ui_id, falling
+    back to the session id since qc_sub_ui_id is left unset here)."""
+    import uuid
+    from backend.src.models.models import PatientSession, DoctorAssessment, User
+    db = TestSession()
+    try:
+        doctor = db.query(User).filter(User.qc_email == doctor_email).first()
+        session_id = f"sess_{uuid.uuid4().hex[:12]}"
+        db.add(PatientSession(qc_id=session_id, qc_hospital_id=hospital_id))
+        db.commit()
+        assessment = DoctorAssessment(
+            qc_patient_session_id=session_id,
+            qc_hospital_id=hospital_id,
+            qc_doctor_id=doctor.qc_id,
+            qc_is_questionnaire_correct=True,
+        )
+        db.add(assessment)
+        db.commit()
+        db.refresh(assessment)
+        return session_id, assessment.qc_id
+    finally:
+        db.close()
+
+
+def add_attachment(assessment_id, file_type, file_name=None):
+    """Adds an Attachment row directly via the ORM — there's no live upload
+    endpoint to route through on this branch. Returns the new attachment id."""
+    from backend.src.models.models import Attachment
+    db = TestSession()
+    try:
+        attachment = Attachment(
+            qc_assessment_id=assessment_id,
+            qc_file_type=file_type,
+            qc_file_name=file_name or f"{file_type}.dcm",
+            qc_storage_url=f"gs://test-bucket/{file_type}.dcm",
+            qc_mime_type="application/dicom",
+        )
+        db.add(attachment)
+        db.commit()
+        db.refresh(attachment)
+        return attachment.qc_id
+    finally:
+        db.close()
+
+
+def assign_case(assessment_id, radiologist_email="radiologist@test.com", status="Pending"):
+    """Creates a Radiologist-role Assignment row directly via the ORM, bypassing
+    the admin create/assign endpoints for tests that only care about the
+    radiologist-facing review endpoints. Returns the new assignment id."""
+    from backend.src.models.models import Assignment, Role, User
+    db = TestSession()
+    try:
+        role = db.query(Role).filter(Role.qc_name == "Radiologist").first()
+        radiologist = db.query(User).filter(User.qc_email == radiologist_email).first()
+        assignment = Assignment(
+            qc_assessment_id=assessment_id,
+            qc_radiologist_id=radiologist.qc_id,
+            qc_status=status,
+            qc_role_id=role.qc_id,
+        )
+        db.add(assignment)
+        db.commit()
+        db.refresh(assignment)
+        return assignment.qc_id
+    finally:
+        db.close()

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, field_validator, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, field_validator, model_validator, Field
+from typing import Optional, List, Literal
 import datetime
 
 class UserBase(BaseModel):
@@ -250,6 +250,11 @@ class AssignRadiologistRequest(BaseModel):
     subject_ids: List[str]
 
 
+class AssignMammoTechRequest(BaseModel):
+    mammo_tech_id: int
+    subject_ids: List[str]
+
+
 class AssignmentListItem(BaseModel):
     assignment_id: int
     assessment_id: int
@@ -261,8 +266,15 @@ class AssignmentListItem(BaseModel):
     radiologist_id: int
     radiologist_name: Optional[str] = None
     radiologist_email: Optional[str] = None
+    mammo_tech_id: Optional[int] = None
+    mammo_tech_name: Optional[str] = None
+    mammo_tech_email: Optional[str] = None
+    assigned_at: Optional[datetime.datetime] = None
     status: str
     review_notes: Optional[str] = None
+    submitted_response: Optional[str] = None
+    assigned_radiologist_id: Optional[int] = None
+    assigned_radiologist_name: Optional[str] = None
 
 
 class QCUserCreateRequest(BaseModel):
@@ -292,6 +304,10 @@ class RadiologistCaseItem(BaseModel):
     status: str
     review_notes: Optional[str] = None
     has_assessment: bool = True
+    assigned_at: Optional[datetime.datetime] = None
+    submitted_response: Optional[str] = None
+    assigned_radiologist_id: Optional[int] = None
+    assigned_radiologist_name: Optional[str] = None
 
 
 class RadiologistCasesResponse(BaseModel):
@@ -301,11 +317,45 @@ class RadiologistCasesResponse(BaseModel):
     cases: List[RadiologistCaseItem]
 
 
+class BreastFindingsUpdate(BaseModel):
+    birads: Optional[str] = None
+    birads_4_sub: Optional[str] = None
+    density: Optional[str] = None
+
+
 class RadiologistReviewCompleteRequest(BaseModel):
-    notes: str = Field(..., min_length=1)
+    grade: Literal["Best", "Good", "Bad", "Not a Mammogram"]
+    reason: Optional[str] = None
+    left: Optional[BreastFindingsUpdate] = None
+    right: Optional[BreastFindingsUpdate] = None
+    case_notes: Optional[str] = None
+
+    @model_validator(mode="after")
+    def reason_required_for_bad_grades(self):
+        if self.grade in ("Bad", "Not a Mammogram") and not (self.reason or "").strip():
+            raise ValueError("A reason is required when the grade is Bad or Not a Mammogram")
+        return self
 
 
 class RadiologistReviewCompleteResponse(BaseModel):
     case_id: int
     status: str
     qc_completed_at: Optional[datetime.datetime] = None
+    next_case: Optional[RadiologistCaseItem] = None
+
+
+class MammoTechReviewRequest(BaseModel):
+    confirmation: Literal["yes", "no"]
+    left: Optional[BreastFindingsUpdate] = None
+    right: Optional[BreastFindingsUpdate] = None
+    case_notes: Optional[str] = None
+
+
+class MammoTechReviewResponse(BaseModel):
+    case_id: int
+    status: str
+    assigned_to: int
+    assigned_radiologist_id: Optional[int] = None
+    assigned_radiologist_name: Optional[str] = None
+    message: str
+    next_case: Optional[RadiologistCaseItem] = None

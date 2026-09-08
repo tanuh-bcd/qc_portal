@@ -9,6 +9,7 @@ from .api import (
     admin,
     doctor,
     radiologist,
+    mammo_tech,
 )
 
 # Setup logging
@@ -44,6 +45,7 @@ app.include_router(auth.router, prefix="/api/v1/qc/auth", tags=["auth"])
 app.include_router(patient.router, prefix="/api/v1/qc/patient", tags=["patient"])
 app.include_router(doctor.router, prefix="/api/v1/qc/doctor", tags=["doctor"])
 app.include_router(radiologist.router, prefix="/api/v1/qc/radiologist", tags=["radiologist"])
+app.include_router(mammo_tech.router, prefix="/api/v1/qc/mammo-tech", tags=["mammo-tech"])
 app.include_router(admin.router, prefix="/api/v1/qc/admin", tags=["admin"])
 
 

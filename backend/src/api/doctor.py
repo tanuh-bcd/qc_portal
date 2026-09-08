@@ -275,9 +275,10 @@ def get_patient_session_detail(
     is_super_viewer = current_user.get("is_super_viewer", False) or \
         current_user.get("email", "").lower().endswith("@tanuh.ai")
 
-    if user_role == "radiologist":
-        # Radiologists aren't scoped to a hospital — they're authorized per-case via
-        # qc_assignments instead, since they review cases assigned to them across hospitals.
+    if user_role in ("radiologist", "mammo tech"):
+        # Radiologists and Mammo Techs aren't scoped to a hospital — they're
+        # authorized per-case via qc_assignments instead, since they review
+        # cases assigned to them across hospitals.
         assessment_for_auth = app_db.query(DoctorAssessment).filter(
             DoctorAssessment.qc_patient_session_id == session_id
         ).first()

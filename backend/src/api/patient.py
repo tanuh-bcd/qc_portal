@@ -115,13 +115,13 @@ def _authorize_attachment_access(attachment, db, current_user):
     Raises HTTPException if the current user can't view this attachment.
     Mirrors the auth branching in get_patient_session_detail():
       - super viewers: always allowed
-      - radiologists: allowed only if assigned to this attachment's assessment
+      - radiologists/mammo techs: allowed only if assigned to this attachment's assessment
       - everyone else: allowed only if the assessment belongs to their hospital
     """
     user_role = (current_user.get("role") or "").lower()
     is_super_viewer = current_user.get("is_super_viewer", False) or \
         current_user.get("email", "").lower().endswith("@tanuh.ai")
- 
+
     if is_super_viewer:
         assessment = db.query(DoctorAssessment).filter(
             DoctorAssessment.qc_id == attachment.qc_assessment_id
@@ -129,8 +129,8 @@ def _authorize_attachment_access(attachment, db, current_user):
         if not assessment:
             raise HTTPException(status_code=403, detail="Not authorized to view this file")
         return
- 
-    if user_role == "radiologist":
+
+    if user_role in ("radiologist", "mammo tech"):
         is_assigned = db.query(Assignment).filter(
             Assignment.qc_assessment_id == attachment.qc_assessment_id,
             Assignment.qc_radiologist_id == current_user.get("id"),

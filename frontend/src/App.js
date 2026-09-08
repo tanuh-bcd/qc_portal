@@ -1,10 +1,11 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import LoginPage from './pages/LoginPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import AdminPage from './pages/AdminPage';
 import RadiologistPage from './pages/RadiologistPage';
+import MammoTechPage from './pages/MammoTechPage';
 import Footer from './components/Footer';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -31,16 +32,15 @@ function App() {
       <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
-            <Route path="/" element={<Navigate to="/qc/login" replace />} />
             {/* Public pages with Navbar — no login required */}
-            <Route path="/qc" element={<PublicLayout />}>
-              <Route index element={<Navigate to="/qc/login" replace />} />
-              <Route path="login" element={<LoginPage />} />
+            <Route path="/" element={<LoginPage />}>
+              {/* <Route path="login" element={<LoginPage />} /> */}
               <Route path="reset-password" element={<ResetPasswordPage />} />
             </Route>
             {/* Auth-protected pages — no Navbar */}
             <Route path="/qc/admin" element={<AdminPage />} />
             <Route path="/qc/radiologist" element={<RadiologistPage />} />
+            <Route path="/qc/mammo-tech" element={<MammoTechPage />} />
           </Routes>
         </Suspense>
         <Footer />

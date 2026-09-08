@@ -1,8 +1,9 @@
 import datetime
+import json
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..db.session import get_db
-from ..models.models import Assignment, DoctorAssessment, Hospital
+from ..models.models import Assignment, Attachment, DoctorAssessment, Hospital
 from ..schemas.schemas import (
     RadiologistCasesResponse, RadiologistCaseItem,
     RadiologistReviewCompleteRequest, RadiologistReviewCompleteResponse,
@@ -10,6 +11,7 @@ from ..schemas.schemas import (
 from .auth import get_current_user
 
 router = APIRouter()
+REVIEWABLE_VIEW_TYPES = ["mammo_cc_left", "mammo_cc_right", "mammo_mlo_left", "mammo_mlo_right", "mammo_reading"]
 
 
 def require_radiologist(current_user: dict = Depends(get_current_user)):
@@ -18,16 +20,76 @@ def require_radiologist(current_user: dict = Depends(get_current_user)):
     return current_user
 
 
+def _get_assignment_for_case(app_db: Session, case_id: int, radiologist_id: int) -> Assignment:
+    assignment = app_db.query(Assignment).filter(
+        Assignment.qc_assessment_id == case_id,
+        Assignment.qc_radiologist_id == radiologist_id,
+    ).first()
+    if not assignment:
+        raise HTTPException(status_code=404, detail="Assigned case not found")
+    return assignment
+
+
+def _reviewable_attachments(app_db: Session, assessment: DoctorAssessment) -> list:
+    return app_db.query(Attachment).filter(
+        Attachment.qc_assessment_id == assessment.qc_id,
+        Attachment.qc_file_type.in_(REVIEWABLE_VIEW_TYPES),
+    ).all()
+
+
+# Ordered best-to-worst — mirrors GRADES in frontend/src/constants/caseReviewItems.js.
+GRADES_BY_SEVERITY = ["Best", "Good", "Bad", "Not a Mammogram"]
+
+
+def _case_review(assessment: DoctorAssessment) -> dict:
+    try:
+        feedback = json.loads(assessment.qc_datapoint_feedback or "{}")
+    except (TypeError, ValueError):
+        return {}
+    case_review = feedback.get("case_review") or {}
+    if case_review.get("grade"):
+        return case_review
+    legacy_reviews = [r for r in (feedback.get("image_reviews") or {}).values() if r and r.get("grade")]
+    if not legacy_reviews:
+        return {}
+    worst = max(legacy_reviews, key=lambda r: GRADES_BY_SEVERITY.index(r["grade"]) if r["grade"] in GRADES_BY_SEVERITY else -1)
+    return {
+        "grade": worst.get("grade"),
+        "reason": "; ".join(r["reason"] for r in legacy_reviews if r.get("reason")) or None,
+    }
+
+
+def _merge_clinical_findings(app_db: Session, assessment: DoctorAssessment, left, right, case_notes):
+    if not (left or right or case_notes is not None):
+        return
+    try:
+        existing = assessment.qc_clinical_findings
+        existing = json.loads(existing) if isinstance(existing, str) else (existing or {})
+    except (TypeError, ValueError):
+        existing = {}
+    clinical_findings = {
+        **existing,
+        "left": dict(existing.get("left") or {}),
+        "right": dict(existing.get("right") or {}),
+    }
+    if left:
+        clinical_findings["left"].update({k: v for k, v in left.model_dump().items() if v is not None})
+    if right:
+        clinical_findings["right"].update({k: v for k, v in right.model_dump().items() if v is not None})
+    assessment.qc_clinical_findings = clinical_findings
+    if case_notes is not None:
+        assessment.qc_doctor_case_notes = case_notes
+
+
 @router.get("/cases", response_model=RadiologistCasesResponse)
 def get_my_cases(
     app_db: Session = Depends(get_db),
     current_user: dict = Depends(require_radiologist),
 ):
-    """Cases assigned to the currently authenticated Radiologist. The radiologist
-    id is taken only from the verified JWT (get_current_user) — never from a
-    client-supplied parameter — so one radiologist cannot request another's cases."""
     radiologist_id = current_user["id"]
-    assignments = app_db.query(Assignment).filter(Assignment.qc_radiologist_id == radiologist_id).all()
+    assignments = app_db.query(Assignment).filter(
+        Assignment.qc_radiologist_id == radiologist_id
+    ).order_by(Assignment.qc_id.asc()).all()
 
     if not assignments:
         return RadiologistCasesResponse(user_id=radiologist_id, role=current_user.get("role", ""), cases=[])
@@ -53,6 +115,8 @@ def get_my_cases(
             status=asg.qc_status,
             review_notes=asg.qc_review_notes,
             has_assessment=True,
+            assigned_at=asg.qc_assigned_at,
+            submitted_response=_case_review(assessment).get("grade"),
         ))
 
     return RadiologistCasesResponse(user_id=radiologist_id, role=current_user.get("role", ""), cases=cases)
@@ -65,45 +129,60 @@ def complete_case_review(
     app_db: Session = Depends(get_db),
     current_user: dict = Depends(require_radiologist),
 ):
-    """Marks an assigned case as reviewed and completed. Mandatory notes are required
-    and the assignment must belong to the currently authenticated radiologist."""
-    assignment = app_db.query(Assignment).filter(
-        Assignment.qc_assessment_id == case_id,
-        Assignment.qc_radiologist_id == current_user["id"],
-    ).first()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assigned case not found")
+    assignment = _get_assignment_for_case(app_db, case_id, current_user["id"])
+    if assignment.qc_status == "Completed":
+        raise HTTPException(status_code=400, detail="Case already completed")
+    assessment = app_db.query(DoctorAssessment).filter(DoctorAssessment.qc_id == case_id).first()
+    if not assessment:
+        raise HTTPException(status_code=404, detail="Case not found")
+
+    if not _reviewable_attachments(app_db, assessment):
+        raise HTTPException(status_code=400, detail="No images available on this case")
+
+    try:
+        feedback = json.loads(assessment.qc_datapoint_feedback or "{}")
+    except (TypeError, ValueError):
+        feedback = {}
+    feedback["case_review"] = {
+        "grade": payload.grade,
+        "reason": payload.reason,
+        "reviewed_at": datetime.datetime.utcnow().isoformat(),
+        "reviewed_by": current_user["id"],
+    }
+    assessment.qc_datapoint_feedback = json.dumps(feedback)
+
+    _merge_clinical_findings(app_db, assessment, payload.left, payload.right, payload.case_notes)
 
     assignment.qc_status = "Completed"
-    assignment.qc_review_notes = payload.notes
+    assignment.qc_review_notes = payload.reason
     assignment.qc_completed_at = datetime.datetime.utcnow()
     app_db.commit()
 
-    return RadiologistReviewCompleteResponse(
-        case_id=case_id, status=assignment.qc_status, qc_completed_at=assignment.qc_completed_at
-    )
-
-
-@router.post("/cases/{case_id}/flag", response_model=RadiologistReviewCompleteResponse)
-def flag_case_review(
-    case_id: int,
-    payload: RadiologistReviewCompleteRequest,
-    app_db: Session = Depends(get_db),
-    current_user: dict = Depends(require_radiologist),
-):
-    """Records why the radiologist isn't completing this case yet. The assignment
-    stays Pending — this only leaves a note for the clinician/admin to address,
-    it does not finish the radiologist's review task."""
-    assignment = app_db.query(Assignment).filter(
-        Assignment.qc_assessment_id == case_id,
+    next_assignment = app_db.query(Assignment).filter(
         Assignment.qc_radiologist_id == current_user["id"],
-    ).first()
-    if not assignment:
-        raise HTTPException(status_code=404, detail="Assigned case not found")
+        Assignment.qc_status != "Completed",
+        Assignment.qc_assessment_id != case_id,
+    ).order_by(Assignment.qc_id.asc()).first()
 
-    assignment.qc_review_notes = payload.notes
-    app_db.commit()
+    next_case = None
+    if next_assignment:
+        next_assessment = app_db.query(DoctorAssessment).filter(
+            DoctorAssessment.qc_id == next_assignment.qc_assessment_id
+        ).first()
+        if next_assessment:
+            hospital = app_db.query(Hospital).filter(Hospital.qc_id == next_assessment.qc_hospital_id).first()
+            next_case = RadiologistCaseItem(
+                qc_subject_id=next_assessment.qc_sub_ui_id or next_assessment.qc_patient_session_id,
+                hospital=hospital.qc_name if hospital else None,
+                case_id=next_assessment.qc_id,
+                session_id=next_assessment.qc_patient_session_id,
+                status=next_assignment.qc_status,
+                review_notes=next_assignment.qc_review_notes,
+                has_assessment=True,
+                assigned_at=next_assignment.qc_assigned_at,
+            )
 
     return RadiologistReviewCompleteResponse(
-        case_id=case_id, status=assignment.qc_status, qc_completed_at=assignment.qc_completed_at
+        case_id=case_id, status=assignment.qc_status, qc_completed_at=assignment.qc_completed_at,
+        next_case=next_case,
     )
