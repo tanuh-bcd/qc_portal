@@ -35,7 +35,7 @@ function App() {
             {/* Public pages with Navbar — no login required */}
             <Route path="/" element={<LoginPage />}>
               {/* <Route path="login" element={<LoginPage />} /> */}
-              <Route path="reset-password" element={<ResetPasswordPage />} />
+              <Route path="/qc/reset-password" element={<ResetPasswordPage />} />
             </Route>
             {/* Auth-protected pages — no Navbar */}
             <Route path="/qc/admin" element={<AdminPage />} />

@@ -1,4 +1,5 @@
 import datetime
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text, func, or_
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
@@ -284,12 +285,12 @@ def _all_subjects_with_status(app_db: Session, q_db: Session, for_role: str = "r
 
     items = []
     for a in assessments:
-        qc_subject_id = a.qc_sub_ui_id or a.qc_patient_session_id
+        subject_id = qc_subject_id(app_db, a)
         asg = assignment_by_assessment.get(a.qc_id)
         rad = radiologists.get(asg.qc_radiologist_id) if asg else None
         items.append(SubjectListItem(
             assessment_id=a.qc_id,
-            qc_subject_id=qc_subject_id,
+            qc_subject_id=subject_id,
             session_id=a.qc_patient_session_id,
             hospital_name=hospitals.get(a.qc_hospital_id),
             risk_category=risk_categories.get(a.qc_patient_session_id),
@@ -564,3 +565,21 @@ def assign_mammo_tech(
         "missing_subject_ids": missing,
         "blocked_completed_subject_ids": blocked_completed_ids,
     }
+
+
+def qc_subject_id(app_db: Session, assessment: DoctorAssessment) -> str:
+    """The display id for a case. Older rows (and anything created by a sync
+    that bypasses the ORM) can have qc_sub_ui_id NULL, so derive it from the
+    assessment id and persist it rather than falling back to the raw session
+    UUID, which is what users were seeing in the case list."""
+    if assessment.qc_sub_ui_id:
+        return assessment.qc_sub_ui_id
+
+    value = f"QC_{assessment.qc_id:05d}"
+    try:
+        assessment.qc_sub_ui_id = value
+        app_db.commit()
+    except IntegrityError:
+        # Value already taken by another row — don't persist, just display.
+        app_db.rollback()
+    return value

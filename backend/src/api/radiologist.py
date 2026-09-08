@@ -1,6 +1,7 @@
 import datetime
 import json
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from ..db.session import get_db
 from ..models.models import Assignment, Attachment, DoctorAssessment, Hospital
@@ -18,6 +19,23 @@ def require_radiologist(current_user: dict = Depends(get_current_user)):
     if (current_user.get("role") or "").lower() != "radiologist":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Radiologist access required")
     return current_user
+
+
+def qc_subject_id(assessment: DoctorAssessment) -> str:
+    if assessment.qc_sub_ui_id:
+        return assessment.qc_sub_ui_id
+    assessment.qc_sub_ui_id = f"QC_{assessment.qc_id:05d}"
+    return assessment.qc_sub_ui_id
+
+
+def _persist_derived_subject_ids(app_db: Session) -> None:
+    """Commit any qc_sub_ui_id values filled in by qc_subject_id(). A collision
+    means another row already holds the value, so the derived id is still
+    returned in the response and the row heals on a later load."""
+    try:
+        app_db.commit()
+    except IntegrityError:
+        app_db.rollback()
 
 
 def _get_assignment_for_case(app_db: Session, case_id: int, radiologist_id: int) -> Assignment:
@@ -106,9 +124,8 @@ def get_my_cases(
         assessment = assessments.get(asg.qc_assessment_id)
         if not assessment:
             continue
-        qc_subject_id = assessment.qc_sub_ui_id or assessment.qc_patient_session_id
         cases.append(RadiologistCaseItem(
-            qc_subject_id=qc_subject_id,
+            qc_subject_id=qc_subject_id(assessment),
             hospital=hospitals.get(assessment.qc_hospital_id),
             case_id=assessment.qc_id,
             session_id=assessment.qc_patient_session_id,
@@ -118,6 +135,10 @@ def get_my_cases(
             assigned_at=asg.qc_assigned_at,
             submitted_response=_case_review(assessment).get("grade"),
         ))
+
+    # cases already holds the derived ids as plain strings, so the response is
+    # correct even if this commit rolls back.
+    _persist_derived_subject_ids(app_db)
 
     return RadiologistCasesResponse(user_id=radiologist_id, role=current_user.get("role", ""), cases=cases)
 
@@ -153,6 +174,10 @@ def complete_case_review(
 
     _merge_clinical_findings(app_db, assessment, payload.left, payload.right, payload.case_notes)
 
+    # One assignment row now carries the whole case, so only the radiologist's
+    # own columns are touched here. qc_mammo_tech_id in particular must be left
+    # alone — it is what keeps the case visible in the Mammo Tech's list after
+    # completion.
     assignment.qc_status = "Completed"
     assignment.qc_review_notes = payload.reason
     assignment.qc_completed_at = datetime.datetime.utcnow()
@@ -172,7 +197,7 @@ def complete_case_review(
         if next_assessment:
             hospital = app_db.query(Hospital).filter(Hospital.qc_id == next_assessment.qc_hospital_id).first()
             next_case = RadiologistCaseItem(
-                qc_subject_id=next_assessment.qc_sub_ui_id or next_assessment.qc_patient_session_id,
+                qc_subject_id=qc_subject_id(next_assessment),
                 hospital=hospital.qc_name if hospital else None,
                 case_id=next_assessment.qc_id,
                 session_id=next_assessment.qc_patient_session_id,
@@ -181,6 +206,7 @@ def complete_case_review(
                 has_assessment=True,
                 assigned_at=next_assignment.qc_assigned_at,
             )
+            _persist_derived_subject_ids(app_db)
 
     return RadiologistReviewCompleteResponse(
         case_id=case_id, status=assignment.qc_status, qc_completed_at=assignment.qc_completed_at,

@@ -150,7 +150,7 @@ def create_case(hospital_id="clinic_00001", doctor_email="radiologist@test.com")
         db.add(assessment)
         db.commit()
         db.refresh(assessment)
-        return session_id, assessment.qc_id
+        return assessment.qc_sub_ui_id, assessment.qc_id
     finally:
         db.close()
 
@@ -176,18 +176,19 @@ def add_attachment(assessment_id, file_type, file_name=None):
         db.close()
 
 
-def assign_case(assessment_id, radiologist_email="radiologist@test.com", status="Pending"):
-    """Creates a Radiologist-role Assignment row directly via the ORM, bypassing
-    the admin create/assign endpoints for tests that only care about the
-    radiologist-facing review endpoints. Returns the new assignment id."""
+def assign_case(assessment_id, radiologist_email="radiologist@test.com",
+                mammo_tech_email=None, status="Pending"):
     from backend.src.models.models import Assignment, Role, User
     db = TestSession()
     try:
         role = db.query(Role).filter(Role.qc_name == "Radiologist").first()
         radiologist = db.query(User).filter(User.qc_email == radiologist_email).first()
+        mammo_tech = (db.query(User).filter(User.qc_email == mammo_tech_email).first()
+                      if mammo_tech_email else None)
         assignment = Assignment(
             qc_assessment_id=assessment_id,
             qc_radiologist_id=radiologist.qc_id,
+            qc_mammo_tech_id=mammo_tech.qc_id if mammo_tech else None,
             qc_status=status,
             qc_role_id=role.qc_id,
         )

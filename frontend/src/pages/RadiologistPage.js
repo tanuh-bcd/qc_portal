@@ -17,11 +17,14 @@ const splitReasons = (notes) => {
   return parts.map(p => p.trim()).filter(Boolean);
 };
 
-const fmtDateTime = (value) => {
-  if (!value) return '-';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
-};
+// const fmtDateTime = (value) => {
+//   if (!value) return '-';
+//   const d = new Date(value);
+//   return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
+// };
+
+const formatIST = (utcString) =>
+  new Date(utcString + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
 const RiskBadge = ({ risk }) => {
   const label = riskLabel(risk);
@@ -165,13 +168,13 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
     const term = searchTerm.toLowerCase();
     const fields = isAdminView
       ? [
-          c.qc_subject_id, c.hospital_name, c.status, c.review_notes, c.submitted_response, fmtDateTime(c.assigned_at),
+          c.qc_subject_id, c.hospital_name, c.status, c.review_notes, c.submitted_response, formatIST(c.assigned_at),
           isMammoTechHistory ? c.mammo_tech_name : c.radiologist_name,
           isMammoTechHistory ? c.mammo_tech_email : c.radiologist_email,
           !isMammoTechHistory ? c.mammo_tech_name : null,
           isMammoTechHistory ? c.assigned_radiologist_name : null,
         ]
-      : [c.qc_subject_id, c.status, c.review_notes, c.submitted_response, fmtDateTime(c.assigned_at)];
+      : [c.qc_subject_id, c.status, c.review_notes, c.submitted_response, formatIST(c.assigned_at)];
     return fields.some(f => (f || '').toString().toLowerCase().includes(term));
   });
 
@@ -279,7 +282,7 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
                         <td style={tdStyle}>{a.mammo_tech_email || '-'}</td>
                       </>
                     )}
-                    <td style={tdStyle}>{fmtDateTime(a.assigned_at)}</td>
+                    <td style={tdStyle}>{formatIST(a.assigned_at)}</td>
                     <td style={statusCellStyle(a.status)}>{a.status}</td>
                     <td style={tdStyle}>
                       {(a.submitted_response || a.review_notes) ? (
@@ -304,7 +307,7 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
                 )) : paginated.map((c) => (
                   <tr key={c.case_id} style={rowStyle}>
                     <td style={tdStyle}>{c.qc_subject_id}</td>
-                    <td style={tdStyle}>{fmtDateTime(c.assigned_at)}</td>
+                    <td style={tdStyle}>{formatIST(c.assigned_at)}</td>
                     <td style={statusCellStyle(c.status)}>{c.status}</td>
                     <td style={tdStyle}>
                       {(c.submitted_response || c.review_notes) ? (
