@@ -255,6 +255,7 @@ class Assignment(Base):
     qc_id = Column(Integer, primary_key=True, index=True)
     qc_assessment_id = Column(Integer, ForeignKey("qc_doctor_assessments.qc_id"), nullable=False)
     qc_radiologist_id = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=False)
+    qc_mammo_tech_id = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=True)
     qc_assigned_by = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=True)
     qc_status = Column(Enum("Pending", "In-Progress", "Rejected", "Completed"), nullable=False, server_default=text("'Pending'"))
     qc_assigned_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
@@ -264,5 +265,6 @@ class Assignment(Base):
 
     assessment = relationship("DoctorAssessment")
     radiologist = relationship("User", foreign_keys=[qc_radiologist_id])
+    mammo_tech = relationship("User", foreign_keys=[qc_mammo_tech_id])
     assigned_by_user = relationship("User", foreign_keys=[qc_assigned_by])
 

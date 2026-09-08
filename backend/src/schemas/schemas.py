@@ -250,6 +250,11 @@ class AssignRadiologistRequest(BaseModel):
     subject_ids: List[str]
 
 
+class AssignMammoTechRequest(BaseModel):
+    mammo_tech_id: int
+    subject_ids: List[str]
+
+
 class AssignmentListItem(BaseModel):
     assignment_id: int
     assessment_id: int
@@ -261,8 +266,15 @@ class AssignmentListItem(BaseModel):
     radiologist_id: int
     radiologist_name: Optional[str] = None
     radiologist_email: Optional[str] = None
+    mammo_tech_id: Optional[int] = None
+    mammo_tech_name: Optional[str] = None
+    mammo_tech_email: Optional[str] = None
+    assigned_at: Optional[datetime.datetime] = None
     status: str
     review_notes: Optional[str] = None
+    submitted_response: Optional[str] = None
+    assigned_radiologist_id: Optional[int] = None
+    assigned_radiologist_name: Optional[str] = None
 
 
 class QCUserCreateRequest(BaseModel):
@@ -292,6 +304,10 @@ class RadiologistCaseItem(BaseModel):
     status: str
     review_notes: Optional[str] = None
     has_assessment: bool = True
+    assigned_at: Optional[datetime.datetime] = None
+    submitted_response: Optional[str] = None
+    assigned_radiologist_id: Optional[int] = None
+    assigned_radiologist_name: Optional[str] = None
 
 
 class RadiologistCasesResponse(BaseModel):
@@ -301,26 +317,13 @@ class RadiologistCasesResponse(BaseModel):
     cases: List[RadiologistCaseItem]
 
 
-class RadiologistReviewCompleteRequest(BaseModel):
-    # Was mandatory free-text notes on completion; the mandatory-reason gate now
-    # lives per-image (ImageReviewRequest below), so this is optional here.
-    notes: Optional[str] = None
-
-
-class RadiologistReviewCompleteResponse(BaseModel):
-    case_id: int
-    status: str
-    qc_completed_at: Optional[datetime.datetime] = None
-    next_case: Optional[RadiologistCaseItem] = None
-
-
 class BreastFindingsUpdate(BaseModel):
     birads: Optional[str] = None
     birads_4_sub: Optional[str] = None
     density: Optional[str] = None
 
 
-class ImageReviewRequest(BaseModel):
+class RadiologistReviewCompleteRequest(BaseModel):
     grade: Literal["Best", "Good", "Bad", "Not a Mammogram"]
     reason: Optional[str] = None
     left: Optional[BreastFindingsUpdate] = None
@@ -334,18 +337,18 @@ class ImageReviewRequest(BaseModel):
         return self
 
 
-class ImageReviewResponse(BaseModel):
+class RadiologistReviewCompleteResponse(BaseModel):
     case_id: int
-    attachment_id: int
-    grade: str
-    reason: Optional[str] = None
-    all_images_reviewed: bool
-    reviewed_count: int
-    total_images: int
+    status: str
+    qc_completed_at: Optional[datetime.datetime] = None
+    next_case: Optional[RadiologistCaseItem] = None
 
 
 class MammoTechReviewRequest(BaseModel):
     confirmation: Literal["yes", "no"]
+    left: Optional[BreastFindingsUpdate] = None
+    right: Optional[BreastFindingsUpdate] = None
+    case_notes: Optional[str] = None
 
 
 class MammoTechReviewResponse(BaseModel):
@@ -355,3 +358,4 @@ class MammoTechReviewResponse(BaseModel):
     assigned_radiologist_id: Optional[int] = None
     assigned_radiologist_name: Optional[str] = None
     message: str
+    next_case: Optional[RadiologistCaseItem] = None

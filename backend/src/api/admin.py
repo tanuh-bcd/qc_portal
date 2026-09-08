@@ -1,14 +1,16 @@
+import datetime
 from sqlalchemy import text, func, or_
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Dict
 from .doctor import _get_attachment_flags, INSTITUTE_QUESTIONS
+from .radiologist import _case_review
 from ..db.session import get_db, get_questionnaire_db
 from ..db.sql_compat import expand_in
 from ..models.models import PatientSession, User, Hospital, Role, Machine, DoctorAssessment, Assignment
 from ..schemas.schemas import ( ClinicianOption,
-    RadiologistOption, SubjectListItem, AssignRadiologistRequest, AssignmentListItem,
+    RadiologistOption, SubjectListItem, AssignRadiologistRequest, AssignMammoTechRequest, AssignmentListItem,
     QCUserCreateRequest, QCUserResponse, RadiologistCasesResponse, RadiologistCaseItem,
 )
 from ..core.security import get_password_hash
@@ -243,13 +245,13 @@ def _bulk_risk_categories(q_db: Session, session_ids: List[str]) -> Dict[str, st
     return {r[0]: r[1] for r in rows}
 
 
+def _mammo_tech_response(status: str) -> Optional[str]:
+    if status == "Pending":
+        return None
+    return "No" if status == "Rejected" else "Yes"
+
+
 def _all_subjects_with_status(app_db: Session, q_db: Session, for_role: str = "radiologist") -> List[SubjectListItem]:
-    """for_role scopes which assignments count towards "current"/"unassigned":
-    "radiologist" (default, matches every caller before Mammo Tech existed) matches
-    legacy untagged rows (qc_role_id IS NULL) plus rows explicitly tagged Radiologist;
-    "mammo_tech" matches only rows explicitly tagged Mammo Tech. Without this filter,
-    a Mammo Tech assignment could be picked up as "the" assignment for a subject in
-    the default (Radiologist) view once both kinds of assignment exist."""
     assessments = app_db.query(DoctorAssessment).all()
     if not assessments:
         return []
@@ -315,13 +317,6 @@ def _resolve_subject_ids_to_assessments(app_db: Session, q_db: Session, subject_
 
 def _assign_subjects_to_role(app_db: Session, q_db: Session, assignee_id: int, role: Role,
                               subject_ids: List[str], assigned_by_id: Optional[int]):
-    """Creates/reassigns qc_assignments rows for the given subjects, tagging each
-    with the role it was made for (qc_role_id). Existing-assignment lookups are
-    scoped to that same role, so a Mammo Tech assignment and a Radiologist
-    assignment can coexist as separate active rows on the same assessment.
-    Radiologist assignments also match legacy rows with qc_role_id IS NULL,
-    since every row created before this role-tagging existed left it unset.
-    Returns (assigned_count, failed_subject_ids, reassigned_count, blocked_completed_ids)."""
     is_radiologist_role = role.qc_name.lower() == RADIOLOGIST_ROLE_NAME.lower()
     resolved, missing = _resolve_subject_ids_to_assessments(app_db, q_db, subject_ids)
     assessment_ids = list(resolved.values())
@@ -336,6 +331,12 @@ def _assign_subjects_to_role(app_db: Session, q_db: Session, assignee_id: int, r
             existing_query = existing_query.filter(Assignment.qc_role_id == role.qc_id)
         existing = {a.qc_assessment_id: a for a in existing_query.all()}
 
+    # For a Mammo-Tech-role row, qc_mammo_tech_id records the assignee explicitly
+    # (qc_radiologist_id keeps carrying the same id too, for backward
+    # compatibility with existing queries scoped by qc_role_id) so the row is
+    # self-describing without needing to know the role-tagging convention.
+    mammo_tech_id_value = None if is_radiologist_role else assignee_id
+
     assigned_count = 0
     reassigned_count = 0
     blocked_completed_ids = []
@@ -345,9 +346,11 @@ def _assign_subjects_to_role(app_db: Session, q_db: Session, assignee_id: int, r
             app_db.add(Assignment(
                 qc_assessment_id=assessment_id,
                 qc_radiologist_id=assignee_id,
+                qc_mammo_tech_id=mammo_tech_id_value,
                 qc_assigned_by=assigned_by_id,
                 qc_status="Pending",
                 qc_role_id=role.qc_id,
+                qc_assigned_at=datetime.datetime.utcnow(),
             ))
             assigned_count += 1
         elif current.qc_status == "Completed":
@@ -355,7 +358,9 @@ def _assign_subjects_to_role(app_db: Session, q_db: Session, assignee_id: int, r
         elif current.qc_radiologist_id != assignee_id:
             current.qc_assigned_by = assigned_by_id
             current.qc_radiologist_id = assignee_id
+            current.qc_mammo_tech_id = mammo_tech_id_value
             current.qc_role_id = role.qc_id
+            current.qc_assigned_at = datetime.datetime.utcnow()
             reassigned_count += 1
             assigned_count += 1
         # else: already assigned to the same assignee — no-op.
@@ -376,11 +381,6 @@ def get_all_subjects(
     app_db: Session = Depends(get_db),
     current_user: dict = Depends(check_admin_role)
 ):
-    """All assessments ("subjects") across every hospital, with their current
-    assignment status — the source of truth for the QC Admin dashboard. Deliberately
-    unpaginated: the dashboard needs the full set to compute its summary cards.
-    for_role scopes assignment_status/radiologist_* to that role's own assignments
-    (see _all_subjects_with_status); defaults to "radiologist" for every existing caller."""
     return _all_subjects_with_status(app_db, q_db, for_role=for_role)
 
 
@@ -396,6 +396,20 @@ def get_radiologists(
         User.qc_role_id == role.qc_id, User.qc_is_active == True
     ).order_by(User.qc_full_name).all()
     return [RadiologistOption(id=u.qc_id, full_name=u.qc_full_name, email=u.qc_email) for u in radiologists]
+
+
+@router.get("/mammo-techs", response_model=List[RadiologistOption])
+def get_mammo_techs(
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    role = _get_role_by_name(app_db, MAMMO_TECH_ROLE_NAME)
+    if not role:
+        return []
+    mammo_techs = app_db.query(User).filter(
+        User.qc_role_id == role.qc_id, User.qc_is_active == True
+    ).order_by(User.qc_full_name).all()
+    return [RadiologistOption(id=u.qc_id, full_name=u.qc_full_name, email=u.qc_email) for u in mammo_techs]
 
 
 @router.get("/assignments", response_model=List[AssignmentListItem])
@@ -429,16 +443,48 @@ def get_assignments(
         query = query.filter(Assignment.qc_status == status_filter)
     assignments = query.order_by(Assignment.qc_id.desc()).all()
 
-    radiologists = {u.qc_id: u for u in app_db.query(User).filter(
-        User.qc_id.in_([a.qc_radiologist_id for a in assignments])
-    ).all()} if assignments else {}
+    user_ids = {a.qc_radiologist_id for a in assignments} | {a.qc_mammo_tech_id for a in assignments if a.qc_mammo_tech_id}
+
+    assessments_by_id = {}
+    if for_role != "mammo_tech":
+        assessment_ids = {a.qc_assessment_id for a in assignments}
+        if assessment_ids:
+            assessments_by_id = {a.qc_id: a for a in app_db.query(DoctorAssessment).filter(
+                DoctorAssessment.qc_id.in_(assessment_ids)
+            ).all()}
+    radiologist_assignment_by_assessment = {}
+    if for_role == "mammo_tech":
+        assessment_ids = {a.qc_assessment_id for a in assignments}
+        if assessment_ids:
+            radiologist_role = _get_role_by_name(app_db, RADIOLOGIST_ROLE_NAME)
+            radiologist_role_id = radiologist_role.qc_id if radiologist_role else -1
+            rad_rows = app_db.query(Assignment).filter(
+                Assignment.qc_assessment_id.in_(assessment_ids),
+                or_(Assignment.qc_role_id.is_(None), Assignment.qc_role_id == radiologist_role_id),
+            ).order_by(Assignment.qc_id.asc()).all()
+            radiologist_assignment_by_assessment = {r.qc_assessment_id: r for r in rad_rows}
+            user_ids |= {r.qc_radiologist_id for r in rad_rows}
+
+    users_by_id = {u.qc_id: u for u in app_db.query(User).filter(
+        User.qc_id.in_(user_ids)
+    ).all()} if user_ids else {}
 
     result = []
     for a in assignments:
         subject = subjects_by_assessment.get(a.qc_assessment_id)
         if hospital_name_filter and (not subject or subject.hospital_name != hospital_name_filter):
             continue
-        rad = radiologists.get(a.qc_radiologist_id)
+        rad = users_by_id.get(a.qc_radiologist_id)
+        mt = users_by_id.get(a.qc_mammo_tech_id) if a.qc_mammo_tech_id else None
+        assigned_radiologist = None
+        if for_role == "mammo_tech":
+            submitted_response = _mammo_tech_response(a.qc_status)
+            if submitted_response == "Yes":
+                rad_assignment = radiologist_assignment_by_assessment.get(a.qc_assessment_id)
+                assigned_radiologist = users_by_id.get(rad_assignment.qc_radiologist_id) if rad_assignment else None
+        else:
+            assessment = assessments_by_id.get(a.qc_assessment_id)
+            submitted_response = _case_review(assessment).get("grade") if assessment else None
         result.append(AssignmentListItem(
             assignment_id=a.qc_id,
             assessment_id=a.qc_assessment_id,
@@ -450,8 +496,15 @@ def get_assignments(
             radiologist_id=a.qc_radiologist_id,
             radiologist_name=rad.qc_full_name if rad else None,
             radiologist_email=rad.qc_email if rad else None,
+            mammo_tech_id=a.qc_mammo_tech_id,
+            mammo_tech_name=mt.qc_full_name if mt else None,
+            mammo_tech_email=mt.qc_email if mt else None,
+            assigned_at=a.qc_assigned_at,
             status=a.qc_status,
             review_notes=a.qc_review_notes,
+            submitted_response=submitted_response,
+            assigned_radiologist_id=assigned_radiologist.qc_id if assigned_radiologist else None,
+            assigned_radiologist_name=assigned_radiologist.qc_full_name if assigned_radiologist else None,
         ))
 
     return result
@@ -475,6 +528,34 @@ def assign_radiologist(
 
     assigned_count, missing, reassigned_count, blocked_completed_ids = _assign_subjects_to_radiologist(
         app_db, q_db, data.radiologist_id, data.subject_ids, current_user.get("id")
+    )
+    return {
+        "success": True,
+        "assigned_count": assigned_count,
+        "reassigned_count": reassigned_count,
+        "missing_subject_ids": missing,
+        "blocked_completed_subject_ids": blocked_completed_ids,
+    }
+
+
+@router.post("/assign-mammo-tech")
+def assign_mammo_tech(
+    data: AssignMammoTechRequest,
+    q_db: Session = Depends(get_questionnaire_db),
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    mammo_tech = app_db.query(User).filter(User.qc_id == data.mammo_tech_id).first()
+    if not mammo_tech:
+        raise HTTPException(status_code=404, detail="Mammo Tech not found")
+    role = app_db.query(Role).filter(Role.qc_id == mammo_tech.qc_role_id).first()
+    if not role or role.qc_name.lower() != MAMMO_TECH_ROLE_NAME.lower():
+        raise HTTPException(status_code=400, detail="Selected user is not a Mammo Tech")
+    if not data.subject_ids:
+        raise HTTPException(status_code=400, detail="At least one subject is required")
+
+    assigned_count, missing, reassigned_count, blocked_completed_ids = _assign_subjects_to_role(
+        app_db, q_db, data.mammo_tech_id, role, data.subject_ids, current_user.get("id")
     )
     return {
         "success": True,

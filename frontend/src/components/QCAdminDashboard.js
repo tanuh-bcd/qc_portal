@@ -225,21 +225,30 @@ const QCAdminDashboard = () => {
   const [assigning, setAssigning] = useState(false);
   const [assignMode, setAssignMode] = useState('manual');
   const [randomCount, setRandomCount] = useState('');
+  const [mammoTechs, setMammoTechs] = useState([]);
+  const [assignMTModalOpen, setAssignMTModalOpen] = useState(false);
+  const [assignMammoTechId, setAssignMammoTechId] = useState('');
+  const [assignMTSelectedSubjects, setAssignMTSelectedSubjects] = useState(new Set());
+  const [assigningMT, setAssigningMT] = useState(false);
+  const [assignMTMode, setAssignMTMode] = useState('manual');
+  const [mtRandomCount, setMTRandomCount] = useState('');
 
   const loadAll = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [subjectsData, radiologistsData, assignmentsData, mammoSubjectsData] = await Promise.all([
+      const [subjectsData, radiologistsData, assignmentsData, mammoSubjectsData, mammoTechsData] = await Promise.all([
         apiGet('/api/v1/qc/admin/subjects'),
         apiGet('/api/v1/qc/admin/radiologists'),
         apiGet('/api/v1/qc/admin/assignments'),
         apiGet('/api/v1/qc/admin/subjects?for_role=mammo_tech'),
+        apiGet('/api/v1/qc/admin/mammo-techs'),
       ]);
       setSubjects(subjectsData);
       setRadiologists(radiologistsData);
       setAssignments(assignmentsData);
       setMammoSubjects(mammoSubjectsData);
+      setMammoTechs(mammoTechsData);
     } catch (err) {
       setError(err.message || 'Failed to load dashboard data');
     } finally {
@@ -387,6 +396,57 @@ const QCAdminDashboard = () => {
     }
   };
 
+  const closeAssignMTModal = () => {
+    setAssignMTModalOpen(false);
+    setAssignMammoTechId('');
+    setAssignMTSelectedSubjects(new Set());
+    setAssignMTMode('manual');
+    setMTRandomCount('');
+  };
+
+  const handleAssignMammoTech = async () => {
+    if (!assignMammoTechId) {
+      alert('Select a Mammo Tech.');
+      return;
+    }
+
+    let subjectIds;
+    if (assignMTMode === 'random') {
+      const count = Number(mtRandomCount);
+      if (!count || count <= 0) {
+        alert('Enter a valid number of cases to randomly assign.');
+        return;
+      }
+      if (count > mammoUnassignedSubjects.length) {
+        alert(`Only ${mammoUnassignedSubjects.length} unassigned subject(s) available.`);
+        return;
+      }
+      subjectIds = pickRandomSubjects(mammoUnassignedSubjects, count);
+    } else {
+      if (assignMTSelectedSubjects.size === 0) {
+        alert('Select a Mammo Tech and at least one subject.');
+        return;
+      }
+      subjectIds = Array.from(assignMTSelectedSubjects);
+    }
+
+    setAssigningMT(true);
+    try {
+      const result = await apiPost('/api/v1/qc/admin/assign-mammo-tech', {
+        mammo_tech_id: Number(assignMammoTechId),
+        subject_ids: subjectIds,
+      });
+      alert(`Assigned ${result.assigned_count} subject(s)${result.reassigned_count ? ` (${result.reassigned_count} reassigned)` : ''}.` +
+        (result.blocked_completed_subject_ids.length ? ` ${result.blocked_completed_subject_ids.length} already-completed case(s) were skipped.` : ''));
+      closeAssignMTModal();
+      loadAll();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setAssigningMT(false);
+    }
+  };
+
   if (loading) return <p style={{ padding: 20 }}>Loading QC dashboard...</p>;
   if (error) return <p style={{ padding: 20, color: 'red' }}>{error}</p>;
 
@@ -412,11 +472,11 @@ const QCAdminDashboard = () => {
       {/* Right column — Create Radiologist / Create Mammo Tech accordions */}
       <div style={formColumnStyle}>
         <div style={{ ...cardStyle, textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+          {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
             <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
               Assign Radiologist
             </button>
-          </div>
+          </div> */}
 
           {/* Create Radiologist — independent of case assignment; no Radiologist
               is created as a side effect of creating a Mammo Tech, or vice versa. */}
@@ -427,6 +487,12 @@ const QCAdminDashboard = () => {
             </div>
             {expandedSection === 'radiologist' && (
               <div style={accordionContentStyle}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                  <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
+                    Assign Radiologist
+                  </button>
+                </div>
+
                 <div style={fieldStyle}>
                   <label style={labelStyle}>Full Name</label>
                   <input
@@ -489,6 +555,12 @@ const QCAdminDashboard = () => {
             </div>
             {expandedSection === 'mammotech' && (
               <div style={accordionContentStyle}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                  <button type="button" onClick={() => setAssignMTModalOpen(true)} style={secondaryButtonStyle}>
+                    Assign Mammo Tech
+                  </button>
+                </div>
+
                 <div style={fieldStyle}>
                   <label style={labelStyle}>Full Name</label>
                   <input
@@ -566,9 +638,9 @@ const QCAdminDashboard = () => {
                       value={createMTRandomCount}
                       onChange={(e) => setCreateMTRandomCount(e.target.value)}
                     />
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                    {/* <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
                       {mammoUnassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned to the new Mammo Tech.
-                    </div>
+                    </div> */}
                   </div>
                 )}
 
@@ -639,9 +711,9 @@ const QCAdminDashboard = () => {
                   value={randomCount}
                   onChange={(e) => setRandomCount(e.target.value)}
                 />
-                <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                {/* <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
                   {unassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned.
-                </div>
+                </div> */}
               </div>
             )}
 
@@ -650,6 +722,75 @@ const QCAdminDashboard = () => {
               <button type="button" disabled={assigning} onClick={handleAssignRadiologist}
                 style={{ ...primaryButtonStyle, opacity: assigning ? 0.7 : 1 }}>
                 {assigning ? 'Assigning...' : 'Assign Radiologist'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assignMTModalOpen && (
+        <div style={modalOverlayStyle} onClick={closeAssignMTModal}>
+          <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>Assign Mammo Tech</h3>
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Mammo Tech</label>
+              <select style={inputStyle} value={assignMammoTechId} onChange={(e) => setAssignMammoTechId(e.target.value)}>
+                <option value="">Select Mammo Tech</option>
+                {mammoTechs.map((m) => (
+                  <option key={m.id} value={m.id}>{m.full_name || m.email} ({m.email})</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={fieldStyle}>
+              <label style={labelStyle}>Assignment Mode</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="button" onClick={() => setAssignMTMode('random')}
+                  style={modeButtonStyle(assignMTMode === 'random')}>
+                  Random Assign
+                </button>
+                 <button type="button" onClick={() => setAssignMTMode('manual')}
+                  style={modeButtonStyle(assignMTMode === 'manual')}>
+                  Select Manually
+                </button>
+              </div>
+            </div>
+
+            {assignMTMode === 'manual' ? (
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Subjects</label>
+                <CheckboxDropdown
+                  label="Select Subjects"
+                  options={mammoSubjects}
+                  getId={(s) => s.qc_subject_id}
+                  getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'} (${s.assignment_status})`}
+                  selected={assignMTSelectedSubjects}
+                  onChange={setAssignMTSelectedSubjects}
+                />
+              </div>
+            ) : (
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Number of Cases</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="1"
+                  max={mammoUnassignedSubjects.length}
+                  placeholder="e.g. 50"
+                  value={mtRandomCount}
+                  onChange={(e) => setMTRandomCount(e.target.value)}
+                />
+                {/* <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                  {mammoUnassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned.
+                </div> */}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+              <button type="button" onClick={closeAssignMTModal} style={secondaryButtonStyle}>Cancel</button>
+              <button type="button" disabled={assigningMT} onClick={handleAssignMammoTech}
+                style={{ ...primaryButtonStyle, opacity: assigningMT ? 0.7 : 1 }}>
+                {assigningMT ? 'Assigning...' : 'Assign Mammo Tech'}
               </button>
             </div>
           </div>

@@ -3,18 +3,16 @@ import { toast } from 'react-toastify';
 import useAttachmentImage from '../hooks/useAttachmentImage';
 import useAttachmentFile from '../hooks/useAttachmentFile';
 import { BIRADS_OPTIONS, BIRADS_4_SUB, DENSITY_OPTIONS } from './DoctorAssessmentForm';
-import { VIEW_TYPES, ZOOM_STEPS, GRADES, REASON_REQUIRED_GRADES, EMPTY_SIDE, fmtBytes } from '../constants/caseReviewItems';
+import { VIEW_TYPES, ZOOM_STEPS, EMPTY_SIDE, fmtBytes } from '../constants/caseReviewItems';
 import { apiPost, fetchSessionDetail } from '../utils/caseReviewApi';
 
-const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases = [], onClose, readOnly = false }) => {
+const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases = [], onClose, readOnly = false }) => {
   const [currentCase, setCurrentCase] = useState(initialCaseItem);
   const [currentSession, setCurrentSession] = useState(initialSessionDetail);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [leftFindings, setLeftFindings] = useState({ ...EMPTY_SIDE });
   const [rightFindings, setRightFindings] = useState({ ...EMPTY_SIDE });
   const [caseNotes, setCaseNotes] = useState('');
-  const [grade, setGrade] = useState('');
-  const [reason, setReason] = useState('');
   const [zoomIdx, setZoomIdx] = useState(0);
   const [showInfo, setShowInfo] = useState(true);
   const [brightness, setBrightness] = useState(100);
@@ -22,7 +20,6 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
   const [saving, setSaving] = useState(false);
   const [loadingCase, setLoadingCase] = useState(false);
   const [error, setError] = useState(null);
-  const [validationError, setValidationError] = useState(null);
   const [allCasesReviewed, setAllCasesReviewed] = useState(false);
 
   const zoom = ZOOM_STEPS[zoomIdx];
@@ -45,37 +42,13 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
   const meta = isReportItem ? reportMeta : dicomMeta;
   const imageLabel = currentImage ? (currentImage.side ? `${currentImage.proj} — ${currentImage.side}` : currentImage.proj) : '';
   const isLastImage = currentImageIndex === images.length - 1;
-  const isCompleted = currentCase.status === 'Completed';
-  const locked = readOnly || isCompleted;
-  const hasSubmittedGrade = locked && !!grade;
+  const isReviewed = currentCase.status !== 'Pending';
+  const locked = readOnly || isReviewed;
 
-  // Rehydrate everything (combined review, findings, notes) whenever a new case loads.
+  // Rehydrate findings/notes whenever a new case loads.
   useEffect(() => {
     if (!currentSession || !currentSession.assessment) return;
     const assessment = currentSession.assessment;
-    let feedback = {};
-    try {
-      feedback = assessment.qc_datapoint_feedback ? JSON.parse(assessment.qc_datapoint_feedback) : {};
-    } catch {
-      feedback = {};
-    }
-    const caseReview = feedback.case_review || {};
-    let effectiveGrade = caseReview.grade || '';
-    let effectiveReason = caseReview.reason || '';
-    if (!effectiveGrade && feedback.image_reviews) {
-      const legacyReviews = Object.values(feedback.image_reviews).filter(Boolean);
-      const worst = legacyReviews.reduce((acc, r) => {
-        const idx = GRADES.indexOf(r.grade);
-        return idx > acc.idx ? { idx, review: r } : acc;
-      }, { idx: -1, review: null });
-      if (worst.review) {
-        effectiveGrade = worst.review.grade || '';
-        effectiveReason = legacyReviews.map(r => r.reason).filter(Boolean).join('; ');
-      }
-    }
-    setGrade(effectiveGrade);
-    setReason(effectiveReason);
-
     let clinicalFindings = {};
     if (assessment.qc_clinical_findings) {
       clinicalFindings = typeof assessment.qc_clinical_findings === 'string'
@@ -88,7 +61,6 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
     setCurrentImageIndex(0);
     setZoomIdx(0);
     setError(null);
-    setValidationError(null);
   }, [currentSession]);
 
   useEffect(() => {
@@ -108,10 +80,17 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
     };
   }, [saving, onClose]);
 
+  // Loads a different case into the viewer in place — used both after a
+  // Yes/No submission (server hands back the next assigned case) and when
+  // browsing between already-reviewed cases directly ("Next/Previous Case").
   const goToCase = async (caseItem) => {
     setLoadingCase(true);
     try {
       const session = await fetchSessionDetail(caseItem.session_id);
+      // Reset the image index in the same batch as the case/session swap —
+      // otherwise a render can briefly use the new (possibly shorter) images
+      // array with the old, now out-of-range index, crashing on
+      // currentImage.attachment before the rehydration effect gets to run.
       setCurrentImageIndex(0);
       setCurrentCase(caseItem);
       setCurrentSession(session);
@@ -122,40 +101,29 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
     }
   };
 
-  const handleCompleteCase = async () => {
-    setValidationError(null);
-    setError(null);
-    if (!grade) {
-      const msg = 'Please select a grade before submitting.';
-      setValidationError(msg);
-      setShowInfo(true);
-      toast.error(msg);
-      return;
-    }
-    if (REASON_REQUIRED_GRADES.includes(grade) && !reason.trim()) {
-      const msg = 'Please enter a reason before submitting.';
-      setValidationError(msg);
-      setShowInfo(true);
-      toast.error(msg);
-      return;
-    }
+  const handleConfirmReview = async (confirmation) => {
     setSaving(true);
+    setError(null);
     try {
-      const response = await apiPost(`/api/v1/qc/radiologist/cases/${currentCase.case_id}/complete`, {
-        grade,
-        reason: reason.trim() || null,
+      const response = await apiPost(`/api/v1/qc/mammo-tech/cases/${currentCase.case_id}/review`, {
+        confirmation,
         left: { birads: leftFindings.birads || null, birads_4_sub: leftFindings.birads_4_sub || null, density: leftFindings.density || null },
         right: { birads: rightFindings.birads || null, birads_4_sub: rightFindings.birads_4_sub || null, density: rightFindings.density || null },
         case_notes: caseNotes,
       });
+      if (confirmation === 'yes') {
+        toast.success(`Case assigned to ${response.assigned_radiologist_name || 'a Radiologist'}.`);
+      } else {
+        toast.info('Case rejected.');
+      }
       if (response.next_case) {
         await goToCase(response.next_case);
       } else {
         setAllCasesReviewed(true);
       }
     } catch (err) {
-      setError('Unable to complete case. Please try again.');
-      toast.error('Unable to complete case. Please try again.');
+      setError('Unable to submit review. Please try again.');
+      toast.error((err && err.message) || 'Unable to submit review. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -179,7 +147,7 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
         <div style={styles.completionCard}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>&#10003;</div>
           <h2 style={{ margin: '0 0 8px' }}>All assigned cases have been reviewed.</h2>
-          <button style={styles.primaryBtn} onClick={onClose}>Return to Radiologist Dashboard</button>
+          <button style={styles.primaryBtn} onClick={onClose}>Return to Dashboard</button>
         </div>
       </div>
     );
@@ -211,7 +179,7 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
           <button style={styles.backBtn} onClick={onClose}>&#8592; Back to cases</button>
           <div style={{ fontWeight: 700, fontSize: 15, color: '#eee' }}>Case {currentCase.qc_subject_id}</div>
-          {isCompleted && <span style={styles.completedBadge}>Completed</span>}
+          {isReviewed && <span style={styles.reviewedBadge(currentCase.status)}>{currentCase.status}</span>}
           {readOnly && <span style={styles.readOnlyBadge}>Admin — Read Only</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -246,12 +214,6 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
 
       <div style={styles.body}>
         <div style={styles.viewerArea}>
-          {/* The canvas stays mounted at this same spot across every status —
-              conditionally swapping in a *different* <canvas> element once
-              status flips to 'canvas' would hand the ref to a fresh, blank
-              DOM node instead of the one useAttachmentImage already decoded
-              pixels onto, leaving the visible canvas empty. Only its
-              visibility toggles. */}
           <div style={styles.imageScroll}>
             {!isReportItem && (
               <>
@@ -323,40 +285,31 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
         {showInfo && (
           <div style={styles.reviewPanel}>
             {isLastImage && (
-              <div style={{ ...styles.panelSection, ...(hasSubmittedGrade ? styles.reviewedPanelSection : {}) }}>
+              <div style={{ ...styles.panelSection, ...(isReviewed ? styles.reviewedPanelSection : {}) }}>
                 <div style={styles.panelTitle}>
-                  {hasSubmittedGrade ? '✓ Submitted Review' : 'Image Review — combined for this case'}
+                  {isReviewed ? '✓ Submitted Response' : 'Review — combined for this case'}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {GRADES.map(g => (
-                    <label key={g} style={styles.radioRow(grade === g, hasSubmittedGrade)}>
-                      <input
-                        type="radio"
-                        name="grade"
-                        checked={grade === g}
-                        disabled={locked}
-                        onChange={() => { setGrade(g); setValidationError(null); }}
-                      />
-                      {g}
-                    </label>
-                  ))}
-                </div>
-                {(REASON_REQUIRED_GRADES.includes(grade) || (locked && reason)) && (
-                  <div style={{ marginTop: 10 }}>
-                    <label style={styles.smallLabel}>Reason / Comment{locked ? '' : ' *'}</label>
-                    <textarea
-                      style={{ ...styles.textarea, ...(hasSubmittedGrade ? styles.reviewedTextarea : {}) }}
-                      value={reason}
-                      disabled={locked}
-                      onChange={(e) => { setReason(e.target.value); setValidationError(null); }}
-                      placeholder="Describe the issue..."
-                    />
+                {isReviewed ? (
+                  <div style={styles.answerHighlight(currentCase.status === 'Rejected' ? 'no' : 'yes')}>
+                    {currentCase.status === 'Rejected' ? 'No — Case rejected' : 'Yes — Case sent to Radiologist'}
                   </div>
+                ) : readOnly ? (
+                  <div style={{ fontSize: 12, color: '#8a949c' }}>Not yet reviewed by the assigned Mammo Tech.</div>
+                ) : (
+                  <>
+                    <p style={{ color: '#b6bfc0', fontSize: 13, margin: '0 0 12px' }}>
+                      Are you sure you want to review this case?
+                    </p>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button style={styles.dangerBtn} disabled={saving} onClick={() => handleConfirmReview('no')}>
+                        {saving ? 'Submitting…' : 'No'}
+                      </button>
+                      <button style={styles.primaryBtn} disabled={saving} onClick={() => handleConfirmReview('yes')}>
+                        {saving ? 'Submitting…' : 'Yes'}
+                      </button>
+                    </div>
+                  </>
                 )}
-                {readOnly && !hasSubmittedGrade && (
-                  <div style={{ fontSize: 12, color: '#8a949c', marginTop: 8 }}>Not yet reviewed by the assigned Radiologist.</div>
-                )}
-                {validationError && <div style={styles.errorText}>{validationError}</div>}
               </div>
             )}
 
@@ -381,7 +334,7 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
             {locked ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={styles.completedNote}>
-                  {isCompleted ? 'This case has been completed. Review details are read-only.' : 'Viewing as Admin — read-only.'}
+                  {isReviewed ? `This case has been ${currentCase.status.toLowerCase()}. Review details are read-only.` : 'Viewing as Admin — read-only.'}
                 </div>
                 <div style={styles.panelActions}>
                   <button
@@ -400,15 +353,9 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
                   </button>
                 </div>
               </div>
-            ) : isLastImage ? (
-              <div style={styles.panelActions}>
-                <button style={styles.primaryBtn} disabled={saving} onClick={handleCompleteCase}>
-                  {saving ? 'Submitting…' : 'Complete Case'}
-                </button>
-              </div>
-            ) : (
+            ) : !isLastImage && (
               <div style={{ fontSize: 12, color: '#8a949c', textAlign: 'center' }}>
-                View all {images.length} items, then submit the combined review on the last one.
+                View all {images.length} items, then confirm on the last one.
               </div>
             )}
           </div>
@@ -426,7 +373,7 @@ const MetaRow = ({ label, value }) => (
 );
 
 // Read-only in this panel — BIRADS/Density are recorded elsewhere in the QC
-// workflow; this view is for reference while grading images, not editing.
+// workflow; this view is for reference while reviewing, not editing.
 const BreastFindingsFields = ({ label, data, readOnly }) => (
   <div style={{ marginBottom: 12 }}>
     <div style={{ fontSize: 12.5, fontWeight: 700, color: '#14868C', marginBottom: 6 }}>{label}</div>
@@ -469,6 +416,11 @@ const mediaStyle = (zoom, brightness, contrast) => ({
   display: 'block',
   filter: `brightness(${brightness}%) contrast(${contrast}%)`,
 });
+
+const REVIEWED_BADGE_COLORS = {
+  Rejected: { background: '#3a1f1f', color: '#f0b4b4' },
+  'In-Progress': { background: '#1d2f3a', color: '#8fc4e8' },
+};
 
 const styles = {
   overlay: {
@@ -532,15 +484,16 @@ const styles = {
   panelSection: { background: '#1d2222', borderRadius: 10, padding: 14 },
   reviewedPanelSection: { border: '1px solid #14868C', boxShadow: '0 0 0 1px rgba(20,134,140,0.35)' },
   panelTitle: { fontSize: 13, fontWeight: 700, color: '#e8eaea', marginBottom: 10 },
-  radioRow: (checked, highlighted) => ({
-    display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 6,
-    fontSize: 13, fontWeight: checked ? 700 : 400,
-    color: checked ? (highlighted ? '#eafff5' : '#e8eaea') : '#b6bfc0',
-    background: checked ? (highlighted ? '#14868C' : '#243030') : 'transparent',
-    border: checked && highlighted ? '1px solid #6ee7b7' : '1px solid transparent',
-    cursor: highlighted ? 'default' : 'pointer',
+  answerHighlight: (answer) => ({
+    padding: '10px 14px', borderRadius: 8, fontWeight: 700, fontSize: 14, textAlign: 'center',
+    background: answer === 'yes' ? '#123d2c' : '#3a1f1f',
+    color: answer === 'yes' ? '#8fd8b1' : '#f0b4b4',
+    border: `1px solid ${answer === 'yes' ? '#1e7e4b' : '#5c2c2c'}`,
   }),
-  reviewedTextarea: { border: '1px solid #14868C', background: '#0f2323' },
+  readOnlyBadge: {
+    padding: '3px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+    backgroundColor: '#2a2a1d', color: '#e0d06e',
+  },
   smallLabel: { display: 'block', fontSize: 11.5, color: '#98a3a5', marginBottom: 4, fontWeight: 600 },
   textarea: {
     width: '100%', minHeight: 60, padding: '8px 10px', borderRadius: 6, border: '1px solid #3a4444',
@@ -551,20 +504,15 @@ const styles = {
     background: disabled ? '#1a1d1d' : '#121515', color: disabled ? '#8a949c' : '#e8eaea',
     fontSize: 12, boxSizing: 'border-box', cursor: disabled ? 'not-allowed' : 'pointer',
   }),
-  errorText: { color: '#e57373', fontSize: 12, marginTop: 8, fontWeight: 600 },
   errorBanner: {
     padding: '10px 12px', borderRadius: 8, background: '#3a1f1f', border: '1px solid #5c2c2c',
     color: '#f0b4b4', fontSize: 12.5, fontWeight: 500,
   },
   panelActions: { display: 'flex', gap: 10, marginTop: 'auto' },
-  completedBadge: {
+  reviewedBadge: (statusValue) => ({
     padding: '3px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-    backgroundColor: '#1d3a2d', color: '#6ee7b7',
-  },
-  readOnlyBadge: {
-    padding: '3px 10px', borderRadius: 10, fontSize: 12, fontWeight: 700,
-    backgroundColor: '#2a2a1d', color: '#e0d06e',
-  },
+    ...(REVIEWED_BADGE_COLORS[statusValue] || { background: '#1d3a2d', color: '#6ee7b7' }),
+  }),
   completedNote: {
     marginTop: 'auto', padding: '10px 12px', borderRadius: 8, background: '#1d3a2d',
     color: '#8fd8b1', fontSize: 12.5, fontWeight: 500, textAlign: 'center',
@@ -577,10 +525,14 @@ const styles = {
     flex: 1, padding: '11px 14px', borderRadius: 8, border: '1px solid #3a4444', background: '#1b1b1b',
     color: '#e8eaea', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
+  dangerBtn: {
+    flex: 1, padding: '11px 14px', borderRadius: 8, border: 'none', background: '#dc3545',
+    color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+  },
   completionCard: {
     margin: 'auto', textAlign: 'center', color: '#e8eaea', background: '#1d2222',
     borderRadius: 16, padding: '40px 48px', maxWidth: 420,
   },
 };
 
-export default DicomCaseViewer;
+export default MammoTechCaseViewer;

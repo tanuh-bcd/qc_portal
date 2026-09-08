@@ -1,19 +1,15 @@
-"""Tests for the Radiologist per-image DICOM review workflow: grading,
-mandatory reasons on Bad/Not-a-Mammogram, auto In-Progress/Completed
-transitions, and auto-advance to the next assigned case."""
-import json
 import pytest
 from .conftest import get_token, create_case, add_attachment, assign_case, TestSession
 
 
-class TestImageReviewAccess:
+class TestCompleteCaseAccess:
     def test_no_auth(self, client):
-        res = client.post("/api/v1/qc/radiologist/cases/1/images/1/review", json={"grade": "Best"})
+        res = client.post("/api/v1/qc/radiologist/cases/1/complete", json={"grade": "Best"})
         assert res.status_code == 401
 
     def test_not_assigned_to_this_radiologist(self, client, seed_hospital_and_user):
         session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
+        add_attachment(case_id, "mammo_cc_left")
         assign_case(case_id, "radiologist@test.com")
 
         admin_token = get_token("Admin", "admin@test.com")
@@ -24,118 +20,81 @@ class TestImageReviewAccess:
         other_token = get_token("Radiologist", "radiologist2@test.com")
 
         res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
+            f"/api/v1/qc/radiologist/cases/{case_id}/complete",
             json={"grade": "Best"},
             headers={"Authorization": f"Bearer {other_token}"},
         )
         assert res.status_code == 404
 
-    def test_unknown_attachment(self, client, seed_hospital_and_user):
-        session_id, case_id = create_case()
-        assign_case(case_id, "radiologist@test.com")
-        token = get_token("Radiologist", "radiologist@test.com")
 
-        res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/999999/review",
-            json={"grade": "Best"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert res.status_code == 404
-
-
-class TestImageReviewGrading:
+class TestCompleteCaseGrading:
     def test_missing_reason_on_bad_grade_rejected(self, client, seed_hospital_and_user):
         session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
+        add_attachment(case_id, "mammo_cc_left")
         assign_case(case_id, "radiologist@test.com")
         token = get_token("Radiologist", "radiologist@test.com")
+        headers = {"Authorization": f"Bearer {token}"}
 
-        res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
-            json={"grade": "Bad"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Bad"}, headers=headers)
         assert res.status_code == 422
 
-        res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
-            json={"grade": "Not a Mammogram"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Not a Mammogram"}, headers=headers)
         assert res.status_code == 422
 
-    def test_bad_grade_with_reason_succeeds(self, client, seed_hospital_and_user):
+    def test_blocked_with_zero_images(self, client, seed_hospital_and_user):
         session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
         assign_case(case_id, "radiologist@test.com")
         token = get_token("Radiologist", "radiologist@test.com")
 
-        res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
-            json={"grade": "Bad", "reason": "Poor contrast"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Best"}, headers={"Authorization": f"Bearer {token}"})
+        assert res.status_code == 400
+
+    def test_good_grade_completes_case(self, client, seed_hospital_and_user):
+        session_id, case_id = create_case()
+        add_attachment(case_id, "mammo_cc_left")
+        add_attachment(case_id, "mammo_reading")
+        assign_case(case_id, "radiologist@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
+
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Good"}, headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 200
         data = res.json()
-        assert data["grade"] == "Bad"
-        assert data["all_images_reviewed"] is True
-        assert data["reviewed_count"] == 1
-        assert data["total_images"] == 1
+        assert data["status"] == "Completed"
 
-    def test_review_upserts_not_duplicates(self, client, seed_hospital_and_user):
+    def test_bad_grade_with_reason_completes_case(self, client, seed_hospital_and_user):
         session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
+        add_attachment(case_id, "mammo_cc_left")
+        assign_case(case_id, "radiologist@test.com")
+        token = get_token("Radiologist", "radiologist@test.com")
+
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Bad", "reason": "Poor contrast throughout"},
+                           headers={"Authorization": f"Bearer {token}"})
+        assert res.status_code == 200
+        assert res.json()["status"] == "Completed"
+
+    def test_cannot_complete_twice(self, client, seed_hospital_and_user):
+        session_id, case_id = create_case()
+        add_attachment(case_id, "mammo_cc_left")
         assign_case(case_id, "radiologist@test.com")
         token = get_token("Radiologist", "radiologist@test.com")
         headers = {"Authorization": f"Bearer {token}"}
 
-        client.post(f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
-                    json={"grade": "Good"}, headers=headers)
-        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
                            json={"grade": "Best"}, headers=headers)
         assert res.status_code == 200
-        assert res.json()["reviewed_count"] == 1
-        assert res.json()["grade"] == "Best"
 
-    def test_first_review_flips_pending_to_in_progress(self, client, seed_hospital_and_user):
-        session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
-        add_attachment(case_id, "mammo_cc_right")
-        assign_case(case_id, "radiologist@test.com")
-        token = get_token("Radiologist", "radiologist@test.com")
-
-        res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
-            json={"grade": "Good"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert res.status_code == 200
-        assert res.json()["all_images_reviewed"] is False
-
-        cases = client.get("/api/v1/qc/radiologist/cases", headers={"Authorization": f"Bearer {token}"}).json()["cases"]
-        this_case = next(c for c in cases if c["case_id"] == case_id)
-        assert this_case["status"] == "In-Progress"
-
-    def test_only_present_images_are_required(self, client, seed_hospital_and_user):
-        """A case with only 2 of the 4 mammography views uploaded should be
-        completable after grading just those 2 — not blocked waiting on 4."""
-        session_id, case_id = create_case()
-        att1 = add_attachment(case_id, "mammo_cc_left")
-        att2 = add_attachment(case_id, "mammo_mlo_left")
-        assign_case(case_id, "radiologist@test.com")
-        token = get_token("Radiologist", "radiologist@test.com")
-        headers = {"Authorization": f"Bearer {token}"}
-
-        client.post(f"/api/v1/qc/radiologist/cases/{case_id}/images/{att1}/review",
-                    json={"grade": "Best"}, headers=headers)
-        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/images/{att2}/review",
-                           json={"grade": "Best"}, headers=headers)
-        assert res.json()["total_images"] == 2
-        assert res.json()["all_images_reviewed"] is True
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Good"}, headers=headers)
+        assert res.status_code == 400
 
     def test_clinical_findings_merge_preserves_existing_keys(self, client, seed_hospital_and_user):
         session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
+        add_attachment(case_id, "mammo_cc_left")
         assign_case(case_id, "radiologist@test.com")
 
         db = TestSession()
@@ -149,7 +108,7 @@ class TestImageReviewGrading:
 
         token = get_token("Radiologist", "radiologist@test.com")
         res = client.post(
-            f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
+            f"/api/v1/qc/radiologist/cases/{case_id}/complete",
             json={"grade": "Best", "left": {"birads": "2"}},
             headers={"Authorization": f"Bearer {token}"},
         )
@@ -178,58 +137,35 @@ def _fresh_radiologist(client, email):
     return get_token("Radiologist", email)
 
 
-class TestCompleteCase:
-    def test_complete_blocked_with_ungraded_image(self, client, seed_hospital_and_user):
-        session_id, case_id = create_case()
-        add_attachment(case_id, "mammo_cc_left")
-        assign_case(case_id, "radiologist@test.com")
-        token = get_token("Radiologist", "radiologist@test.com")
-
-        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
-                           json={}, headers={"Authorization": f"Bearer {token}"})
-        assert res.status_code == 400
-
-    def test_complete_blocked_with_zero_images(self, client, seed_hospital_and_user):
-        session_id, case_id = create_case()
-        assign_case(case_id, "radiologist@test.com")
-        token = get_token("Radiologist", "radiologist@test.com")
-
-        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
-                           json={}, headers={"Authorization": f"Bearer {token}"})
-        assert res.status_code == 400
-
-    def test_complete_succeeds_and_returns_next_case(self, client, seed_hospital_and_user):
+class TestNextCase:
+    def test_returns_next_case(self, client, seed_hospital_and_user):
         token = _fresh_radiologist(client, "radiologist_next1@test.com")
         headers = {"Authorization": f"Bearer {token}"}
 
         session_id1, case_id1 = create_case()
-        att1 = add_attachment(case_id1, "mammo_cc_left")
+        add_attachment(case_id1, "mammo_cc_left")
         assign_case(case_id1, "radiologist_next1@test.com")
 
         session_id2, case_id2 = create_case()
         add_attachment(case_id2, "mammo_cc_left")
         assign_case(case_id2, "radiologist_next1@test.com")
 
-        client.post(f"/api/v1/qc/radiologist/cases/{case_id1}/images/{att1}/review",
-                    json={"grade": "Best"}, headers=headers)
-
-        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id1}/complete", json={}, headers=headers)
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id1}/complete",
+                           json={"grade": "Best"}, headers=headers)
         assert res.status_code == 200
         data = res.json()
-        assert data["status"] == "Completed"
         assert data["next_case"] is not None
         assert data["next_case"]["case_id"] == case_id2
 
-    def test_complete_returns_null_next_case_when_none_remain(self, client, seed_hospital_and_user):
+    def test_returns_null_next_case_when_none_remain(self, client, seed_hospital_and_user):
         token = _fresh_radiologist(client, "radiologist_next2@test.com")
         headers = {"Authorization": f"Bearer {token}"}
 
         session_id, case_id = create_case()
-        attachment_id = add_attachment(case_id, "mammo_cc_left")
+        add_attachment(case_id, "mammo_cc_left")
         assign_case(case_id, "radiologist_next2@test.com")
 
-        client.post(f"/api/v1/qc/radiologist/cases/{case_id}/images/{attachment_id}/review",
-                    json={"grade": "Best"}, headers=headers)
-        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete", json={}, headers=headers)
+        res = client.post(f"/api/v1/qc/radiologist/cases/{case_id}/complete",
+                           json={"grade": "Best"}, headers=headers)
         assert res.status_code == 200
         assert res.json()["next_case"] is None

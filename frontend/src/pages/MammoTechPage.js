@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
-import DoctorAssessmentForm from '../components/DoctorAssessmentForm';
-import BreastCaseReviewPanel from '../components/BreastCaseReviewPanel';
+import MammoTechCaseViewer from '../components/MammoTechCaseViewer';
 
 const CASE_VIEW_STORAGE_KEY = 'qc_mammotech_case_view_state';
 
@@ -17,6 +15,12 @@ const StatusBadge = ({ status }) => {
   return <span style={{ ...statusBadgeStyle, ...colors }}>{status}</span>;
 };
 
+const fmtDateTime = (value) => {
+  if (!value) return '-';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
+};
+
 const MammoTechPage = () => {
   const navigate = useNavigate();
   const [cases, setCases] = useState([]);
@@ -27,8 +31,6 @@ const MammoTechPage = () => {
   const [isCaseViewOpen, setIsCaseViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -50,20 +52,6 @@ const MammoTechPage = () => {
       }
     }
   }, [navigate]);
-
-  useEffect(() => {
-    if (!isCaseViewOpen) return;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape' && !confirmOpen) closeCaseView();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [isCaseViewOpen, confirmOpen]);
 
   const fetchCases = async () => {
     try {
@@ -128,38 +116,6 @@ const MammoTechPage = () => {
     sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
   };
 
-  const handleConfirmReview = async (confirmation) => {
-    try {
-      setReviewSubmitting(true);
-      const token = localStorage.getItem('token');
-      const apiUrl = process.env.REACT_APP_API_URL || '';
-      const response = await fetch(`${apiUrl}/api/v1/qc/mammo-tech/cases/${selectedCase.case_id}/review`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation }),
-      });
-      const contentType = response.headers.get('content-type');
-      const data = contentType && contentType.indexOf('application/json') !== -1 ? await response.json() : null;
-      if (response.ok) {
-        if (confirmation === 'yes') {
-          toast.success(`Case assigned to ${data.assigned_radiologist_name || 'a Radiologist'}.`);
-        } else {
-          toast.info('Case rejected.');
-        }
-        setConfirmOpen(false);
-        closeCaseView();
-        fetchCases();
-      } else {
-        toast.error((data && data.detail) || `Failed to submit (${response.status})`);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('An error occurred while submitting.');
-    } finally {
-      setReviewSubmitting(false);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('role');
@@ -172,7 +128,9 @@ const MammoTechPage = () => {
 
   const filtered = cases.filter(c => {
     if (!searchTerm) return true;
-    return (c.qc_subject_id || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const term = searchTerm.toLowerCase();
+    const fields = [c.qc_subject_id, c.status, c.submitted_response, c.assigned_radiologist_name, fmtDateTime(c.assigned_at)];
+    return fields.some(f => (f || '').toString().toLowerCase().includes(term));
   });
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -199,7 +157,7 @@ const MammoTechPage = () => {
           </div>
           <input
             type="text"
-            placeholder="Search by QC ID..."
+            placeholder="Search by QC ID, Status, Radiologist, or Date..."
             value={searchTerm}
             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             style={{ width: 260, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #c8e0e2', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
@@ -224,7 +182,10 @@ const MammoTechPage = () => {
                 <thead>
                   <tr style={headerRowStyle}>
                     <th style={thStyle}>QC ID</th>
+                    <th style={thStyle}>Assigned At</th>
                     <th style={thStyle}>Status</th>
+                    <th style={thStyle}>Response</th>
+                    <th style={thStyle}>Assigned Radiologist</th>
                     <th style={thStyle}>Actions</th>
                   </tr>
                 </thead>
@@ -232,7 +193,16 @@ const MammoTechPage = () => {
                   {paginated.map((c) => (
                     <tr key={c.case_id} style={rowStyle}>
                       <td style={tdStyle}>{c.qc_subject_id}</td>
+                      <td style={tdStyle}>{fmtDateTime(c.assigned_at)}</td>
                       <td style={tdStyle}><StatusBadge status={c.status} /></td>
+                      <td style={tdStyle}>
+                        {c.submitted_response ? (
+                          <span style={responseBadgeStyle(c.submitted_response)}>{c.submitted_response}</span>
+                        ) : (
+                          <span style={{ color: '#aaa' }}>-</span>
+                        )}
+                      </td>
+                      <td style={tdStyle}>{c.assigned_radiologist_name || '—'}</td>
                       <td style={tdStyle}>
                         <button onClick={() => fetchSessionDetail(c.session_id, c)} style={linkButtonStyle}>
                           View Case
@@ -262,59 +232,12 @@ const MammoTechPage = () => {
         )}
 
         {isCaseViewOpen && selectedSession && (
-          <div style={caseViewStyle}>
-            <div style={caseViewHeaderStyle}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, minWidth: 0 }}>
-                <button style={backButtonStyle} onClick={closeCaseView}>&#8592; Back to cases</button>
-                <div style={{ minWidth: 0 }}>
-                  <h3 style={{ margin: 0, fontSize: 17, color: '#233' }}>QC ID: {selectedCase?.qc_subject_id}</h3>
-                  {selectedCase?.hospital && (
-                    <div style={{ fontSize: 12.5, color: '#7c8a8d', marginTop: 2 }}>{selectedCase.hospital}</div>
-                  )}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                {selectedCase?.status === 'Pending' ? (
-                  <button style={reviewButtonStyle} onClick={() => setConfirmOpen(true)}>
-                    Review
-                  </button>
-                ) : (
-                  <StatusBadge status={selectedCase?.status} />
-                )}
-              </div>
-            </div>
-            <div style={caseViewBodyStyle}>
-              <div style={caseViewInnerStyle}>
-                <BreastCaseReviewPanel
-                  sessionId={selectedSession.qc_id}
-                  initialData={selectedSession.assessment}
-                />
-                <DoctorAssessmentForm
-                  sessionId={selectedSession.qc_id}
-                  initialData={selectedSession.assessment}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {confirmOpen && (
-          <div style={modalOverlayStyle} onClick={() => !reviewSubmitting && setConfirmOpen(false)}>
-            <div style={confirmDialogStyle} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ marginTop: 0 }}>Confirm Review</h3>
-              <p style={{ color: '#495057' }}>
-                Are you sure you want to review this case?
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-                <button style={dangerDialogBtnStyle} disabled={reviewSubmitting} onClick={() => handleConfirmReview('no')}>
-                  {reviewSubmitting ? 'Submitting...' : 'No'}
-                </button>
-                <button style={primaryDialogBtnStyle} disabled={reviewSubmitting} onClick={() => handleConfirmReview('yes')}>
-                  {reviewSubmitting ? 'Submitting...' : 'Yes'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <MammoTechCaseViewer
+            initialCaseItem={selectedCase}
+            initialSessionDetail={selectedSession}
+            assignedCases={cases}
+            onClose={() => { closeCaseView(); fetchCases(); }}
+          />
         )}
       </div>
     </Layout>
@@ -363,98 +286,18 @@ const statusBadgeStyle = {
   fontWeight: 600,
 };
 
-const caseViewStyle = {
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: '#fff',
-  zIndex: 2000,
-  display: 'flex',
-  flexDirection: 'column',
-};
-
-const caseViewHeaderStyle = {
-  flexShrink: 0,
-  padding: '12px clamp(16px, 3vw, 32px)',
-  borderBottom: '1px solid #e3ecec',
-  background: '#fff',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 14,
-  flexWrap: 'wrap',
-  boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
-};
-
-const caseViewBodyStyle = {
-  flex: 1,
-  overflowY: 'auto',
-  background: '#f7fafa',
-};
-
-const caseViewInnerStyle = {
-  width: '100%',
-  padding: 'clamp(16px, 3vw, 32px)',
-  boxSizing: 'border-box',
-};
-
-const backButtonStyle = {
-  padding: '8px 16px',
-  borderRadius: 8,
-  border: '1.5px solid #c8e0e2',
-  background: '#fff',
-  color: '#14868C',
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-  fontFamily: 'inherit',
-  whiteSpace: 'nowrap',
-  flexShrink: 0,
-};
-
-const reviewButtonStyle = {
-  padding: '8px 18px',
-  borderRadius: 8,
-  border: 'none',
-  background: '#14868C',
-  color: '#fff',
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-};
-
-const confirmDialogStyle = {
-  backgroundColor: '#fff',
-  width: '90%',
-  maxWidth: 440,
+// The submitted Yes/No decision — colored green for Yes (sent on), red for
+// No (rejected). Mirrors the same coloring used for the Radiologist's grade
+// in RadiologistPage.js.
+const responseBadgeStyle = (response) => ({
+  display: 'inline-block',
+  padding: '3px 10px',
   borderRadius: 10,
-  padding: 24,
-  boxShadow: '0 5px 15px rgba(0,0,0,0.3)',
-};
-
-const primaryDialogBtnStyle = {
-  padding: '9px 18px',
-  borderRadius: 8,
-  border: 'none',
-  background: '#14868C',
-  color: '#fff',
+  fontSize: 12,
   fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-};
-
-const dangerDialogBtnStyle = {
-  padding: '9px 18px',
-  borderRadius: 8,
-  border: 'none',
-  background: '#dc3545',
-  color: '#fff',
-  fontWeight: 600,
-  fontSize: 13,
-  cursor: 'pointer',
-};
+  backgroundColor: response === 'No' ? '#fbe3e3' : '#e3f5e9',
+  color: response === 'No' ? '#9f1c1c' : '#1e7e4b',
+});
 
 const linkButtonStyle = {
   background: 'none',
@@ -476,19 +319,6 @@ const paginationBtnStyle = {
   fontSize: 13,
   cursor: 'pointer',
   fontFamily: 'inherit',
-};
-
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: '0',
-  left: '0',
-  right: '0',
-  bottom: '0',
-  backgroundColor: 'rgba(0,0,0,0.5)',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 2100,
 };
 
 export default MammoTechPage;
