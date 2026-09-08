@@ -150,11 +150,11 @@ const LoginPage = () => {
               {loginLoading ? 'Logging in...' : 'Login'}
             </button>
           </form>
-          <div className="login-reset-link">
+          {/* <div className="login-reset-link">
             <button onClick={() => navigate('/qc/reset-password')}>
               Reset password
             </button>
-          </div>
+          </div> */}
         </div>
       </main>
     </div>

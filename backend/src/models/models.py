@@ -2,6 +2,7 @@ from sqlalchemy import Column, Float, Integer, String, ForeignKey, Boolean, TIME
 from sqlalchemy.orm import relationship
 from ..db.session import Base
 import enum
+from sqlalchemy import event
 
 class QuestionResponseType(str, enum.Enum):
     text_field = "text_field"
@@ -268,3 +269,15 @@ class Assignment(Base):
     mammo_tech = relationship("User", foreign_keys=[qc_mammo_tech_id])
     assigned_by_user = relationship("User", foreign_keys=[qc_assigned_by])
 
+
+@event.listens_for(DoctorAssessment, "after_insert")
+def _set_qc_sub_ui_id(mapper, connection, target):
+    if target.qc_sub_ui_id:
+        return
+    value = f"QC_{target.qc_id:05d}"
+    connection.execute(
+        DoctorAssessment.__table__.update()
+        .where(DoctorAssessment.__table__.c.qc_id == target.qc_id)
+        .values(qc_sub_ui_id=value)
+    )
+    target.qc_sub_ui_id = value

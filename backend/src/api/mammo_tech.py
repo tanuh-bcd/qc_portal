@@ -12,7 +12,7 @@ from ..schemas.schemas import (
 )
 from .auth import get_current_user
 from .admin import _get_role_by_name, RADIOLOGIST_ROLE_NAME, MAMMO_TECH_ROLE_NAME
-from .radiologist import _reviewable_attachments, _merge_clinical_findings
+from .radiologist import _reviewable_attachments, _merge_clinical_findings, qc_subject_id
 
 router = APIRouter()
 
@@ -28,13 +28,10 @@ def _mammo_tech_response(status: str) -> Optional[str]:
         return None
     return "No" if status == "Rejected" else "Yes"
 
-
 def _get_mammo_tech_assignment(app_db: Session, case_id: int, mammo_tech_id: int) -> Assignment:
-    mammo_role = _get_role_by_name(app_db, MAMMO_TECH_ROLE_NAME)
     assignment = app_db.query(Assignment).filter(
         Assignment.qc_assessment_id == case_id,
-        Assignment.qc_radiologist_id == mammo_tech_id,
-        Assignment.qc_role_id == (mammo_role.qc_id if mammo_role else -1),
+        Assignment.qc_mammo_tech_id == mammo_tech_id,
     ).first()
     if not assignment:
         raise HTTPException(status_code=404, detail="Assigned case not found")

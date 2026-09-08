@@ -6,20 +6,25 @@ import MammoTechCaseViewer from '../components/MammoTechCaseViewer';
 const CASE_VIEW_STORAGE_KEY = 'qc_mammotech_case_view_state';
 
 const STATUS_BADGE_COLORS = {
+  Pending: { background: '#fdf0da', color: '#b0691c' },
   'In-Progress': { background: '#e3f0fb', color: '#1c5f8f' },
+  Completed: { background: '#e3f5e9', color: '#1e7e4b' },
   Rejected: { background: '#fbe3e3', color: '#9f1c1c' },
 };
 
+const UNKNOWN_STATUS_COLORS = { background: '#eceff1', color: '#546e7a' };
+
 const StatusBadge = ({ status }) => {
-  const colors = STATUS_BADGE_COLORS[status] || { background: '#fdf0da', color: '#b0691c' };
+  if (!status) return <span style={{ color: '#aaa' }}>—</span>;
+  const key = Object.keys(STATUS_BADGE_COLORS).find(
+    k => k.toLowerCase() === status.toString().toLowerCase()
+  );
+  const colors = key ? STATUS_BADGE_COLORS[key] : UNKNOWN_STATUS_COLORS;
   return <span style={{ ...statusBadgeStyle, ...colors }}>{status}</span>;
 };
 
-const fmtDateTime = (value) => {
-  if (!value) return '-';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleString();
-};
+const formatIST = (utcString) =>
+  new Date(utcString + 'Z').toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
 const MammoTechPage = () => {
   const navigate = useNavigate();
@@ -129,7 +134,7 @@ const MammoTechPage = () => {
   const filtered = cases.filter(c => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    const fields = [c.qc_subject_id, c.status, c.submitted_response, c.assigned_radiologist_name, fmtDateTime(c.assigned_at)];
+    const fields = [c.qc_subject_id, c.status, c.submitted_response, c.assigned_radiologist_name, formatIST(c.assigned_at)];
     return fields.some(f => (f || '').toString().toLowerCase().includes(term));
   });
 
@@ -193,7 +198,7 @@ const MammoTechPage = () => {
                   {paginated.map((c) => (
                     <tr key={c.case_id} style={rowStyle}>
                       <td style={tdStyle}>{c.qc_subject_id}</td>
-                      <td style={tdStyle}>{fmtDateTime(c.assigned_at)}</td>
+                      <td style={tdStyle}>{formatIST(c.assigned_at)}</td>
                       <td style={tdStyle}><StatusBadge status={c.status} /></td>
                       <td style={tdStyle}>
                         {c.submitted_response ? (
