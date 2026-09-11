@@ -674,11 +674,8 @@ const dashboardRowStyle = {
   alignItems: 'stretch',
 };
 
-const formColumnStyle = { flex: '1 1 480px', minWidth: 320, display: 'flex' };
+const formColumnStyle = { flex: '1 1 480px', minWidth: 320, maxWidth: '100%', display: 'flex' };
 
-/* ---------- Cards ---------- */
-
-// height:100% + column flex lets each card fill its stretched column.
 const cardStyle = {
   backgroundColor: '#fff',
   border: '1px solid #e0e7eb',

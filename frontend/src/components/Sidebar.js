@@ -1,37 +1,35 @@
 import React from 'react';
+import './Sidebar.css';
 
-// Kept in sync with Layout.js, which paints this same width/color as part of
-// its own flex-row background — see the comment there for why.
+
 export const SIDEBAR_WIDTH = 220;
 
-// items: [{ id, label }]
-const Sidebar = ({ items, activeId, onSelect }) => (
-  <nav style={navStyle}>
-    {items.map((item) => (
-      <button
-        key={item.id}
-        onClick={() => onSelect(item.id)}
-        style={{
-          ...itemStyle,
-          ...(activeId === item.id ? activeItemStyle : null),
-        }}
-      >
-        {item.label}
-      </button>
-    ))}
-  </nav>
-);
 
-const navStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignSelf: 'stretch',
-  gap: 4,
-  width: SIDEBAR_WIDTH,
-  flexShrink: 0,
-  padding: '20px 12px',
-  backgroundColor: '#fff',
-  borderRight: '1px solid #e1e0d9',
+const Sidebar = ({ items, activeId, onSelect, isOpen = false, onClose }) => {
+  const handleSelect = (id) => {
+    onSelect(id);
+    onClose?.();
+  };
+
+  return (
+    <>
+      {isOpen && <div className="qc-sidebar-backdrop open" onClick={onClose} />}
+      <nav className={`qc-sidebar${isOpen ? ' open' : ''}`}>
+        {items.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => handleSelect(item.id)}
+            style={{
+              ...itemStyle,
+              ...(activeId === item.id ? activeItemStyle : null),
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+    </>
+  );
 };
 
 const itemStyle = {

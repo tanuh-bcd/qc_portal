@@ -232,7 +232,7 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
             : 'Search by QC ID, Status, or Date...'}
           value={searchTerm}
           onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-          style={{ width: 260, padding: '8px 14px', borderRadius: 8, border: '1.5px solid #c8e0e2', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+          style={{ flex: '1 1 200px', maxWidth: '100%', padding: '8px 14px', borderRadius: 8, border: '1.5px solid #c8e0e2', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
         />
       </div>
 

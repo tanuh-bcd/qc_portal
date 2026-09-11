@@ -1,24 +1,53 @@
-import React from 'react';
-import { LogOut } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { LogOut, Menu, X } from 'lucide-react';
 import { SIDEBAR_WIDTH } from './Sidebar';
+import './Layout.css';
 
 const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding = '20px', fullWidth = false, sidebar = null }) => {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const headerRef = useRef(null);
   const effectiveMaxWidth = fullWidth ? '100%' : maxWidth;
   const effectivePadding = fullWidth ? '0' : padding;
   const hospitalName = localStorage.getItem('hospitalName') || '';
   const userEmail = localStorage.getItem('userEmail') || '';
   const userName = localStorage.getItem('userName') || '';
 
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(([entry]) => setHeaderHeight(entry.target.offsetHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const sidebarWithMobileControls = sidebar
+    ? React.cloneElement(sidebar, {
+        isOpen: mobileNavOpen,
+        onClose: () => setMobileNavOpen(false),
+      })
+    : null;
+
   return (
-    <div style={containerStyle}>
-      <header style={headerStyle}>
+    <div style={{ ...containerStyle, '--header-height': `${headerHeight}px` }}>
+      <header ref={headerRef} style={headerStyle}>
         <div style={{ ...logoContainerStyle, maxWidth: effectiveMaxWidth }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
             <img src="/tanuh.png" alt="TANUH Logo" style={{ height: 50, objectFit: 'contain' }} />
             <img src="/MoE_Logo.svg" alt="MoE Logo" style={{ height: 42, objectFit: 'contain' }} />
             <img src="/IISc_logo.png" alt="IISc Logo" style={{ height: 55, objectFit: 'contain' }} />
           </div>
-          <div style={{ textAlign: 'center', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flex: 1 }}>
+            {sidebar && (
+              <button
+                type="button"
+                className="qc-layout-hamburger"
+                onClick={() => setMobileNavOpen((open) => !open)}
+                aria-label="Toggle navigation menu"
+              >
+                {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            )}
             <h1 style={titleStyle}>QC Portal for Breast Cancer Screening</h1>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
@@ -32,14 +61,12 @@ const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding
           </div>
         </div>
       </header>
-      <main style={{
-        display: 'flex',
-        flex: 1,
-        background: sidebar
-          ? `linear-gradient(to right, #fff ${SIDEBAR_WIDTH - 1}px, #e1e0d9 ${SIDEBAR_WIDTH - 1}px, #e1e0d9 ${SIDEBAR_WIDTH}px, transparent ${SIDEBAR_WIDTH}px)`
-          : undefined,
-      }}>
-        {sidebar}
+
+      <main
+        className={`qc-layout-main${sidebar ? ' has-sidebar' : ''}`}
+        style={{ '--sidebar-width': `${SIDEBAR_WIDTH}px` }}
+      >
+        {sidebarWithMobileControls}
         <div style={{ ...mainStyle, maxWidth: effectiveMaxWidth, padding: effectivePadding, flex: 1 }}>
           {children}
         </div>
