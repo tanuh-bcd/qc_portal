@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Sidebar from '../components/Sidebar';
 import RadiologistPage from './RadiologistPage';
 import QCAdminDashboard from '../components/QCAdminDashboard';
+import AdminDashboardHome from '../components/AdminDashboardHome';
 import AssignRadiologistHistory from '../components/AssignRadiologistHistory';
 
 const AdminPage = () => {
-  const [activeTab, setActiveTab] = useState('qc-admin');
+  const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
 
   const [userRole, setUserRole] = useState('');
@@ -41,13 +43,16 @@ const AdminPage = () => {
   };
 
   const tabs = [
+    { id: 'dashboard', label: 'Dashboard' },
     { id: 'qc-admin', label: 'QC Admin' },
-    { id: 'assign-history', label: 'Radiologist History' },
     { id: 'mammo-tech-history', label: 'Mammo Tech History' },
+    { id: 'assign-history', label: 'Radiologist History' },
   ];
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <AdminDashboardHome />;
       case 'qc-admin':
         return <div style={contentStyle}><QCAdminDashboard /></div>;
       case 'assign-history':
@@ -64,46 +69,17 @@ const AdminPage = () => {
   }
 
   return (
-    <Layout userRole="admin" handleLogout={handleLogout} fullWidth={true}>
-      <div style={tabContainerStyle}>
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              ...tabButtonStyle,
-              borderBottom: activeTab === tab.id ? '3px solid #14868C' : 'none',
-              color: activeTab === tab.id ? '#14868C' : '#666',
-              fontWeight: activeTab === tab.id ? 'bold' : 'normal'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <Layout
+      userRole="admin"
+      handleLogout={handleLogout}
+      fullWidth={true}
+      sidebar={<Sidebar items={tabs} activeId={activeTab} onSelect={setActiveTab} />}
+    >
       <div>
         {renderContent()}
       </div>
     </Layout>
   );
-};
-
-const tabContainerStyle = {
-  display: 'flex',
-  justifyContent: 'center',
-  backgroundColor: 'white',
-  borderBottom: '1px solid #ddd',
-  padding: '0 20px',
-  borderRadius: '8px 8px 0 0'
-};
-
-const tabButtonStyle = {
-  padding: '15px 30px',
-  fontSize: '16px',
-  background: 'none',
-  border: 'none',
-  cursor: 'pointer',
-  transition: 'all 0.3s ease'
 };
 
 const contentStyle = {

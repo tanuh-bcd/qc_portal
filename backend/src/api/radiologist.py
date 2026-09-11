@@ -143,6 +143,21 @@ def get_my_cases(
     return RadiologistCasesResponse(user_id=radiologist_id, role=current_user.get("role", ""), cases=cases)
 
 
+@router.get("/stats")
+def get_my_stats(
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(require_radiologist),
+):
+    radiologist_id = current_user["id"]
+    counts = {"In-Progress": 0, "Completed": 0}
+    rows = app_db.query(Assignment.qc_status).filter(
+        Assignment.qc_radiologist_id == radiologist_id
+    ).all()
+    for (status_value,) in rows:
+        counts["Completed" if status_value == "Completed" else "In-Progress"] += 1
+    return counts
+
+
 @router.post("/cases/{case_id}/complete", response_model=RadiologistReviewCompleteResponse)
 def complete_case_review(
     case_id: int,

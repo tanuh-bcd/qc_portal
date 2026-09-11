@@ -1,6 +1,6 @@
 {
-  "short_name": "PinkShieldAI",
-  "name": "PinkShieldAI — BCD Portal",
+  "short_name": "QCPinkShieldAI",
+  "name": "QCPinkShieldAI — BCD Portal",
   "description": "Breast Cancer Detection screening and assessment portal for clinicians and patients",
   "id": "/",
   "scope": "/",

@@ -52,6 +52,10 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const backendRetried = useRef(false);
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  zoomRef.current = zoom;
+  panRef.current = pan;
 
   const fileType = resolvedFileType || getFileType(fileName, mimeType, fileTypeKey);
 
@@ -288,6 +292,69 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
 
   const handleMouseUp = () => setDragging(false);
 
+  // Touch equivalents of the mouse handlers above: one finger pans, two
+  // fingers pinch-zoom. Registered as native (non-passive) listeners via a
+  // ref rather than React's onTouch* props, because React's synthetic touch
+  // handlers are passive by default in modern browsers — which silently
+  // blocks preventDefault() on touchmove, so the page would scroll/bounce
+  // underneath the gesture instead of panning/zooming the image.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || fileType === 'pdf' || fileType === 'docx') return;
+
+    const distanceBetween = (touches) => {
+      const [a, b] = touches;
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    };
+
+    let mode = null; // 'pan' | 'pinch'
+    let pinchStartDistance = 0;
+    let pinchStartZoom = 1;
+    let touchPanStart = { x: 0, y: 0 };
+
+    const onTouchStart = (e) => {
+      if (e.touches.length === 2) {
+        mode = 'pinch';
+        pinchStartDistance = distanceBetween(e.touches);
+        pinchStartZoom = zoomRef.current;
+      } else if (e.touches.length === 1) {
+        mode = 'pan';
+        const t = e.touches[0];
+        touchPanStart = { x: t.clientX - panRef.current.x, y: t.clientY - panRef.current.y };
+        setDragging(true);
+      }
+    };
+
+    const onTouchMove = (e) => {
+      if (!mode) return;
+      e.preventDefault();
+      if (mode === 'pinch' && e.touches.length === 2) {
+        const ratio = distanceBetween(e.touches) / pinchStartDistance;
+        setZoom(Math.max(0.1, Math.min(10, pinchStartZoom * ratio)));
+      } else if (mode === 'pan' && e.touches.length === 1) {
+        const t = e.touches[0];
+        setPan({ x: t.clientX - touchPanStart.x, y: t.clientY - touchPanStart.y });
+      }
+    };
+
+    const onTouchEnd = () => {
+      mode = null;
+      setDragging(false);
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', onTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [fileType]);
+
   const zoomIn = () => setZoom(prev => Math.min(10, prev + 0.25));
   const zoomOut = () => setZoom(prev => Math.max(0.1, prev - 0.25));
   const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
@@ -400,7 +467,7 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
           {!loading && !error && docxHtml && fileType === 'docx' && (
             <div style={{
               width: '100%', height: '100%', overflow: 'auto',
-              background: '#fff', padding: '40px 60px',
+              background: '#fff', padding: 'clamp(16px, 5vw, 40px) clamp(16px, 6vw, 60px)',
               boxSizing: 'border-box',
             }}>
               <div
@@ -455,6 +522,7 @@ const styles = {
   },
   header: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    flexWrap: 'wrap', gap: 8,
     padding: '10px 16px',
     background: '#222', borderBottom: '1px solid #333',
     flexShrink: 0,

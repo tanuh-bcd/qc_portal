@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**QC Portal (PinkShieldAI)** — a clinical breast cancer screening and data collection platform used across hospitals in India, forked from BCD Portal into its own deployment for QC/radiology-review workflows (QC admin, radiology assignment). Built by the TANUH Foundation at IISc Bengaluru under the Ministry of Education. Provides patient questionnaire collection, risk scoring, clinical assessments with DICOM/image uploads, and analytics dashboards.
+**QC Portal (QCPinkShieldAI)** — a clinical breast cancer screening and data collection platform used across hospitals in India, forked from BCD Portal into its own deployment for QC/radiology-review workflows (QC admin, radiology assignment). Built by the TANUH Foundation at IISc Bengaluru under the Ministry of Education. Provides patient questionnaire collection, risk scoring, clinical assessments with DICOM/image uploads, and analytics dashboards.
 
 **GitHub:** `tanuh-bcd/qc_portal` (forked from `tanuh_bcd_portal`)
 

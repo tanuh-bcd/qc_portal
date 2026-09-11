@@ -484,7 +484,7 @@ def test_send_report_records_success_and_prevents_duplicate(monkeypatch):
         assert len(calls) == 1
         assert calls[0][0][3]["pending_submissions"] == 200
         assert calls[0][1]["include_configured_cc"] is False
-        assert calls[0][1]["from_email"] == "PinkShieldAI <breastcancerscreening@tanuh.ai>"
+        assert calls[0][1]["from_email"] == "QCPinkShieldAI <breastcancerscreening@tanuh.ai>"
         assert calls[0][1]["cc"] == ["bcs@tanuh.ai"]
     finally:
         db.query(ReminderEmailLog).filter(

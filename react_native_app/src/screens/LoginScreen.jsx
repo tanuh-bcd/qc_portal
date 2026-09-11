@@ -52,7 +52,7 @@ const LoginScreen = ({ navigation }) => {
         <Image source={require('../assets/IISc_logo.png')} style={styles.logo} resizeMode="contain" />
       </View>
 
-      <Text style={styles.title}>PinkShieldAI</Text>
+      <Text style={styles.title}>QCPinkShieldAI</Text>
       <Text style={styles.subtitle}>Breast Cancer Risk Prediction Tool</Text>
 
       {offline && (

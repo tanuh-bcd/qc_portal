@@ -252,6 +252,9 @@ class Attachment(Base):
 
 class Assignment(Base):
     __tablename__ = "qc_assignments"
+    __table_args__ = (
+        Index("uq_assignment_assessment_role", "qc_assessment_id", "qc_role_id", unique=True),
+    )
 
     qc_id = Column(Integer, primary_key=True, index=True)
     qc_assessment_id = Column(Integer, ForeignKey("qc_doctor_assessments.qc_id"), nullable=False)

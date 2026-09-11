@@ -1,0 +1,38 @@
+.qc-layout-main {
+  display: flex;
+  flex: 1;
+}
+
+.qc-layout-main.has-sidebar {
+  background: linear-gradient(
+    to right,
+    #fff calc(var(--sidebar-width, 220px) - 1px),
+    #e1e0d9 calc(var(--sidebar-width, 220px) - 1px),
+    #e1e0d9 var(--sidebar-width, 220px),
+    transparent var(--sidebar-width, 220px)
+  );
+}
+
+.qc-layout-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #14868C;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .qc-layout-hamburger {
+    display: inline-flex;
+  }
+
+  .qc-layout-main.has-sidebar {
+    background: none;
+  }
+}

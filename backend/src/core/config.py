@@ -51,7 +51,7 @@ class Settings:
     REMINDER_RECIPIENT_EMAIL: str = _cfg("REMINDER_RECIPIENT_EMAIL", "")
     REMINDER_FROM_EMAIL: str = _cfg(
         "REMINDER_FROM_EMAIL",
-        "PinkShieldAI <breastcancerscreening@tanuh.ai>",
+        "QCPinkShieldAI <breastcancerscreening@tanuh.ai>",
     )
     REMINDER_QUARTERLY_TARGET: int = int(_cfg("REMINDER_QUARTERLY_TARGET", "200"))
     REMINDER_INTERVAL_DAYS: int = int(_cfg("REMINDER_INTERVAL_DAYS", "14"))

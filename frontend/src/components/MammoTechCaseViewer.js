@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
+import './CaseViewer.css';
 import useAttachmentImage from '../hooks/useAttachmentImage';
 import useAttachmentFile from '../hooks/useAttachmentFile';
 import { BIRADS_OPTIONS, BIRADS_4_SUB, DENSITY_OPTIONS } from './DoctorAssessmentForm';
@@ -80,17 +81,10 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
     };
   }, [saving, onClose]);
 
-  // Loads a different case into the viewer in place — used both after a
-  // Yes/No submission (server hands back the next assigned case) and when
-  // browsing between already-reviewed cases directly ("Next/Previous Case").
   const goToCase = async (caseItem) => {
     setLoadingCase(true);
     try {
       const session = await fetchSessionDetail(caseItem.session_id);
-      // Reset the image index in the same batch as the case/session swap —
-      // otherwise a render can briefly use the new (possibly shorter) images
-      // array with the old, now out-of-range index, crashing on
-      // currentImage.attachment before the rehydration effect gets to run.
       setCurrentImageIndex(0);
       setCurrentCase(caseItem);
       setCurrentSession(session);
@@ -212,8 +206,8 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
         </div>
       </div>
 
-      <div style={styles.body}>
-        <div style={styles.viewerArea}>
+      <div className="qc-cv-body">
+        <div className="qc-cv-viewer-area">
           <div style={styles.imageScroll}>
             {!isReportItem && (
               <>
@@ -254,7 +248,7 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
           </div>
 
           {showInfo && (
-            <div style={styles.metaPanel}>
+            <div className="qc-cv-meta-panel">
               <div style={{ fontWeight: 700, marginBottom: 6 }}>{imageLabel}</div>
               <MetaRow label="Case ID" value={currentCase.qc_subject_id} />
               <MetaRow label="Image file" value={currentImage && currentImage.attachment.qc_file_name} />
@@ -268,7 +262,7 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
           )}
 
           {!isReportItem && (
-          <div style={styles.adjustPanel}>
+          <div className="qc-cv-adjust-panel">
             <div style={styles.adjustRow}>
               <label style={styles.adjustLabel}>Window Level</label>
               <input type="range" min="40" max="160" value={brightness} onChange={(e) => setBrightness(Number(e.target.value))} />
@@ -283,7 +277,7 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
         </div>
 
         {showInfo && (
-          <div style={styles.reviewPanel}>
+          <div className="qc-cv-review-panel">
             {isLastImage && (
               <div style={{ ...styles.panelSection, ...(isReviewed ? styles.reviewedPanelSection : {}) }}>
                 <div style={styles.panelTitle}>
@@ -434,52 +428,35 @@ const styles = {
     borderBottom: '1px solid #262626', color: '#e8eaea',
   },
   backBtn: {
-    padding: '8px 16px', borderRadius: 8, border: '1px solid #4a5a5b', background: '#14868C',
+    padding: '5px 12px', borderRadius: 8, border: '1px solid #4a5a5b', background: '#14868C',
     color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   },
   navBtn: (disabled) => ({
-    padding: '8px 14px', borderRadius: 8, border: '1px solid #3a4444',
+    padding: '5px 10px', borderRadius: 8, border: '1px solid #3a4444',
     background: disabled ? '#161616' : '#1b1b1b', color: disabled ? '#555' : '#e8eaea',
     fontWeight: 600, fontSize: 13, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   }),
   headerDivider: { width: 1, alignSelf: 'stretch', background: '#2c3636', margin: '0 4px' },
   zoomBtn: (disabled) => ({
-    minWidth: 32, padding: '6px 10px', borderRadius: 6, border: '1px solid #3a4444',
+    minWidth: 32, padding: '4px 8px', borderRadius: 6, border: '1px solid #3a4444',
     background: '#1b1b1b', color: disabled ? '#555' : '#e8eaea', fontWeight: 600, fontSize: 14,
     cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
   }),
   infoBtn: (on) => ({
-    padding: '6px 12px', borderRadius: 6, border: '1px solid #3a4444',
+    padding: '4px 9px', borderRadius: 6, border: '1px solid #3a4444',
     background: on ? '#243030' : '#1b1b1b', color: on ? '#e8eaea' : '#8a949c',
     fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   }),
-  body: { flex: 1, display: 'flex', minHeight: 0 },
-  viewerArea: { flex: 1, position: 'relative', background: '#000', display: 'flex', minWidth: 0 },
   imageScroll: { flex: 1, overflow: 'auto', display: 'flex' },
   reportFrame: { width: '100%', height: '100%', border: 'none', background: '#fff' },
-  docxFrame: { width: '100%', height: '100%', overflow: 'auto', background: '#fff', padding: '30px 40px', boxSizing: 'border-box' },
+  docxFrame: { width: '100%', height: '100%', overflow: 'auto', background: '#fff', padding: 'clamp(16px, 5vw, 40px) clamp(16px, 6vw, 60px)', boxSizing: 'border-box' },
   docxBody: { maxWidth: 800, margin: '0 auto', fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif", fontSize: 14, lineHeight: 1.7, color: '#222' },
   centerMsg: { margin: 'auto', color: '#cfd6d8', fontSize: 14 },
-  metaPanel: {
-    position: 'absolute', top: 14, right: 14, zIndex: 3,
-    minWidth: 200, padding: '10px 12px', borderRadius: 8,
-    background: 'rgba(12,12,12,0.78)', border: '1px solid rgba(255,255,255,0.16)',
-  },
-  adjustPanel: {
-    position: 'absolute', bottom: 14, left: 14, zIndex: 3,
-    minWidth: 220, padding: '10px 12px', borderRadius: 8,
-    background: 'rgba(12,12,12,0.78)', border: '1px solid rgba(255,255,255,0.16)',
-    display: 'flex', flexDirection: 'column', gap: 8,
-  },
   adjustRow: { display: 'flex', alignItems: 'center', gap: 8 },
   adjustLabel: { fontSize: 11, color: '#cfd6d8', minWidth: 90 },
   resetBtn: {
-    padding: '5px 10px', borderRadius: 6, border: '1px solid #3a4444', background: '#1b1b1b',
+    padding: '3px 8px', borderRadius: 6, border: '1px solid #3a4444', background: '#1b1b1b',
     color: '#e8eaea', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-  },
-  reviewPanel: {
-    width: 340, flexShrink: 0, background: '#161a1a', borderLeft: '1px solid #262626',
-    padding: 16, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16,
   },
   panelSection: { background: '#1d2222', borderRadius: 10, padding: 14 },
   reviewedPanelSection: { border: '1px solid #14868C', boxShadow: '0 0 0 1px rgba(20,134,140,0.35)' },
@@ -518,15 +495,15 @@ const styles = {
     color: '#8fd8b1', fontSize: 12.5, fontWeight: 500, textAlign: 'center',
   },
   primaryBtn: {
-    flex: 1, padding: '11px 14px', borderRadius: 8, border: 'none', background: '#14868C',
+    flex: 1, padding: '7px 10px', borderRadius: 8, border: 'none', background: '#14868C',
     color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
   secondaryBtn: {
-    flex: 1, padding: '11px 14px', borderRadius: 8, border: '1px solid #3a4444', background: '#1b1b1b',
+    flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #3a4444', background: '#1b1b1b',
     color: '#e8eaea', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
   dangerBtn: {
-    flex: 1, padding: '11px 14px', borderRadius: 8, border: 'none', background: '#dc3545',
+    flex: 1, padding: '7px 10px', borderRadius: 8, border: 'none', background: '#dc3545',
     color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
   completionCard: {

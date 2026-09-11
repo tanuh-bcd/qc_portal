@@ -94,10 +94,10 @@ const LoginPage = () => {
           <img src="/IISc_logo.png" alt="IISc Logo" className="logo-iisc" />
         </div>
         <h1 className="login-title">
-          AI enabled Breast Cancer Risk Prediction Tool
+          QC Portal for Breast Cancer Screening
         </h1>
         <p className="login-subtitle">
-          PinkShieldAI
+          PinkShield QC
         </p>
       </header>
 
@@ -150,11 +150,11 @@ const LoginPage = () => {
               {loginLoading ? 'Logging in...' : 'Login'}
             </button>
           </form>
-          {/* <div className="login-reset-link">
+          <div className="login-reset-link">
             <button onClick={() => navigate('/qc/reset-password')}>
               Reset password
             </button>
-          </div> */}
+          </div>
         </div>
       </main>
     </div>

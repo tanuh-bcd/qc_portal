@@ -99,6 +99,24 @@ def get_my_cases(
     return RadiologistCasesResponse(user_id=mammo_tech_id, role=current_user.get("role", ""), cases=cases)
 
 
+@router.get("/stats")
+def get_my_stats(
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(require_mammo_tech),
+):
+    mammo_tech_id = current_user["id"]
+    mammo_role = _get_role_by_name(app_db, MAMMO_TECH_ROLE_NAME)
+    counts = {"Pending": 0, "In-Progress": 0, "Rejected": 0}
+    rows = app_db.query(Assignment.qc_status).filter(
+        Assignment.qc_radiologist_id == mammo_tech_id,
+        Assignment.qc_role_id == (mammo_role.qc_id if mammo_role else -1),
+    ).all()
+    for (status_value,) in rows:
+        if status_value in counts:
+            counts[status_value] += 1
+    return counts
+
+
 def _next_pending_case(app_db: Session, mammo_tech_id: int, exclude_case_id: int, mammo_role_id: int):
     next_assignment = app_db.query(Assignment).filter(
         Assignment.qc_radiologist_id == mammo_tech_id,
