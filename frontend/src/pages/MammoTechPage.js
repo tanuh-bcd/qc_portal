@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import Sidebar from '../components/Sidebar';
+import MammoTechDashboardHome from '../components/MammoTechDashboardHome';
 import MammoTechCaseViewer from '../components/MammoTechCaseViewer';
 
 const CASE_VIEW_STORAGE_KEY = 'qc_mammotech_case_view_state';
+const SIDEBAR_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'cases', label: 'Assigned Cases' },
+];
 
 const STATUS_BADGE_COLORS = {
   Pending: { background: '#fdf0da', color: '#b0691c' },
@@ -36,6 +42,7 @@ const MammoTechPage = () => {
   const [isCaseViewOpen, setIsCaseViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [view, setView] = useState('dashboard');
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -51,7 +58,10 @@ const MammoTechPage = () => {
     if (saved) {
       try {
         const { sessionId, caseItem } = JSON.parse(saved);
-        if (sessionId && caseItem) fetchSessionDetail(sessionId, caseItem);
+        if (sessionId && caseItem) {
+          setView('cases');
+          fetchSessionDetail(sessionId, caseItem);
+        }
       } catch {
         sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
       }
@@ -149,7 +159,13 @@ const MammoTechPage = () => {
   const showCount = !loading && !error && filtered.length > 0;
 
   return (
-    <Layout userRole="mammo tech" handleLogout={handleLogout} fullWidth={true}>
+    <Layout
+      userRole="mammo tech"
+      handleLogout={handleLogout}
+      fullWidth={true}
+      sidebar={<Sidebar items={SIDEBAR_ITEMS} activeId={view} onSelect={setView} />}
+    >
+      {view === 'dashboard' ? <MammoTechDashboardHome /> : (
       <div style={contentStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
@@ -245,6 +261,7 @@ const MammoTechPage = () => {
           />
         )}
       </div>
+      )}
     </Layout>
   );
 };

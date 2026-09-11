@@ -434,22 +434,22 @@ const styles = {
     borderBottom: '1px solid #262626', color: '#e8eaea',
   },
   backBtn: {
-    padding: '8px 16px', borderRadius: 8, border: '1px solid #4a5a5b', background: '#14868C',
+    padding: '5px 12px', borderRadius: 8, border: '1px solid #4a5a5b', background: '#14868C',
     color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   },
   navBtn: (disabled) => ({
-    padding: '8px 14px', borderRadius: 8, border: '1px solid #3a4444',
+    padding: '5px 10px', borderRadius: 8, border: '1px solid #3a4444',
     background: disabled ? '#161616' : '#1b1b1b', color: disabled ? '#555' : '#e8eaea',
     fontWeight: 600, fontSize: 13, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   }),
   headerDivider: { width: 1, alignSelf: 'stretch', background: '#2c3636', margin: '0 4px' },
   zoomBtn: (disabled) => ({
-    minWidth: 32, padding: '6px 10px', borderRadius: 6, border: '1px solid #3a4444',
+    minWidth: 32, padding: '4px 8px', borderRadius: 6, border: '1px solid #3a4444',
     background: '#1b1b1b', color: disabled ? '#555' : '#e8eaea', fontWeight: 600, fontSize: 14,
     cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit',
   }),
   infoBtn: (on) => ({
-    padding: '6px 12px', borderRadius: 6, border: '1px solid #3a4444',
+    padding: '4px 9px', borderRadius: 6, border: '1px solid #3a4444',
     background: on ? '#243030' : '#1b1b1b', color: on ? '#e8eaea' : '#8a949c',
     fontWeight: 600, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   }),
@@ -474,7 +474,7 @@ const styles = {
   adjustRow: { display: 'flex', alignItems: 'center', gap: 8 },
   adjustLabel: { fontSize: 11, color: '#cfd6d8', minWidth: 90 },
   resetBtn: {
-    padding: '5px 10px', borderRadius: 6, border: '1px solid #3a4444', background: '#1b1b1b',
+    padding: '3px 8px', borderRadius: 6, border: '1px solid #3a4444', background: '#1b1b1b',
     color: '#e8eaea', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   },
   reviewPanel: {
@@ -518,15 +518,15 @@ const styles = {
     color: '#8fd8b1', fontSize: 12.5, fontWeight: 500, textAlign: 'center',
   },
   primaryBtn: {
-    flex: 1, padding: '11px 14px', borderRadius: 8, border: 'none', background: '#14868C',
+    flex: 1, padding: '7px 10px', borderRadius: 8, border: 'none', background: '#14868C',
     color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
   secondaryBtn: {
-    flex: 1, padding: '11px 14px', borderRadius: 8, border: '1px solid #3a4444', background: '#1b1b1b',
+    flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #3a4444', background: '#1b1b1b',
     color: '#e8eaea', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
   dangerBtn: {
-    flex: 1, padding: '11px 14px', borderRadius: 8, border: 'none', background: '#dc3545',
+    flex: 1, padding: '7px 10px', borderRadius: 8, border: 'none', background: '#dc3545',
     color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
   },
   completionCard: {

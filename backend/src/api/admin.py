@@ -303,9 +303,55 @@ def _all_subjects_with_status(app_db: Session, q_db: Session, for_role: str = "r
     return items
 
 
+def _combined_status(mammo_status: Optional[str], radiologist_status: Optional[str]) -> str:
+    if mammo_status == "Rejected":
+        return "Rejected"
+    if radiologist_status == "Completed":
+        return "Completed"
+    if mammo_status == "In-Progress":
+        return "In-Progress"
+    return "Pending"
+
+
+@router.get("/dashboard-stats")
+def get_dashboard_stats(
+    app_db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role)
+):
+    mammo_role = _get_role_by_name(app_db, MAMMO_TECH_ROLE_NAME)
+    radiologist_role = _get_role_by_name(app_db, RADIOLOGIST_ROLE_NAME)
+    mammo_role_id = mammo_role.qc_id if mammo_role else -1
+    radiologist_role_id = radiologist_role.qc_id if radiologist_role else -1
+
+    mammo_status_by_assessment: Dict[int, str] = {}
+    radiologist_status_by_assessment: Dict[int, str] = {}
+    for a in app_db.query(Assignment.qc_assessment_id, Assignment.qc_role_id, Assignment.qc_status).all():
+        if a.qc_role_id == mammo_role_id:
+            mammo_status_by_assessment[a.qc_assessment_id] = a.qc_status
+        elif a.qc_role_id is None or a.qc_role_id == radiologist_role_id:
+            radiologist_status_by_assessment[a.qc_assessment_id] = a.qc_status
+
+    overall = {"Pending": 0, "In-Progress": 0, "Rejected": 0, "Completed": 0}
+    mammo_tech = {"Pending": 0, "In-Progress": 0, "Rejected": 0, "Completed": 0}
+    radiologist = {"In-Progress": 0, "Completed": 0}
+
+    assessment_ids = set(mammo_status_by_assessment) | set(radiologist_status_by_assessment)
+    for assessment_id in assessment_ids:
+        combined = _combined_status(
+            mammo_status_by_assessment.get(assessment_id),
+            radiologist_status_by_assessment.get(assessment_id),
+        )
+        overall[combined] += 1
+        if assessment_id in mammo_status_by_assessment:
+            mammo_tech[combined] += 1
+
+    for status_value in radiologist_status_by_assessment.values():
+        radiologist["Completed" if status_value == "Completed" else "In-Progress"] += 1
+
+    return {"overall": overall, "mammo_tech": mammo_tech, "radiologist": radiologist}
+
+
 def _resolve_subject_ids_to_assessments(app_db: Session, q_db: Session, subject_ids: List[str]):
-    """Maps the human-facing QC subject id (qc_sub_ui_id, falling back to session_id —
-    the same identifier GET /subjects returns) to its assessment id."""
     by_subject = {item.qc_subject_id: item.assessment_id for item in _all_subjects_with_status(app_db, q_db)}
     resolved, missing = {}, []
     for sid in subject_ids:
@@ -568,10 +614,6 @@ def assign_mammo_tech(
 
 
 def qc_subject_id(app_db: Session, assessment: DoctorAssessment) -> str:
-    """The display id for a case. Older rows (and anything created by a sync
-    that bypasses the ORM) can have qc_sub_ui_id NULL, so derive it from the
-    assessment id and persist it rather than falling back to the raw session
-    UUID, which is what users were seeing in the case list."""
     if assessment.qc_sub_ui_id:
         return assessment.qc_sub_ui_id
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
+import { SIDEBAR_WIDTH } from './Sidebar';
 
-const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding = '20px', fullWidth = false }) => {
+const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding = '20px', fullWidth = false, sidebar = null }) => {
   const effectiveMaxWidth = fullWidth ? '100%' : maxWidth;
   const effectivePadding = fullWidth ? '0' : padding;
   const hospitalName = localStorage.getItem('hospitalName') || '';
@@ -31,9 +32,17 @@ const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding
           </div>
         </div>
       </header>
-
-      <main style={{ ...mainStyle, maxWidth: effectiveMaxWidth, padding: effectivePadding }}>
-        {children}
+      <main style={{
+        display: 'flex',
+        flex: 1,
+        background: sidebar
+          ? `linear-gradient(to right, #fff ${SIDEBAR_WIDTH - 1}px, #e1e0d9 ${SIDEBAR_WIDTH - 1}px, #e1e0d9 ${SIDEBAR_WIDTH}px, transparent ${SIDEBAR_WIDTH}px)`
+          : undefined,
+      }}>
+        {sidebar}
+        <div style={{ ...mainStyle, maxWidth: effectiveMaxWidth, padding: effectivePadding, flex: 1 }}>
+          {children}
+        </div>
       </main>
     </div>
   );

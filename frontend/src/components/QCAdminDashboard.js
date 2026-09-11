@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { PieChart, Pie, Cell } from 'recharts';
 
 const API_BASE = process.env.REACT_APP_API_URL || '';
 
@@ -53,7 +52,7 @@ const CheckboxDropdown = ({ label, options, getId, getLabel, selected, onChange,
         style={{ ...ddButtonStyle, opacity: disabled ? 0.6 : 1 }}
       >
         {selected.size > 0 ? `${selected.size} selected` : label}
-        <span style={{ marginLeft: 8 }}>{open ? '▲' : '▼'}</span>
+        <span style={{ marginLeft: 8 }}>{open ? '−' : '+'}</span>
       </button>
       {open && (
         <div style={ddPanelStyle}>
@@ -69,114 +68,6 @@ const CheckboxDropdown = ({ label, options, getId, getLabel, selected, onChange,
           })}
         </div>
       )}
-    </div>
-  );
-};
-
-const renderSliceLabel = (textColors) => ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
-  if (!percent || percent < 0.06) return null;
-  const RADIAN = Math.PI / 180;
-  const radius = innerRadius + (outerRadius - innerRadius) * (innerRadius > 0 ? 0.5 : 0.62);
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  return (
-    <text
-      x={x}
-      y={y}
-      fill={textColors[name] || '#111'}
-      textAnchor="middle"
-      dominantBaseline="central"
-      style={{ fontSize: 13, fontWeight: 700 }}
-    >
-      {`${Math.round(percent * 100)}%`}
-    </text>
-  );
-};
-
-const DonutStat = ({ title, completed, total, pending, extraLabel, extraValue }) => {
-  const data = total > 0
-    ? [{ name: 'Completed', value: completed }, { name: 'Pending', value: total - completed }]
-    : [{ name: 'Pending', value: 1 }];
-  return (
-    <div style={cardStyle}>
-      <div style={cardTitleStyle}>{title}</div>
-
-      <div style={cardBodyStyle}>
-        <div style={{ position: 'relative', width: 360, height: 260 }}>
-          <PieChart width={360} height={260}>
-            <Pie
-              data={data}
-              dataKey="value"
-              innerRadius={65}
-              outerRadius={100}
-              startAngle={100}
-              endAngle={-270}
-              labelLine={false}
-              label={total > 0 ? renderSliceLabel({ Completed: '#ffffff', Pending: '#ffffff' }) : false}
-              isAnimationActive={false}
-            >
-              {data.map((entry, i) => (
-                <Cell key={i} fill={entry.name === 'Completed' ? '#0d9488' : '#fb923c'} stroke="none" />
-              ))}
-            </Pie>
-          </PieChart>
-          <div style={donutCenterStyle}>
-            <div style={{ fontSize: 20, fontWeight: 700 }}>{completed} / {total}</div>
-            <div style={{ fontSize: 11, color: '#888' }}>Completed</div>
-          </div>
-        </div>
-      </div>
-
-      <div style={cardFooterStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase' }}>Pending</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#fb923c' }}>{pending}</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 11, color: '#888', textTransform: 'uppercase' }}>{extraLabel}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: '#14868C' }}>{extraValue}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const SubjectsPie = ({ assigned, unassigned }) => {
-  const total = assigned + unassigned;
-  const denom = total || 1;
-  const data = total > 0
-    ? [{ name: 'Assigned', value: assigned }, { name: 'Unassigned', value: unassigned }]
-    : [{ name: 'Unassigned', value: 1 }];
-  const pct = (v) => Math.round((v / denom) * 100);
-  return (
-    <div style={cardStyle}>
-      <div style={cardTitleStyle}>Subjects</div>
-
-      <div style={cardBodyStyle}>
-        <div style={{ width: 260, height: 160 }}>
-          <PieChart width={260} height={160}>
-            <Pie
-              data={data}
-              dataKey="value"
-              outerRadius={70}
-              labelLine={false}
-              label={total > 0 ? renderSliceLabel({ Assigned: '#ffffff', Unassigned: '#0f5f63' }) : false}
-              isAnimationActive={false}
-            >
-              <Cell fill={total > 0 ? '#14868C' : '#a7e8d0'} stroke="none" />
-              <Cell fill="#a7e8d0" stroke="none" />
-            </Pie>
-          </PieChart>
-        </div>
-      </div>
-
-      <div style={{ ...cardFooterStyle, fontSize: 13, textAlign: 'left' }}>
-        <div style={legendRowStyle}><span style={{ ...legendDotStyle, background: '#14868C' }} />Assigned&nbsp;<strong>{assigned} ({pct(assigned)}%)</strong></div>
-        <div style={legendRowStyle}><span style={{ ...legendDotStyle, background: '#a7e8d0' }} />Unassigned&nbsp;<strong>{unassigned} ({pct(unassigned)}%)</strong></div>
-        <div style={{ marginTop: 6, color: '#888' }}>Total Subjects&nbsp;<strong>{total}</strong></div>
-      </div>
     </div>
   );
 };
@@ -205,7 +96,6 @@ const StatusBadge = ({ status }) => (
 const QCAdminDashboard = () => {
   const [subjects, setSubjects] = useState([]);
   const [radiologists, setRadiologists] = useState([]);
-  const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedSection, setExpandedSection] = useState(null); // null | 'radiologist' | 'mammotech'
@@ -237,16 +127,14 @@ const QCAdminDashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const [subjectsData, radiologistsData, assignmentsData, mammoSubjectsData, mammoTechsData] = await Promise.all([
+      const [subjectsData, radiologistsData, mammoSubjectsData, mammoTechsData] = await Promise.all([
         apiGet('/api/v1/qc/admin/subjects'),
         apiGet('/api/v1/qc/admin/radiologists'),
-        apiGet('/api/v1/qc/admin/assignments'),
         apiGet('/api/v1/qc/admin/subjects?for_role=mammo_tech'),
         apiGet('/api/v1/qc/admin/mammo-techs'),
       ]);
       setSubjects(subjectsData);
       setRadiologists(radiologistsData);
-      setAssignments(assignmentsData);
       setMammoSubjects(mammoSubjectsData);
       setMammoTechs(mammoTechsData);
     } catch (err) {
@@ -264,10 +152,6 @@ const QCAdminDashboard = () => {
 
   const unassignedSubjects = subjects.filter(s => s.assignment_status === 'Unassigned');
   const mammoUnassignedSubjects = mammoSubjects.filter(s => s.assignment_status === 'Unassigned');
-  const assignedCount = subjects.length - unassignedSubjects.length;
-  const completedCount = assignments.filter(a => a.status === 'Completed').length;
-  const pendingCount = assignments.length - completedCount;
-  const acceptanceRate = assignments.length ? Math.round((completedCount / assignments.length) * 100) : 0;
 
   const riskCounts = subjects.reduce((acc, s) => {
     const label = riskLabel(s.risk_category);
@@ -452,24 +336,7 @@ const QCAdminDashboard = () => {
 
   return (
     <div style={dashboardRowStyle}>
-      {/* Left column — two charts stacked */}
-      <div style={chartsColumnStyle}>
-        <div style={chartSlotStyle}>
-          <DonutStat
-            title="Progress"
-            completed={completedCount}
-            total={assignments.length}
-            pending={pendingCount}
-            extraLabel="Acceptance"
-            extraValue={`${acceptanceRate}%`}
-          />
-        </div>
-        {/* <div style={chartSlotStyle}>
-          <SubjectsPie assigned={assignedCount} unassigned={unassignedSubjects.length} />
-        </div> */}
-      </div>
-
-      {/* Right column — Create Radiologist / Create Mammo Tech accordions */}
+      {/* Create Radiologist / Create Mammo Tech accordions */}
       <div style={formColumnStyle}>
         <div style={{ ...cardStyle, textAlign: 'left' }}>
           {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -483,7 +350,7 @@ const QCAdminDashboard = () => {
           <div style={accordionStyle}>
             <div style={accordionHeaderStyle} onClick={() => toggleSection('radiologist')}>
               Create Radiologist
-              <span>{expandedSection === 'radiologist' ? '▲' : '▼'}</span>
+              <span>{expandedSection === 'radiologist' ? '−' : '+'}</span>
             </div>
             {expandedSection === 'radiologist' && (
               <div style={accordionContentStyle}>
@@ -551,7 +418,7 @@ const QCAdminDashboard = () => {
           <div style={{ ...accordionStyle, marginBottom: 0 }}>
             <div style={accordionHeaderStyle} onClick={() => toggleSection('mammotech')}>
               Create Mammo Tech
-              <span>{expandedSection === 'mammotech' ? '▲' : '▼'}</span>
+              <span>{expandedSection === 'mammotech' ? '−' : '+'}</span>
             </div>
             {expandedSection === 'mammotech' && (
               <div style={accordionContentStyle}>
@@ -807,17 +674,6 @@ const dashboardRowStyle = {
   alignItems: 'stretch',
 };
 
-const chartsColumnStyle = {
-  flex: '0 0 360px',
-  minWidth: 360,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 16,
-};
-
-// Each chart takes an equal share of the column height.
-const chartSlotStyle = { flex: 1, display: 'flex' };
-
 const formColumnStyle = { flex: '1 1 480px', minWidth: 320, display: 'flex' };
 
 /* ---------- Cards ---------- */
@@ -835,31 +691,6 @@ const cardStyle = {
   display: 'flex',
   flexDirection: 'column',
 };
-
-// Chart area absorbs the extra height and keeps the donut/pie optically centred.
-const cardBodyStyle = {
-  flex: 1,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  minHeight: 160,
-};
-
-// Stats/legend sit flush at the bottom of the card.
-const cardFooterStyle = {
-  marginTop: 12,
-  paddingTop: 12,
-  borderTop: '1px solid #f1f5f7',
-};
-
-const cardTitleStyle = { fontSize: 14, fontWeight: 700, color: '#333', marginBottom: 12 };
-
-const donutCenterStyle = {
-  position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center',
-};
-
-const legendRowStyle = { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 };
-const legendDotStyle = { width: 10, height: 10, borderRadius: '50%', display: 'inline-block' };
 
 /* ---------- Form ---------- */
 
