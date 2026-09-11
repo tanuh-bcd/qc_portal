@@ -18,7 +18,7 @@ const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding
             <img src="/IISc_logo.png" alt="IISc Logo" style={{ height: 55, objectFit: 'contain' }} />
           </div>
           <div style={{ textAlign: 'center', flex: 1 }}>
-            <h1 style={titleStyle}>AI enabled Breast Cancer Risk Prediction Tool</h1>
+            <h1 style={titleStyle}>QC Portal for Breast Cancer Screening</h1>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <button onClick={handleLogout} style={logoutButtonStyle}>

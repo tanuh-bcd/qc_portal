@@ -33,10 +33,11 @@ function App() {
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             {/* Public pages with Navbar — no login required */}
-            <Route path="/" element={<LoginPage />}>
-              {/* <Route path="login" element={<LoginPage />} /> */}
-              <Route path="/qc/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/" element={<PublicLayout />}>
+              <Route index element={<LoginPage />} />
+              <Route path="qc/reset-password" element={<ResetPasswordPage />} />
             </Route>
+
             {/* Auth-protected pages — no Navbar */}
             <Route path="/qc/admin" element={<AdminPage />} />
             <Route path="/qc/radiologist" element={<RadiologistPage />} />

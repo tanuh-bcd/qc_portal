@@ -89,10 +89,10 @@ const ResetPasswordPage = () => {
           <img src="/IISc_logo.png" alt="IISc Logo" style={{ height: '75px', objectFit: 'contain' }} />
         </div>
         <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#14868C', textAlign: 'center', margin: 0, fontFamily: "'Poppins', sans-serif" }}>
-          AI enabled Breast Cancer Risk Prediction Tool
+          QC Portal for Breast Cancer Screening
         </h1>
         <p style={{ color: '#e91e8c', fontWeight: 800, fontSize: '1.5rem', fontFamily: "'Poppins', sans-serif", letterSpacing: '1px', textTransform: 'uppercase', margin: 0 }}>
-          PinkShieldAI
+          PinkShield QC
         </p>
       </header>
 
