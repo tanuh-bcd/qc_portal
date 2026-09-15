@@ -25,6 +25,12 @@ ADMIN_ROLE_NAME = "Admin"
 MAMMO_TECH_ROLE_NAME = "Mammo Tech"
 ALLOWED_QC_ROLES = {RADIOLOGIST_ROLE_NAME.lower(), ADMIN_ROLE_NAME.lower(), MAMMO_TECH_ROLE_NAME.lower()}
 
+# QC Portal's own login URL — deliberately separate from core/email.py's
+# LOGIN_URL constant (used by the unrelated hospital bi-weekly reminder
+# feature), which must not change. Passed explicitly per-call so it only
+# affects QC email templates.
+QC_LOGIN_URL = "https://bc-qc-dev.tanuh.ai"
+
 
 def _get_role_by_name(db: Session, name: str):
     return db.query(Role).filter(func.lower(Role.qc_name) == name.lower()).first()
@@ -113,7 +119,8 @@ def create_user(
             "hospital_name": hospital.qc_name if hospital else "",
             "role_name": role.qc_name,
             "temp_password": user_in.password,
-        })
+            "login_url": QC_LOGIN_URL,
+        }, include_configured_cc=False)
     except Exception:
         pass
 
@@ -604,6 +611,15 @@ def assign_mammo_tech(
     assigned_count, missing, reassigned_count, blocked_completed_ids = _assign_subjects_to_role(
         app_db, q_db, data.mammo_tech_id, role, data.subject_ids, current_user.get("id")
     )
+
+    if assigned_count > 0:
+        try:
+            send_template_email(app_db, "mammo_tech_case_assigned", mammo_tech.qc_email, {
+                "full_name": mammo_tech.qc_full_name or mammo_tech.qc_email,
+            })
+        except Exception:
+            pass
+
     return {
         "success": True,
         "assigned_count": assigned_count,

@@ -80,6 +80,22 @@ class EmailTemplateCc(Base):
     qc_template_key = Column(String(50), ForeignKey("qc_email_templates.qc_template_key", ondelete="CASCADE"), nullable=False)
     qc_cc_email = Column(String(255), nullable=False)
 
+class PendingCaseReminderLog(Base):
+    """Tracks the last time each Mammo Tech/Radiologist was sent a
+    pending-cases reminder email, so the reminder job can enforce a 3-day
+    cooldown per user. Independent of ReminderEmailLog below, which is a
+    separate, unrelated hospital-quarterly-report feature."""
+    __tablename__ = "qc_pending_case_reminders"
+
+    qc_id = Column(Integer, primary_key=True, index=True)
+    qc_user_id = Column(Integer, ForeignKey("qc_users.qc_id"), nullable=False, unique=True)
+    qc_last_sent_at = Column(DateTime, nullable=True)
+    qc_pending_count_at_send = Column(Integer, nullable=True)
+    qc_created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    qc_updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+
+    user = relationship("User")
+
 class ReminderEmailLog(Base):
     __tablename__ = "reminder_email_log"
     __table_args__ = (
