@@ -123,17 +123,30 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
     }
   };
 
-  const handleNext = () => {
-    if (currentImageIndex < images.length - 1) setCurrentImageIndex(i => i + 1);
-  };
-
-  const handlePrevious = () => {
-    if (currentImageIndex > 0) setCurrentImageIndex(i => i - 1);
-  };
-
   const caseIndexInQueue = assignedCases.findIndex(c => c.case_id === currentCase.case_id);
   const nextCaseInQueue = caseIndexInQueue >= 0 ? assignedCases[caseIndexInQueue + 1] : null;
   const previousCaseInQueue = caseIndexInQueue > 0 ? assignedCases[caseIndexInQueue - 1] : null;
+
+  const handleNext = () => {
+    if (currentImageIndex < images.length - 1) {
+      setCurrentImageIndex(i => i + 1);
+    } else if (nextCaseInQueue) {
+      goToCase(nextCaseInQueue);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentImageIndex > 0) {
+      setCurrentImageIndex(i => i - 1);
+    } else if (previousCaseInQueue) {
+      goToCase(previousCaseInQueue);
+    }
+  };
+
+  const nextGoesToCase = isLastImage && !!nextCaseInQueue;
+  const previousGoesToCase = currentImageIndex === 0 && !!previousCaseInQueue;
+  const nextDisabled = isLastImage ? (!nextCaseInQueue || loadingCase) : false;
+  const previousDisabled = currentImageIndex === 0 ? (!previousCaseInQueue || loadingCase) : false;
 
   if (allCasesReviewed) {
     return (
@@ -177,21 +190,14 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
           {readOnly && <span style={styles.readOnlyBadge}>Admin — Read Only</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button style={styles.navBtn(currentImageIndex === 0)} disabled={currentImageIndex === 0} onClick={handlePrevious}>
-            &#8592; Previous Image
+          <button style={styles.navBtn(previousDisabled)} disabled={previousDisabled} onClick={handlePrevious}>
+            {previousGoesToCase ? <>&#8592; Previous Case</> : <>&#8592; Previous Image</>}
           </button>
           <span style={{ fontSize: 13, color: '#cfd6d8', minWidth: 100, textAlign: 'center' }}>
             Image {currentImageIndex + 1} of {images.length}
           </span>
-          <button style={styles.navBtn(isLastImage)} disabled={isLastImage} onClick={handleNext}>
-            Next Image →
-          </button>
-          <span style={styles.headerDivider} />
-          <button style={styles.navBtn(loadingCase || !previousCaseInQueue)} disabled={loadingCase || !previousCaseInQueue} onClick={() => goToCase(previousCaseInQueue)}>
-            &#8592; Previous Case
-          </button>
-          <button style={styles.navBtn(loadingCase || !nextCaseInQueue)} disabled={loadingCase || !nextCaseInQueue} onClick={() => goToCase(nextCaseInQueue)}>
-            Next Case →
+          <button style={styles.navBtn(nextDisabled)} disabled={nextDisabled} onClick={handleNext}>
+            {nextGoesToCase ? 'Next Case →' : 'Next Image →'}
           </button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -436,7 +442,6 @@ const styles = {
     background: disabled ? '#161616' : '#1b1b1b', color: disabled ? '#555' : '#e8eaea',
     fontWeight: 600, fontSize: 13, cursor: disabled ? 'default' : 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
   }),
-  headerDivider: { width: 1, alignSelf: 'stretch', background: '#2c3636', margin: '0 4px' },
   zoomBtn: (disabled) => ({
     minWidth: 32, padding: '4px 8px', borderRadius: 6, border: '1px solid #3a4444',
     background: '#1b1b1b', color: disabled ? '#555' : '#e8eaea', fontWeight: 600, fontSize: 14,

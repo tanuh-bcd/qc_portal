@@ -6,6 +6,7 @@ import MammoTechDashboardHome from '../components/MammoTechDashboardHome';
 import MammoTechCaseViewer from '../components/MammoTechCaseViewer';
 
 const CASE_VIEW_STORAGE_KEY = 'qc_mammotech_case_view_state';
+const VIEW_STORAGE_KEY = 'qc_mammotech_active_view';
 const SIDEBAR_ITEMS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'cases', label: 'Assigned Cases' },
@@ -42,7 +43,11 @@ const MammoTechPage = () => {
   const [isCaseViewOpen, setIsCaseViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [view, setView] = useState('dashboard');
+  const [view, setViewState] = useState(() => sessionStorage.getItem(VIEW_STORAGE_KEY) || 'dashboard');
+  const setView = (v) => {
+    setViewState(v);
+    sessionStorage.setItem(VIEW_STORAGE_KEY, v);
+  };
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -138,6 +143,8 @@ const MammoTechPage = () => {
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('isSuperViewer');
+    sessionStorage.removeItem(VIEW_STORAGE_KEY);
+    sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
     navigate('/');
   };
 

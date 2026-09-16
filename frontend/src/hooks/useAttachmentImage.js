@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import dicomParser from 'dicom-parser';
+import { fetchAttachment } from '../utils/attachmentFetch';
 
-/* ------------------------------------------------------------------
-   Shared DICOM/image decode hook — same fetch chain + decode used by
-   BreastCaseReviewPanel.jsx's tiles and DicomCaseViewer.js's full-screen
-   view (view-url signed GCS link first, view-file backend proxy fallback;
-   dicom-parser to read the header; manual windowing to canvas for
-   uncompressed pixel data, or unwrap the JPEG/JPEG2000 fragment for
-   compressed pixel data). Extracted so both consumers share one decoder
-   instead of maintaining separate copies.
-------------------------------------------------------------------- */
+const decodedCache = new Map();
+
 export default function useAttachmentImage(attachment) {
   const canvasRef = useRef(null);
   const [status, setStatus] = useState(attachment ? 'loading' : 'empty'); // loading | canvas | img | error | empty
@@ -19,6 +13,28 @@ export default function useAttachmentImage(attachment) {
 
   useEffect(() => {
     if (!attachment) { setStatus('empty'); return; }
+    const id = attachment.qc_id ?? attachment.id;
+
+    const cached = decodedCache.get(id);
+    if (cached) {
+      setMeta(cached.meta);
+      setErrorMsg(null);
+      if (cached.imageData) {
+        const canvas = canvasRef.current;
+        if (canvas) {
+          canvas.width = cached.imageData.width;
+          canvas.height = cached.imageData.height;
+          canvas.getContext('2d').putImageData(cached.imageData, 0, 0);
+        }
+        setBlobUrl(null);
+        setStatus('canvas');
+      } else {
+        setBlobUrl(cached.blobUrl);
+        setStatus('img');
+      }
+      return;
+    }
+
     let cancelled = false;
     let createdUrl = null;
 
@@ -27,27 +43,7 @@ export default function useAttachmentImage(attachment) {
       setErrorMsg(null);
       try {
         const token = localStorage.getItem('token');
-        const apiUrl = process.env.REACT_APP_API_URL || '';
-        const id = attachment.qc_id ?? attachment.id;
-
-        let res;
-        try {
-          const urlRes = await fetch(`${apiUrl}/api/v1/qc/patient/view-url/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!urlRes.ok) throw new Error('view-url not available');
-          const { view_url } = await urlRes.json();
-          res = await fetch(view_url);
-          if (!res.ok) throw new Error('signed url fetch failed');
-        } catch {
-          res = await fetch(`${apiUrl}/api/v1/qc/patient/view-file/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) {
-            const detail = await res.text().catch(() => '');
-            throw new Error(detail || `Server error (${res.status})`);
-          }
-        }
+        const { res } = await fetchAttachment(id, token);
 
         const buffer = await res.arrayBuffer();
         if (cancelled) return;
@@ -57,15 +53,19 @@ export default function useAttachmentImage(attachment) {
         // Mislabeled non-DICOM files (.dcm extension but actually a plain image)
         if (byteArray[0] === 0xFF && byteArray[1] === 0xD8) {
           createdUrl = URL.createObjectURL(new Blob([buffer], { type: 'image/jpeg' }));
+          const meta = { fileSizeBytes, format: 'JPEG' };
+          decodedCache.set(id, { blobUrl: createdUrl, meta });
           setBlobUrl(createdUrl);
-          setMeta({ fileSizeBytes, format: 'JPEG' });
+          setMeta(meta);
           setStatus('img');
           return;
         }
         if (byteArray[0] === 0x89 && byteArray[1] === 0x50) {
           createdUrl = URL.createObjectURL(new Blob([buffer], { type: 'image/png' }));
+          const meta = { fileSizeBytes, format: 'PNG' };
+          decodedCache.set(id, { blobUrl: createdUrl, meta });
           setBlobUrl(createdUrl);
-          setMeta({ fileSizeBytes, format: 'PNG' });
+          setMeta(meta);
           setStatus('img');
           return;
         }
@@ -96,8 +96,10 @@ export default function useAttachmentImage(attachment) {
           const isJp2 = transferSyntax.includes('1.2.840.10008.1.2.4.90') || transferSyntax.includes('1.2.840.10008.1.2.4.91');
           const mime = isJp2 ? 'image/jp2' : 'image/jpeg';
           createdUrl = URL.createObjectURL(new Blob([frameData], { type: mime }));
+          const meta = { ...baseMeta, compressed: true, format: isJp2 ? 'JPEG2000 (DICOM)' : 'JPEG (DICOM)' };
+          decodedCache.set(id, { blobUrl: createdUrl, meta });
           setBlobUrl(createdUrl);
-          setMeta({ ...baseMeta, compressed: true, format: isJp2 ? 'JPEG2000 (DICOM)' : 'JPEG (DICOM)' });
+          setMeta(meta);
           setStatus('img');
           return;
         }
@@ -153,7 +155,9 @@ export default function useAttachmentImage(attachment) {
           }
         }
         ctx.putImageData(imageData, 0, 0);
-        setMeta({ ...baseMeta, compressed: false, format: 'DICOM (raw)' });
+        const meta = { ...baseMeta, compressed: false, format: 'DICOM (raw)' };
+        decodedCache.set(id, { imageData, meta });
+        setMeta(meta);
         setStatus('canvas');
       } catch (err) {
         console.error('Failed to load/decode attachment image', err);
@@ -161,7 +165,8 @@ export default function useAttachmentImage(attachment) {
       }
     })();
 
-    return () => { cancelled = true; if (createdUrl) URL.revokeObjectURL(createdUrl); };
+
+    return () => { cancelled = true; };
   }, [attachment]);
 
   return { canvasRef, status, blobUrl, meta, errorMsg };
