@@ -7,8 +7,8 @@ load_dotenv()
 
 
 def _cfg(name: str, default: str = "") -> str:
-    return os.getenv(name) or get_secret(name, default)
-    # return os.getenv(name, default)
+    # return os.getenv(name) or get_secret(name, default)
+    return os.getenv(name, default)
 
 
 class Settings:

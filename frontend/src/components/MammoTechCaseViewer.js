@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import './CaseViewer.css';
-import useAttachmentImage from '../hooks/useAttachmentImage';
+import useAttachmentImage, { prefetchAttachmentImage } from '../hooks/useAttachmentImage';
 import useAttachmentFile from '../hooks/useAttachmentFile';
 import { BIRADS_OPTIONS, BIRADS_4_SUB, DENSITY_OPTIONS } from './DoctorAssessmentForm';
 import { VIEW_TYPES, ZOOM_STEPS, EMPTY_SIDE, fmtBytes } from '../constants/caseReviewItems';
@@ -15,6 +15,7 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
   const [rightFindings, setRightFindings] = useState({ ...EMPTY_SIDE });
   const [caseNotes, setCaseNotes] = useState('');
   const [zoomIdx, setZoomIdx] = useState(0);
+  const [wantsFullRes, setWantsFullRes] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -34,8 +35,9 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
 
   const currentImage = images[currentImageIndex];
   const isReportItem = !!(currentImage && currentImage.isReport);
-  const { canvasRef, status: imageStatus, blobUrl, meta: dicomMeta } = useAttachmentImage(
-    currentImage && !isReportItem ? currentImage.attachment : null
+  const { status: imageStatus, blobUrl, meta: dicomMeta } = useAttachmentImage(
+    currentImage && !isReportItem ? currentImage.attachment : null,
+    wantsFullRes ? 'full' : 'screen'
   );
   const { status: reportStatus, blobUrl: reportBlobUrl, docxHtml, meta: reportMeta } = useAttachmentFile(
     currentImage && isReportItem ? currentImage.attachment : null
@@ -66,7 +68,19 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
 
   useEffect(() => {
     setZoomIdx(0);
+    setWantsFullRes(false);
   }, [currentImageIndex]);
+
+  useEffect(() => {
+    if (zoomIdx > 0) setWantsFullRes(true);
+  }, [zoomIdx]);
+
+  useEffect(() => {
+    const next = images[currentImageIndex + 1];
+    if (next && !next.isReport && next.attachment) {
+      prefetchAttachmentImage(next.attachment, 'screen');
+    }
+  }, [currentImageIndex, images]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -226,10 +240,6 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
                     style={mediaStyle(zoom, brightness, contrast)}
                   />
                 )}
-                <canvas
-                  ref={canvasRef}
-                  style={{ ...mediaStyle(zoom, brightness, contrast), display: imageStatus === 'canvas' ? 'block' : 'none' }}
-                />
               </>
             )}
             {isReportItem && (

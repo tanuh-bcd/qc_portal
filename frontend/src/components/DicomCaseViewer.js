@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'react-toastify';
 import './CaseViewer.css';
-import useAttachmentImage from '../hooks/useAttachmentImage';
+import useAttachmentImage, { prefetchAttachmentImage } from '../hooks/useAttachmentImage';
 import useAttachmentFile from '../hooks/useAttachmentFile';
 import { BIRADS_OPTIONS, BIRADS_4_SUB, DENSITY_OPTIONS } from './DoctorAssessmentForm';
 import { VIEW_TYPES, ZOOM_STEPS, GRADES, REASON_REQUIRED_GRADES, EMPTY_SIDE, fmtBytes } from '../constants/caseReviewItems';
@@ -17,6 +17,7 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
   const [grade, setGrade] = useState('');
   const [reason, setReason] = useState('');
   const [zoomIdx, setZoomIdx] = useState(0);
+  const [wantsFullRes, setWantsFullRes] = useState(false);
   const [showInfo, setShowInfo] = useState(true);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -37,8 +38,9 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
 
   const currentImage = images[currentImageIndex];
   const isReportItem = !!(currentImage && currentImage.isReport);
-  const { canvasRef, status: imageStatus, blobUrl, meta: dicomMeta } = useAttachmentImage(
-    currentImage && !isReportItem ? currentImage.attachment : null
+  const { status: imageStatus, blobUrl, meta: dicomMeta } = useAttachmentImage(
+    currentImage && !isReportItem ? currentImage.attachment : null,
+    wantsFullRes ? 'full' : 'screen'
   );
   const { status: reportStatus, blobUrl: reportBlobUrl, docxHtml, meta: reportMeta } = useAttachmentFile(
     currentImage && isReportItem ? currentImage.attachment : null
@@ -94,7 +96,19 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
 
   useEffect(() => {
     setZoomIdx(0);
+    setWantsFullRes(false);
   }, [currentImageIndex]);
+
+  useEffect(() => {
+    if (zoomIdx > 0) setWantsFullRes(true);
+  }, [zoomIdx]);
+
+  useEffect(() => {
+    const next = images[currentImageIndex + 1];
+    if (next && !next.isReport && next.attachment) {
+      prefetchAttachmentImage(next.attachment, 'screen');
+    }
+  }, [currentImageIndex, images]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
@@ -253,12 +267,6 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
 
       <div className="qc-cv-body">
         <div className="qc-cv-viewer-area">
-          {/* The canvas stays mounted at this same spot across every status —
-              conditionally swapping in a *different* <canvas> element once
-              status flips to 'canvas' would hand the ref to a fresh, blank
-              DOM node instead of the one useAttachmentImage already decoded
-              pixels onto, leaving the visible canvas empty. Only its
-              visibility toggles. */}
           <div style={styles.imageScroll}>
             {!isReportItem && (
               <>
@@ -271,10 +279,6 @@ const DicomCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCases 
                     style={mediaStyle(zoom, brightness, contrast)}
                   />
                 )}
-                <canvas
-                  ref={canvasRef}
-                  style={{ ...mediaStyle(zoom, brightness, contrast), display: imageStatus === 'canvas' ? 'block' : 'none' }}
-                />
               </>
             )}
             {isReportItem && (

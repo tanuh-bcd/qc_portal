@@ -38,6 +38,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Dicom-Rows", "X-Dicom-Cols", "X-Dicom-Bits-Allocated", "X-Dicom-Compressed"],
 )
 
 # Routes
@@ -56,4 +57,4 @@ def health_check():
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to Tanuh BCD API"}
+    return {"message": "Welcome to Tanuh QC BCD API"}
