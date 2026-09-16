@@ -7,8 +7,14 @@ import QCAdminDashboard from '../components/QCAdminDashboard';
 import AdminDashboardHome from '../components/AdminDashboardHome';
 import AssignRadiologistHistory from '../components/AssignRadiologistHistory';
 
+const ACTIVE_TAB_STORAGE_KEY = 'qc_admin_active_tab';
+
 const AdminPage = () => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTabState] = useState(() => sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY) || 'dashboard');
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tab);
+  };
   const navigate = useNavigate();
 
   const [userRole, setUserRole] = useState('');
@@ -39,6 +45,7 @@ const AdminPage = () => {
     localStorage.removeItem('hospitalName');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
+    sessionStorage.removeItem(ACTIVE_TAB_STORAGE_KEY);
     navigate('/');
   };
 

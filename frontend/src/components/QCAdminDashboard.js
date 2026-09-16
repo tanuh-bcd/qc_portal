@@ -345,74 +345,6 @@ const QCAdminDashboard = () => {
             </button>
           </div> */}
 
-          {/* Create Radiologist — independent of case assignment; no Radiologist
-              is created as a side effect of creating a Mammo Tech, or vice versa. */}
-          <div style={accordionStyle}>
-            <div style={accordionHeaderStyle} onClick={() => toggleSection('radiologist')}>
-              Create Radiologist
-              <span>{expandedSection === 'radiologist' ? '−' : '+'}</span>
-            </div>
-            {expandedSection === 'radiologist' && (
-              <div style={accordionContentStyle}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                  <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
-                    Assign Radiologist
-                  </button>
-                </div>
-
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Full Name</label>
-                  <input
-                    style={inputStyle}
-                    name="qc-new-radiologist-name"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={createForm.fullName}
-                    onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })} />
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>User Email</label>
-                  {/* type="text" + inputMode keeps the email keyboard on mobile without
-                      triggering the browser's saved-email autofill on this field. */}
-                  <input
-                    style={inputStyle}
-                    type="text"
-                    inputMode="email"
-                    name="qc-new-radiologist-email"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={createForm.email}
-                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
-                </div>
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Password</label>
-                  <div style={{ position: 'relative' }}>
-                    {/* autoComplete="new-password" tells the browser this is a password
-                        being set, not the signed-in admin's own saved password. */}
-                    <input
-                      style={{ ...inputStyle, paddingRight: 34 }}
-                      type={showPassword ? 'text' : 'password'}
-                      name="qc-new-radiologist-password"
-                      autoComplete="new-password"
-                      value={createForm.password}
-                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
-                    <span onClick={() => setShowPassword(!showPassword)}
-                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
-                      {showPassword ? '🙈' : '👁️'}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="button" disabled={creating} onClick={handleCreateRadiologist}
-                    style={{ ...primaryButtonStyle, opacity: creating ? 0.7 : 1 }}>
-                    {creating ? 'Creating...' : 'Create Radiologist'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Create Mammo Tech — a separate user-creation workflow with the same
               random/manual case-assignment UX as Radiologist assignment reuses. */}
           <div style={{ ...accordionStyle, marginBottom: 0 }}>
@@ -523,6 +455,73 @@ const QCAdminDashboard = () => {
               </div>
             )}
           </div>
+          {/* Create Radiologist — independent of case assignment; no Radiologist
+              is created as a side effect of creating a Mammo Tech, or vice versa. */}
+          <div style={accordionStyle}>
+            <div style={accordionHeaderStyle} onClick={() => toggleSection('radiologist')}>
+              Create Radiologist
+              <span>{expandedSection === 'radiologist' ? '−' : '+'}</span>
+            </div>
+            {expandedSection === 'radiologist' && (
+              <div style={accordionContentStyle}>
+                {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                  <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
+                    Assign Radiologist
+                  </button>
+                </div> */}
+
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input
+                    style={inputStyle}
+                    name="qc-new-radiologist-name"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createForm.fullName}
+                    onChange={(e) => setCreateForm({ ...createForm, fullName: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>User Email</label>
+                  {/* type="text" + inputMode keeps the email keyboard on mobile without
+                      triggering the browser's saved-email autofill on this field. */}
+                  <input
+                    style={inputStyle}
+                    type="text"
+                    inputMode="email"
+                    name="qc-new-radiologist-email"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    {/* autoComplete="new-password" tells the browser this is a password
+                        being set, not the signed-in admin's own saved password. */}
+                    <input
+                      style={{ ...inputStyle, paddingRight: 34 }}
+                      type={showPassword ? 'text' : 'password'}
+                      name="qc-new-radiologist-password"
+                      autoComplete="new-password"
+                      value={createForm.password}
+                      onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
+                    <span onClick={() => setShowPassword(!showPassword)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
+                      {showPassword ? '🙈' : '👁️'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" disabled={creating} onClick={handleCreateRadiologist}
+                    style={{ ...primaryButtonStyle, opacity: creating ? 0.7 : 1 }}>
+                    {creating ? 'Creating...' : 'Create Radiologist'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -547,7 +546,7 @@ const QCAdminDashboard = () => {
                   style={modeButtonStyle(assignMode === 'random')}>
                   Random Assign
                 </button>
-                 <button type="button" onClick={() => setAssignMode('manual')}
+                <button type="button" onClick={() => setAssignMode('manual')}
                   style={modeButtonStyle(assignMode === 'manual')}>
                   Select Manually
                 </button>
@@ -616,7 +615,7 @@ const QCAdminDashboard = () => {
                   style={modeButtonStyle(assignMTMode === 'random')}>
                   Random Assign
                 </button>
-                 <button type="button" onClick={() => setAssignMTMode('manual')}
+                <button type="button" onClick={() => setAssignMTMode('manual')}
                   style={modeButtonStyle(assignMTMode === 'manual')}>
                   Select Manually
                 </button>
@@ -696,6 +695,7 @@ const accordionStyle = {
   border: '1px solid #ddd',
   borderRadius: 4,
   overflow: 'hidden',
+  marginTop: 10,
 };
 
 const accordionHeaderStyle = {

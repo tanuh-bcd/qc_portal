@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from ..db.session import get_db
+from ..core.email import send_template_email
 from ..models.models import Assignment, DoctorAssessment, Hospital, User
 from ..schemas.schemas import (
     RadiologistCasesResponse, RadiologistCaseItem,
@@ -210,6 +211,13 @@ def review_case(
             qc_assigned_at=datetime.datetime.utcnow(),
         ))
     app_db.commit()
+
+    try:
+        send_template_email(app_db, "radiologist_case_assigned", chosen.qc_email, {
+            "full_name": chosen.qc_full_name or chosen.qc_email,
+        })
+    except Exception:
+        pass
 
     next_case = _next_pending_case(app_db, mammo_tech_id, case_id, mammo_role.qc_id if mammo_role else -1)
     return MammoTechReviewResponse(

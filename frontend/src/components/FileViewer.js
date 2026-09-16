@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCcw, Loader } from 'lucide-react';
 import dicomParser from 'dicom-parser';
 import mammoth from 'mammoth';
+import { isSignedUrlUnavailable, markSignedUrlUnavailable } from '../utils/attachmentFetch';
 
 const FILE_TYPE_LABELS = {
   mammo_cc_left: 'CC Left',
@@ -69,21 +70,30 @@ const FileViewer = ({ attachmentId, fileName, mimeType, fileTypeKey, onClose }) 
         let effectiveType = getFileType(fileName, mimeType, fileTypeKey);
         let correctMime = mimeType || 'application/octet-stream';
 
-        // Try signed URL first (direct GCS download, faster)
-        try {
-          const urlRes = await fetch(`${apiUrl}/api/v1/qc/patient/view-url/${attachmentId}`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (urlRes.ok) {
-            const { view_url, mime_type: serverMime } = await urlRes.json();
-            if (serverMime) correctMime = serverMime;
-            if (serverMime && serverMime.includes('dicom')) effectiveType = 'dicom';
-            res = await fetch(view_url);
-            if (!res.ok) throw new Error('Signed URL fetch failed');
-          } else {
-            throw new Error('view-url not available');
+        // Try signed URL first (direct GCS download, faster) — unless a
+        // prior load already found signing broken in this environment, in
+        // which case skip straight to the proxy instead of paying for
+        // another doomed attempt.
+        if (!isSignedUrlUnavailable()) {
+          try {
+            const urlRes = await fetch(`${apiUrl}/api/v1/qc/patient/view-url/${attachmentId}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (urlRes.ok) {
+              const { view_url, mime_type: serverMime } = await urlRes.json();
+              if (serverMime) correctMime = serverMime;
+              if (serverMime && serverMime.includes('dicom')) effectiveType = 'dicom';
+              res = await fetch(view_url);
+              if (!res.ok) throw new Error('Signed URL fetch failed');
+            } else {
+              throw new Error('view-url not available');
+            }
+          } catch {
+            markSignedUrlUnavailable();
           }
-        } catch {
+        }
+
+        if (!res) {
           // Fallback to proxied download through backend
           res = await fetch(`${apiUrl}/api/v1/qc/patient/view-file/${attachmentId}`, {
             headers: { 'Authorization': `Bearer ${token}` },

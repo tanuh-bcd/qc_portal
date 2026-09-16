@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import mammoth from 'mammoth';
+import { fetchAttachment } from '../utils/attachmentFetch';
 
 const getFileType = (fileName, mimeType) => {
   const ext = (fileName || '').split('.').pop().toLowerCase();
@@ -9,8 +10,10 @@ const getFileType = (fileName, mimeType) => {
   return 'unknown';
 };
 
+const loadedCache = new Map();
+
 export default function useAttachmentFile(attachment) {
-  const [status, setStatus] = useState(attachment ? 'loading' : 'empty'); 
+  const [status, setStatus] = useState(attachment ? 'loading' : 'empty');
   const [blobUrl, setBlobUrl] = useState(null);
   const [docxHtml, setDocxHtml] = useState(null);
   const [meta, setMeta] = useState(null);
@@ -18,6 +21,18 @@ export default function useAttachmentFile(attachment) {
 
   useEffect(() => {
     if (!attachment) { setStatus('empty'); return; }
+    const id = attachment.qc_id ?? attachment.id;
+
+    const cached = loadedCache.get(id);
+    if (cached) {
+      setMeta(cached.meta);
+      setErrorMsg(null);
+      setBlobUrl(cached.blobUrl || null);
+      setDocxHtml(cached.docxHtml || null);
+      setStatus(cached.status);
+      return;
+    }
+
     let cancelled = false;
     let createdUrl = null;
 
@@ -26,31 +41,11 @@ export default function useAttachmentFile(attachment) {
       setErrorMsg(null);
       try {
         const token = localStorage.getItem('token');
-        const apiUrl = process.env.REACT_APP_API_URL || '';
-        const id = attachment.qc_id ?? attachment.id;
         const fileName = attachment.qc_file_name ?? attachment.file_name;
-
-        let res;
         let correctMime = attachment.qc_mime_type || 'application/octet-stream';
-        try {
-          const urlRes = await fetch(`${apiUrl}/api/v1/qc/patient/view-url/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!urlRes.ok) throw new Error('view-url not available');
-          const { view_url, mime_type: serverMime } = await urlRes.json();
-          if (serverMime) correctMime = serverMime;
-          res = await fetch(view_url);
-          if (!res.ok) throw new Error('signed url fetch failed');
-        } catch {
-          res = await fetch(`${apiUrl}/api/v1/qc/patient/view-file/${id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!res.ok) {
-            const detail = await res.text().catch(() => '');
-            throw new Error(detail || `Server error (${res.status})`);
-          }
-          correctMime = res.headers.get('content-type') || correctMime;
-        }
+
+        const { res, mimeType } = await fetchAttachment(id, token);
+        if (mimeType) correctMime = mimeType;
 
         const fileType = getFileType(fileName, correctMime);
         if (cancelled) return;
@@ -58,8 +53,10 @@ export default function useAttachmentFile(attachment) {
         if (fileType === 'docx') {
           const arrayBuffer = await res.arrayBuffer();
           const result = await mammoth.convertToHtml({ arrayBuffer });
+          const meta = { fileSizeBytes: arrayBuffer.byteLength, format: 'DOCX' };
+          loadedCache.set(id, { status: 'docx', docxHtml: result.value, meta });
           setDocxHtml(result.value);
-          setMeta({ fileSizeBytes: arrayBuffer.byteLength, format: 'DOCX' });
+          setMeta(meta);
           setStatus('docx');
           return;
         }
@@ -67,8 +64,10 @@ export default function useAttachmentFile(attachment) {
         const rawBlob = await res.blob();
         const typedBlob = new Blob([rawBlob], { type: correctMime });
         createdUrl = URL.createObjectURL(typedBlob);
+        const meta = { fileSizeBytes: typedBlob.size, format: fileType === 'pdf' ? 'PDF' : fileType === 'image' ? 'Image' : (correctMime || 'Unknown') };
+        loadedCache.set(id, { status: fileType, blobUrl: createdUrl, meta });
         setBlobUrl(createdUrl);
-        setMeta({ fileSizeBytes: typedBlob.size, format: fileType === 'pdf' ? 'PDF' : fileType === 'image' ? 'Image' : (correctMime || 'Unknown') });
+        setMeta(meta);
         setStatus(fileType);
       } catch (err) {
         console.error('Failed to load report attachment', err);
@@ -76,7 +75,9 @@ export default function useAttachmentFile(attachment) {
       }
     })();
 
-    return () => { cancelled = true; if (createdUrl) URL.revokeObjectURL(createdUrl); };
+    // Cached blob URLs are intentionally kept alive for reuse rather than
+    // revoked here — see the matching note in useAttachmentImage.js.
+    return () => { cancelled = true; };
   }, [attachment]);
 
   return { status, blobUrl, docxHtml, meta, errorMsg };

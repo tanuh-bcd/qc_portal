@@ -217,37 +217,59 @@ def view_file(
             detail=f"File not found in storage (bucket={blob.bucket.name}, path={blob.name})"
         )
  
-    content = blob.download_as_bytes()
-    mime = attachment.qc_mime_type or "application/octet-stream"
+    try:
+        content = blob.download_as_bytes()
+        mime = attachment.qc_mime_type or "application/octet-stream"
+
+        if len(content) >= 132 and content[128:132] == b'DICM':
+            mime = "application/dicom"
+            try:
+                import pydicom
+                import io
+
+                ds = pydicom.dcmread(io.BytesIO(content))
+                transfer_syntax = ds.file_meta.TransferSyntaxUID
+
+                is_compressed = transfer_syntax not in (
+                    "1.2.840.10008.1.2",
+                    "1.2.840.10008.1.2.1",
+                    "1.2.840.10008.1.2.2",
+                )
+                if is_compressed:
+                    ds.decompress()
+                    ds.file_meta.TransferSyntaxUID = "1.2.840.10008.1.2"
+                    out_buf = io.BytesIO()
+                    ds.save_as(out_buf)
+                    content = out_buf.getvalue()
+            except Exception:
+                pass
+    except Exception as e:
+        # Log the full traceback server-side (an unhandled crash here can
+        # otherwise surface to the browser as a bare connection failure,
+        # which Chrome mislabels as a CORS error since no response — CORS
+        # headers included — ever gets sent) and return a clean, properly
+        # CORS-headered error response instead.
+        logger.error("Failed to load attachment %s from storage: %s", attachment_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Could not load attachment: {e}")
  
-    if len(content) >= 132 and content[128:132] == b'DICM':
-        mime = "application/dicom"
-        try:
-            import pydicom
-            import io
- 
-            ds = pydicom.dcmread(io.BytesIO(content))
-            transfer_syntax = ds.file_meta.TransferSyntaxUID
- 
-            is_compressed = transfer_syntax not in (
-                "1.2.840.10008.1.2",
-                "1.2.840.10008.1.2.1",
-                "1.2.840.10008.1.2.2",
-            )
-            if is_compressed:
-                ds.decompress()
-                ds.file_meta.TransferSyntaxUID = "1.2.840.10008.1.2"
-                out_buf = io.BytesIO()
-                ds.save_as(out_buf)
-                content = out_buf.getvalue()
-        except Exception:
-            pass
- 
+    headers = {
+        # Attachments are immutable once uploaded (no re-upload/replace path
+        # exists for an existing attachment id), so the browser can cache
+        # this response indefinitely and skip re-downloading on every
+        # revisit of the same image within a session.
+        "Content-Disposition": f'inline; filename="{attachment.qc_file_name}"',
+        "Cache-Control": "private, max-age=31536000, immutable",
+    }
+    try:
+        etag = getattr(blob, "etag", None)
+        if etag:
+            headers["ETag"] = etag if etag.startswith('"') else f'"{etag}"'
+    except Exception:
+        logger.warning("Could not read ETag for attachment %s", attachment_id, exc_info=True)
+
     return Response(
         content=content,
         media_type=mime,
-        headers={
-            "Content-Disposition": f'inline; filename="{attachment.qc_file_name}"',
-        },
+        headers=headers,
     )
  

@@ -60,7 +60,12 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [reasonModal, setReasonModal] = useState(null);
-  const [view, setView] = useState('dashboard');
+  const VIEW_STORAGE_KEY = 'qc_radiologist_active_view';
+  const [view, setViewState] = useState(() => sessionStorage.getItem(VIEW_STORAGE_KEY) || 'dashboard');
+  const setView = (v) => {
+    setViewState(v);
+    sessionStorage.setItem(VIEW_STORAGE_KEY, v);
+  };
   const PAGE_SIZE = 10;
 
   useEffect(() => {
@@ -171,6 +176,8 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
     localStorage.removeItem('isSuperViewer');
+    sessionStorage.removeItem(VIEW_STORAGE_KEY);
+    sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
     navigate('/');
   };
 
