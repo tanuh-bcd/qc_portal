@@ -616,6 +616,7 @@ def assign_mammo_tech(
         try:
             send_template_email(app_db, "mammo_tech_case_assigned", mammo_tech.qc_email, {
                 "full_name": mammo_tech.qc_full_name or mammo_tech.qc_email,
+                "login_url": QC_LOGIN_URL,
             })
         except Exception:
             pass

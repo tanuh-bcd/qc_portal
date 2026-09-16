@@ -10,7 +10,7 @@ import logging
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from ..api.admin import _get_role_by_name, MAMMO_TECH_ROLE_NAME, RADIOLOGIST_ROLE_NAME
+from ..api.admin import _get_role_by_name, MAMMO_TECH_ROLE_NAME, RADIOLOGIST_ROLE_NAME, QC_LOGIN_URL
 from ..core.email import send_template_email
 from ..models.models import Assignment, PendingCaseReminderLog, User
 
@@ -85,6 +85,7 @@ def send_due_reminders(db: Session, dry_run: bool = False, now: datetime.datetim
         try:
             sent = send_template_email(db, "pending_case_reminder", user.qc_email, {
                 "full_name": user.qc_full_name or user.qc_email,
+                "login_url": QC_LOGIN_URL,
             })
         except Exception:
             logger.exception("Failed to send pending-case reminder to %s", user.qc_email)

@@ -12,7 +12,7 @@ from ..schemas.schemas import (
     MammoTechReviewRequest, MammoTechReviewResponse,
 )
 from .auth import get_current_user
-from .admin import _get_role_by_name, RADIOLOGIST_ROLE_NAME, MAMMO_TECH_ROLE_NAME
+from .admin import _get_role_by_name, RADIOLOGIST_ROLE_NAME, MAMMO_TECH_ROLE_NAME, QC_LOGIN_URL
 from .radiologist import _reviewable_attachments, _merge_clinical_findings, qc_subject_id
 
 router = APIRouter()
@@ -215,6 +215,7 @@ def review_case(
     try:
         send_template_email(app_db, "radiologist_case_assigned", chosen.qc_email, {
             "full_name": chosen.qc_full_name or chosen.qc_email,
+            "login_url": QC_LOGIN_URL,
         })
     except Exception:
         pass

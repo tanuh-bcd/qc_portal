@@ -19,4 +19,7 @@ httpx
 pydicom
 pylibjpeg
 pylibjpeg-openjpeg
+pylibjpeg-libjpeg
+pylibjpeg-rle
 pillow
+numpy
