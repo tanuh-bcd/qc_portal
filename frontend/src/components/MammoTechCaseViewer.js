@@ -35,7 +35,7 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
 
   const currentImage = images[currentImageIndex];
   const isReportItem = !!(currentImage && currentImage.isReport);
-  const { status: imageStatus, blobUrl, meta: dicomMeta } = useAttachmentImage(
+  const { canvasRef, status: imageStatus, blobUrl, meta: dicomMeta } = useAttachmentImage(
     currentImage && !isReportItem ? currentImage.attachment : null,
     wantsFullRes ? 'full' : 'screen'
   );
@@ -240,6 +240,10 @@ const MammoTechCaseViewer = ({ initialCaseItem, initialSessionDetail, assignedCa
                     style={mediaStyle(zoom, brightness, contrast)}
                   />
                 )}
+                <canvas
+                  ref={canvasRef}
+                  style={{ ...mediaStyle(zoom, brightness, contrast), display: imageStatus === 'canvas' ? 'block' : 'none' }}
+                />
               </>
             )}
             {isReportItem && (

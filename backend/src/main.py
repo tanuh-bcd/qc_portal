@@ -38,7 +38,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Dicom-Rows", "X-Dicom-Cols", "X-Dicom-Bits-Allocated", "X-Dicom-Compressed"],
 )
 
 # Routes
