@@ -1,14 +1,3 @@
--- Renames "PinkShieldAI Portal" -> "QC BCD Portal" across QC Portal's own
--- emails (account creation, mammo-tech/radiologist assignment, pending-case
--- reminder), updates the account-creation email's login URL, and removes any
--- configured CC recipients from the account-creation email.
---
--- Scope is intentionally narrow: only these 4 qc_email_templates rows and
--- the user_created row's qc_email_template_cc rows are touched. The
--- unrelated hospital bi-weekly reminder feature (its own template keys,
--- rows, recipients, CCs, and scheduling) is not modified by this file at all.
--- Apply to the QC application database only.
-
 UPDATE qc_bcd_portal.qc_email_templates
 SET
     qc_subject = 'Your QC BCD Portal Account Has Been Created',
