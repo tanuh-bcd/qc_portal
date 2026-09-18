@@ -104,6 +104,10 @@ class Settings:
     CRON_SERVICE_ACCOUNT_EMAIL: str = _cfg("CRON_SERVICE_ACCOUNT_EMAIL")
     CRON_SHARED_SECRET: str = _cfg("CRON_SHARED_SECRET")
 
+    PENDING_CASE_REMINDER_EMAIL_ENABLED: bool = (
+        _cfg("PENDING_CASE_REMINDER_EMAIL_ENABLED", "false").lower() == "true"
+    )
+
     MYSQL_DB_QUESTIONNAIRE: str = _cfg("MYSQL_DB_QUESTIONNAIRE", "bcd_questionnaire")
     MYSQL_DB_QC: str = _cfg("MYSQL_DB_QC", "qc_bcd_portal")
     QC_DATABASE_URL_OVERRIDE: str = _cfg("QC_DATABASE_URL", "")

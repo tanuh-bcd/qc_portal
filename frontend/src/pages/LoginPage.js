@@ -65,10 +65,13 @@ const LoginPage = () => {
 
         const roleLower = formData.role.toLowerCase();
         if (roleLower === 'admin') {
+          sessionStorage.setItem('qc_admin_active_tab', 'qc-admin');
           navigate('/qc/admin');
         } else if (roleLower === 'radiologist') {
+          sessionStorage.setItem('qc_radiologist_active_view', 'cases');
           navigate('/qc/radiologist');
         } else if (roleLower === 'mammo tech') {
+          sessionStorage.setItem('qc_mammotech_active_view', 'cases');
           navigate('/qc/mammo-tech');
         }
       } else {
