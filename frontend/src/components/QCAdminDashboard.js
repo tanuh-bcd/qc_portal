@@ -417,7 +417,7 @@ const QCAdminDashboard = () => {
                   <div style={fieldStyle}>
                     <label style={labelStyle}>Select Cases / Subjects</label>
                     <CheckboxDropdown
-                      label="Select Subjects"
+                      label={`Select Subjects (${mammoUnassignedSubjects.length})`}
                       options={mammoUnassignedSubjects}
                       getId={(s) => s.qc_subject_id}
                       getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'}`}
@@ -557,7 +557,7 @@ const QCAdminDashboard = () => {
               <div style={fieldStyle}>
                 <label style={labelStyle}>Subjects</label>
                 <CheckboxDropdown
-                  label="Select Subjects"
+                  label={`Select Subjects (${subjects.length})`}
                   options={subjects}
                   getId={(s) => s.qc_subject_id}
                   getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'} (${s.assignment_status})`}
@@ -626,7 +626,7 @@ const QCAdminDashboard = () => {
               <div style={fieldStyle}>
                 <label style={labelStyle}>Subjects</label>
                 <CheckboxDropdown
-                  label="Select Subjects"
+                  label={`Select Subjects (${mammoSubjects.length})`}
                   options={mammoSubjects}
                   getId={(s) => s.qc_subject_id}
                   getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'} (${s.assignment_status})`}

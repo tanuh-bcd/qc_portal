@@ -1,0 +1,38 @@
+QC Portal — Full Explanation
+What it is:
+QC Portal is a clinical quality-check platform used across hospitals in India, built by TANUH Foundation at IISc Bengaluru. It doesn't collect screening data itself — it takes the mammography data already captured through BCD Portal (DICOM images, mammography reports, BIRADS scoring, breast density readings) and runs it through a structured QC review: a mammo tech does a first-pass check, and a radiologist does the deeper clinical verification, so every case's imaging and reporting gets independently reviewed for accuracy before it's considered finalized.
+QC Portal keeps its own separate, always-current copy of everything BCD collects — hospitals, patients, questionnaire answers, and so on. This copy refreshes automatically every few minutes, pulling in anything new from BCD without ever writing back to it or deleting anything on the QC side. So QC Portal is always a few minutes behind BCD, but never dependent on it being online.
+
+Step 1 — Data sync from BCD
+QC Portal keeps its own separate, always-current copy of everything BCD collects — hospitals, patients, questionnaire answers, and so on. This copy refreshes automatically every few minutes, pulling in anything new from BCD without ever writing back to it or deleting anything on the QC side. So QC Portal is always a few minutes behind BCD, but never dependent on it being online.
+
+Step 2 — Admin assigns a case to a mammo tech
+Once a patient case shows up in QC Portal, an admin assigns it to a mammo tech for the first level of review, using either of two modes on the same screen:
+
+Manual: the admin hand-picks specific cases for a specific mammo tech.
+Random: the admin just enters a count (e.g. 10–20 cases) and the system randomly shuffles the pool of unassigned cases for a specific mammo tech.
+Once assigned, the mammo tech gets an automatic email notification that cases are waiting for their review.
+
+Step 3 — Mammo tech reviews and decides
+The mammo tech looks over the case and either accepts or rejects it:
+
+If accepted: the case moves forward, and the system automatically picks a radiologist at random from all currently active radiologists, hands the case to them, and emails that radiologist about the new assignment.
+If rejected: the case is marked rejected right there and goes no further — no radiologist gets involved, no email goes out.
+Step 4 — Radiologist review
+The randomly-assigned radiologist does the deeper clinical review — BIRADS scoring, breast density, findings. Once done, the case is marked complete.
+
+Step 5 — Pending-case reminders
+If a mammo tech or radiologist has cases sitting unreviewed, the system is designed to send them a reminder email every 3 days, repeating until every pending case assigned to them has been reviewed. (Note: the reminder logic itself is already built, but it isn't yet wired to a scheduler — you mentioned you'll set up the cron job to run it automatically going forward.)
+
+Step 6 — Analytics
+All completed and reviewed cases roll up into the QC Portal's analytics dashboard, giving a hospital-network-wide view of risk scores, case volumes, and outcomes.
+
+Guardrail: once a case has been reviewed by the mammo tech, it can't be reviewed again — the system blocks a second submission on the same case.
+
+
+
+==========
+optimal version QC platform Explanation
+===========================================
+
+All BCD Portal data undergoes two-tier quality control before finalization. QC Portal syncs a read-only data copy from BCD every 5 minutes, and admins assign cases to mammo techs — either manually or via randomized batch count — with automatic email notification. Accepted cases route to a randomly assigned active radiologist for clinical verification and are marked complete; rejected cases close immediately with no further review, and once mammo-tech-reviewed, a case can't be resubmitted. Pending reviewers get reminder emails every 3 days, and all completed cases roll into the QC analytics dashboard. 
