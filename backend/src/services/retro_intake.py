@@ -497,17 +497,32 @@ def discover_cases(root: Path) -> List[Tuple[str, Path]]:
 # Storage + persistence
 # --------------------------------------------------------------------------- #
 _bucket_lock = threading.Lock()
-_bucket_obj = None
+_client = None
+_buckets: Dict[str, Any] = {}
 
 
-def _bucket():
-    """One shared storage client. Building a client per request re-does authentication and made every image slow."""
-    global _bucket_obj
+def _bucket(name: Optional[str] = None):
+    """One shared storage client. Building a client per request re-does authentication and made every image slow.
+
+    name defaults to the configured bucket (where new files are written). Stored files remember their own bucket.
+    """
+    global _client
+    name = name or settings.GCP_STORAGE_BUCKET
     with _bucket_lock:
-        if _bucket_obj is None:
+        if _client is None:
             from google.cloud import storage
-            _bucket_obj = storage.Client().bucket(settings.GCP_STORAGE_BUCKET)
-        return _bucket_obj
+            _client = storage.Client()
+        if name not in _buckets:
+            _buckets[name] = _client.bucket(name)
+        return _buckets[name]
+
+
+def split_gs_url(url: str) -> Tuple[Optional[str], str]:
+    """'gs://bucket/path/x' -> ('bucket', 'path/x'). A bare object path gives (None, path): the configured bucket applies."""
+    if url.startswith("gs://"):
+        bucket, _, blob = url[5:].partition("/")
+        return bucket, blob
+    return None, url.lstrip("/")
 
 
 def upload_to_gcs(local: Path, blob_name: str) -> str:
@@ -519,7 +534,9 @@ def upload_to_gcs(local: Path, blob_name: str) -> str:
 
 
 def read_from_gcs(url: str) -> bytes:
-    return _bucket().blob(url.split("/", 3)[3]).download_as_bytes()
+    """Read a stored file from the bucket named in its own address, so files written under another bucket setting still open."""
+    bucket, blob = split_gs_url(url)
+    return _bucket(bucket).blob(blob).download_as_bytes()
 
 
 def render_dicom_png(data: bytes, center: Optional[float] = None, width: Optional[float] = None,
@@ -615,19 +632,19 @@ def render_png_from_pixels(pix_path: Path, cols: int, rows: int, center: Optiona
 def delete_blobs(urls: List[str]):
     """Remove stored objects. A blob that is already gone is fine; any other failure is raised."""
     from google.api_core.exceptions import NotFound
-    bucket = _bucket()
     for url in urls:
+        name, blob = split_gs_url(url)
         try:
-            bucket.blob(url.split("/", 3)[3]).delete()
+            _bucket(name).blob(blob).delete()
         except NotFound:
             pass
 
 
 def delete_from_gcs(urls: List[str]):
     try:
-        bucket = _bucket()
         for url in urls:
-            bucket.blob(url.split("/", 3)[3]).delete()
+            name, blob = split_gs_url(url)
+            _bucket(name).blob(blob).delete()
     except Exception:
         logger.exception("Cleanup of partially uploaded case failed")
 
