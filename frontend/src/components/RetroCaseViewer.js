@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './RetroCaseViewer.css';
 
 export const API = `${process.env.REACT_APP_API_URL || ''}/api/v1/qc/retro`;
@@ -39,25 +39,72 @@ export const useBlobUrl = (path, deps = []) => {
   return state;
 };
 
-const Viewport = ({ file, label, tone, invert, zoom, selected, onSelect }) => {
+const Viewport = ({ file, label, tone, invert, resetKey, selected, onSelect }) => {
   const { url, error, loading } = useBlobUrl(file ? `/files/${file.id}/image?invert=${invert}` : null, [invert]);
+  const boxRef = useRef(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [nat, setNat] = useState({ w: 0, h: 0 });          // natural size of the picture
+  const [zoom, setZoom] = useState(1);                     // 1 = the whole image fits the box
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [drag, setDrag] = useState(null);
 
+  useEffect(() => {
+    const el = boxRef.current; if (!el) return undefined;
+    const read = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    read();
+    const ro = new ResizeObserver(read); ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  useEffect(() => { setZoom(1); setPan({ x: 0, y: 0 }); }, [resetKey]);
+
+  const fit = nat.w && box.w ? Math.min(box.w / nat.w, box.h / nat.h) * 0.98 : 1;
+  const scale = fit * zoom;
+  const zoomAt = useCallback((factor, px, py) => {            // keep the point under the cursor still
+    setZoom((z) => {
+      const next = Math.min(40, Math.max(0.5, z * factor));
+      const k = next / z;
+      const cx = (px ?? box.w / 2) - box.w / 2; const cy = (py ?? box.h / 2) - box.h / 2;
+      setPan((p) => ({ x: cx - (cx - p.x) * k, y: cy - (cy - p.y) * k }));
+      return next;
+    });
+  }, [box.w, box.h]);
+
+  useEffect(() => {
+    const el = boxRef.current; if (!el) return undefined;
+    const onWheel = (e) => { e.preventDefault(); const r = el.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - r.left, e.clientY - r.top); };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [zoomAt]);
+
+  const reset = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+
   return (
-    <div className={`rcv-viewport ${selected ? 'selected' : ''}`} onClick={onSelect}
+    <div ref={boxRef} className={`rcv-viewport ${selected ? 'selected' : ''}`} onClick={onSelect}
       onMouseDown={(e) => setDrag({ x: e.clientX - pan.x, y: e.clientY - pan.y })}
       onMouseMove={(e) => drag && setPan({ x: e.clientX - drag.x, y: e.clientY - drag.y })}
       onMouseUp={() => setDrag(null)} onMouseLeave={() => setDrag(null)}
-      onDoubleClick={() => setPan({ x: 0, y: 0 })}>
+      onDoubleClick={reset}>
       <span className="rcv-tag">{label}</span>
-      {file && <span className="rcv-size">{fmtBytes(file.size_bytes)}</span>}
+      {file && <span className="rcv-size">{fmtBytes(file.size_bytes)} · {zoom === 1 ? 'fit' : `${Math.round(scale * 100)}%`}</span>}
+      {url && (
+        <div className="rcv-zoombar" onMouseDown={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+          <button title="Zoom out" onClick={stop(() => zoomAt(1 / 1.3))}>−</button>
+          <button title="Zoom in" onClick={stop(() => zoomAt(1.3))}>+</button>
+          <button title="Whole image fits the box" onClick={stop(reset)}>Fit</button>
+          <button title="One image pixel per screen pixel" onClick={stop(() => { setZoom(1 / fit); setPan({ x: 0, y: 0 }); })}>1:1</button>
+        </div>
+      )}
       {loading && <div className="rcv-msg"><i className="rcv-spin" />Rendering…</div>}
       {error && <div className="rcv-msg err">{error}</div>}
       {!file && <div className="rcv-msg">View not available</div>}
       {url && (
-        <img src={url} alt={label} draggable={false}
-          style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, filter: tone }} />
+        <img className="rcv-img" src={url} alt={label} draggable={false}
+          onLoad={(e) => setNat({ w: e.target.naturalWidth, h: e.target.naturalHeight })}
+          style={{
+            width: nat.w || undefined, height: nat.h || undefined, filter: tone, visibility: nat.w ? 'visible' : 'hidden',
+            transform: `translate(${box.w / 2 + pan.x - (nat.w * scale) / 2}px, ${box.h / 2 + pan.y - (nat.h * scale) / 2}px) scale(${scale})`,
+          }} />
       )}
     </div>
   );
@@ -210,7 +257,7 @@ const RetroCaseViewer = ({ caseId, onClose }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('views');
-  const [zoom, setZoom] = useState(1);
+  const [resetKey, setResetKey] = useState(0);            // bump to put every image back to 'fit'
   const [invert, setInvert] = useState(false);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -266,19 +313,17 @@ const RetroCaseViewer = ({ caseId, onClose }) => {
         {data && tab === 'views' && (
           <>
             <div className="rcv-tools">
-              <button onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.25).toFixed(2)))}>−</button>
-              <span>{Math.round(zoom * 100)}%</span>
-              <button onClick={() => setZoom((z) => Math.min(6, +(z + 0.25).toFixed(2)))}>+</button>
-              <button onClick={() => { setZoom(1); setBrightness(100); setContrast(100); setInvert(false); }}>Reset</button>
+              <button title="Show the whole of every image" onClick={() => setResetKey((k) => k + 1)}>Fit all</button>
+              <button onClick={() => { setResetKey((k) => k + 1); setBrightness(100); setContrast(100); setInvert(false); }}>Reset</button>
               <label>Brightness<input type="range" min="50" max="170" value={brightness} onChange={(e) => setBrightness(+e.target.value)} /></label>
               <label>Contrast<input type="range" min="50" max="220" value={contrast} onChange={(e) => setContrast(+e.target.value)} /></label>
               <button className={invert ? 'on' : ''} onClick={() => setInvert((v) => !v)}>Invert</button>
-              <span className="hint">Drag to pan · double-click to recentre</span>
+              <span className="hint">Wheel zooms the image under the cursor · drag to pan · double-click to fit</span>
             </div>
             <div className="rcv-grid">
               {LAYOUT.map((slot) => (
                 <Viewport key={slot} file={byView[slot]} label={`${slot} · ${VIEW_NAMES[slot]}`} tone={tone}
-                  invert={invert} zoom={zoom} selected={selected === slot} onSelect={() => setSelected(slot)} />
+                  invert={invert} resetKey={resetKey} selected={selected === slot} onSelect={() => setSelected(slot)} />
               ))}
             </div>
           </>

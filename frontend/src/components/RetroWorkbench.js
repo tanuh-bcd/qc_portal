@@ -30,6 +30,8 @@ const Workspace = ({ caseId, role, onClose, onChanged }) => {
   const [panelText, setPanelTextState] = useState(() => { try { return localStorage.getItem(draftKey) || ''; } catch { return ''; } });
   const setPanelText = (v) => { setPanelTextState(v); try { if (v) localStorage.setItem(draftKey, v); else localStorage.removeItem(draftKey); } catch { /* storage unavailable */ } };
   const [busy, setBusy] = useState(false);
+  const [sideOpen, setSideOpen] = useState(() => { try { return localStorage.getItem('retro_side_open') !== '0'; } catch { return true; } });
+  const toggleSide = (open) => { setSideOpen(open); try { localStorage.setItem('retro_side_open', open ? '1' : '0'); } catch { /* storage unavailable */ } };
   const [report, setReport] = useState(null);
 
   const load = useCallback(async () => {
@@ -106,13 +108,15 @@ const Workspace = ({ caseId, role, onClose, onChanged }) => {
         {error && <div className="rcv-empty err">{error}</div>}
         {!data && !error && <div className="rcv-empty"><i className="rcv-spin dark" />Opening case…</div>}
         {data && (
-          <div className="rw-body">
+          <div className={`rw-body ${sideOpen ? '' : 'closed'}`}>
             <div className="rw-editor">
               <SegmentationEditor caseId={caseId} caseCode={data.case_code} files={data.files} masks={data.masks} role={role} author={localStorage.getItem('userName') || ''}
                 canEdit={!!open} marks={data.marks} onMarksChanged={load} onSaved={() => { load(); onChanged && onChanged(); }} onError={(m) => toast.error(m)} />
             </div>
-            <aside className="rw-side">
+            <aside className={`rw-side ${sideOpen ? '' : 'closed'}`}>
+              <button className="rw-rail" title="Show the case panel" onClick={() => toggleSide(true)}>‹<span>Case · Report · Notes</span></button>
               <nav className="rcv-tabs">
+                <button className="rw-collapse" title="Hide this panel to give the images more room" onClick={() => toggleSide(false)}>Hide ›</button>
                 {[['case', 'Case'], ['report', 'Report'], ['notes', `Notes${panelText.trim() ? ' •' : ''}`]].map(([id, label]) => (
                   <button key={id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
                 ))}
