@@ -54,7 +54,7 @@ def main(out: Path, n: int = 420, seed: int = 7):
         missing = [m for m, ok in [("consent", consent or pilot), ("all_4_views", views == 4), ("birads", has_assess), ("density", has_assess), ("mammo_report", report)] if not ok]
         row = {
             "session_id": sid, "is_pilot": int(pilot), "data_source": "pilot" if pilot else "portal",
-            "hospital_id": h[0], "hospital_name": h[1], "hospital_short_name": h[2], "hospital_state": h[3], "hospital_type": h[4],
+            "hospital_id": h[0], "hospital_name": h[1], "hospital_short_name": h[2], "hospital_state": h[3], "hospital_type": h[7],
             "hospital_match_status": "matched", "subject_id": subj, "subject_key": key,
             "session_start_at": t0.isoformat(timespec="seconds"), "enrolment_month": t0.strftime("%Y-%m"),
             "enrolment_quarter": f"{t0.year}-Q{(t0.month - 1) // 3 + 1}",
@@ -79,6 +79,9 @@ def main(out: Path, n: int = 420, seed: int = 7):
                 {"question_key": "q9", "question": "Have you had cancer before?", "answer": rnd.choice(["Yes", "No", "No", "No"])},
                 {"question_key": "q10", "question": "Family history of breast cancer?", "answer": rnd.choice(["Yes", "No", "No"])}]),
         }
+        if h[0] == "clinic_00005":                                    # a hospital with two different machines
+            row["mammo_machine"] = json.dumps([h[5], "Pristina"]); row["mammo_make"] = json.dumps([h[6], h[6]])
+            row["mammo_technology"] = json.dumps([h[7]]); row["n_machines_at_hospital"] = 2
         subjects.setdefault(key, []).append(row)
         master.append(row)
         if has_assess:

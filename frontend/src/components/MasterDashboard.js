@@ -83,7 +83,7 @@ const MasterDashboard = () => {
             <section className="ri-card"><h3>Findings</h3>
               <Bars title="Highest BI-RADS (assessed)" data={p.by_birads} /><Bars title="Highest density (assessed)" data={p.by_density} color="linear-gradient(90deg,#6a5bd6,#a58bff)" /></section>
             <section className="ri-card" style={{ gridColumn: '1 / -1' }}><h3>Sessions by hospital</h3>
-              <Bars data={Object.fromEntries(p.by_hospital.map((h) => [`${h.name} (${h.technology})`, h.sessions]))} /></section>
+              <Bars data={Object.fromEntries(p.by_hospital.map((h) => [`${h.name} (${h.technology === 'Unknown' ? 'CR/DR not set' : h.technology})`, h.sessions]))} /></section>
           </div>
           {p.test_rows_excluded > 0 && <p className="ri-muted" style={{ margin: '8px 0 0' }}>{p.test_rows_excluded} test rows are excluded from these numbers.</p>}
         </>

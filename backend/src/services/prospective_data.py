@@ -5,11 +5,14 @@ prospective_master.csv and prospective_files.csv, and this module reads the late
 from GCS (or a local folder while developing) and answers filter / count / detail questions.
 """
 import csv
+import hashlib
 import io
+import json
 import os
 import threading
 import time
 from collections import Counter, defaultdict
+from pathlib import Path
 from typing import Dict, List
 
 CACHE_SECONDS = 60
@@ -38,28 +41,84 @@ def _read(uri: str) -> str:
         return f.read()
 
 
-def technology(row: dict) -> str:
-    """CR / DR from the hospital's machine technology (a hospital with both would need a per-session value)."""
-    t = (row.get("mammo_technology") or "").lower().strip()
-    if t == "cr" or t.startswith("cr ") or "computed" in t:
-        return "CR"
-    if t == "dr" or t.startswith("dr ") or "digital" in t or "direct" in t:
-        return "DR"
-    return "Unknown"
+DEFAULT_TEST_FILE = Path(__file__).resolve().parents[1] / "data" / "test_hospitals.csv"
+
+
+def hospital_table() -> Dict[str, dict]:
+    """hospital_id -> {is_test}. Hospitals and pilot sites whose sessions are test data (backend/src/data/test_hospitals.csv)."""
+    path = Path(os.environ.get("PROSPECTIVE_TEST_HOSPITALS_FILE") or DEFAULT_TEST_FILE)
+    if not path.is_file():
+        return {}
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        return {r["hospital_id"].strip(): {"is_test": (r.get("is_test") or "").strip() == "1"} for r in csv.DictReader(f)}
+
+
+def technology(row: dict, table: Dict[str, dict] = None) -> str:
+    """CR or DR of a session's hospital: the hospital's own type in the database (hospitals.type, CSV column hospital_type).
+    Falls back to an exact CR / DR in the machine technology text, else 'Unknown' (shown as Not set)."""
+    t = (row.get("hospital_type") or "").strip().upper()
+    if t in ("CR", "DR"):
+        return t
+    kinds = {v.strip().upper() for v in _as_list(row.get("mammo_technology"))} & {"CR", "DR"}
+    return kinds.pop() if len(kinds) == 1 else "Unknown"
+
+
+def _as_list(value) -> List[str]:
+    """A machine field is one text value, or a JSON list when a hospital has several machines."""
+    v = (value or "").strip()
+    if v.startswith("["):
+        try:
+            return [str(x).strip() for x in json.loads(v)]
+        except ValueError:
+            pass
+    return [v] if v else []
+
+
+def machines_of(rows: List[dict]) -> dict:
+    """A hospital's equipment as the master CSV records it: the distinct machine names, makes and technologies (each column is
+    a JSON list when there are several), and how many machines there are in total."""
+    def distinct(col):
+        out: List[str] = []
+        for r in rows:
+            for v in _as_list(r.get(col)):
+                if v and v not in out:
+                    out.append(v)
+        return out
+    counts = [int(r["n_machines_at_hospital"]) for r in rows if str(r.get("n_machines_at_hospital", "")).isdigit()]
+    names = distinct("mammo_machine")
+    return {"names": names, "makes": distinct("mammo_make"), "technologies": distinct("mammo_technology"),
+            "total": max(counts) if counts else len(names), "unique": len(names)}
 
 
 def load(force: bool = False) -> dict:
+    """Read the master pair. PROSPECTIVE_MANIFEST_URI (the build tool's current.json) points at the latest build and is checked
+    against its checksums and counts; otherwise the two CSV paths are used directly."""
+    manifest_uri = os.environ.get("PROSPECTIVE_MANIFEST_URI", "").strip()
     master_uri, files_uri = _uris()
-    if not master_uri:
-        raise NotConfigured("PROSPECTIVE_MASTER_URI is not set")
-    key = (master_uri, files_uri)
+    if not manifest_uri and not master_uri:
+        raise NotConfigured("PROSPECTIVE_MANIFEST_URI or PROSPECTIVE_MASTER_URI is not set")
+    key = (manifest_uri, master_uri, files_uri)
     with _lock:
         if not force and _cache["data"] and _cache["key"] == key and time.time() - _cache["at"] < CACHE_SECONDS:
             return _cache["data"]
-        rows = list(csv.DictReader(io.StringIO(_read(master_uri))))
-        files = list(csv.DictReader(io.StringIO(_read(files_uri)))) if files_uri else []
+        manifest = json.loads(_read(manifest_uri)) if manifest_uri else None
+        if manifest:
+            master_uri, files_uri = manifest["master_uri"], manifest["files_uri"]
+        master_text = _read(master_uri)
+        files_text = _read(files_uri) if files_uri else ""
+        if manifest:                                         # never show a half-written or altered build
+            for name, body in (("master", master_text), ("files", files_text)):
+                if hashlib.sha256(body.encode("utf-8")).hexdigest() != manifest.get(f"{name}_sha256"):
+                    raise ValueError(f"The {name} CSV does not match its checksum in the manifest")
+        rows = list(csv.DictReader(io.StringIO(master_text)))
+        files = list(csv.DictReader(io.StringIO(files_text))) if files_uri else []
+        if manifest and (len(rows) != manifest.get("rows") or len(files) != manifest.get("files")):
+            raise ValueError("The CSV row counts do not match the manifest")
+        table = hospital_table()
         for r in rows:
-            r["_tech"] = technology(r)
+            r["_tech"] = technology(r, table)
+            if table.get(r.get("hospital_id", ""), {}).get("is_test"):
+                r["is_test"] = "1"                   # test hospitals and test pilot sites are marked here, not only in the CSV
         by_session: Dict[str, List[dict]] = defaultdict(list)
         for f in files:
             by_session[f["session_id"]].append(f)
@@ -84,13 +143,14 @@ def filter_rows(rows: List[dict], q: str = "", source: str = "", hospital_id: st
                 density: str = "", complete: bool = False, latest_only: bool = False, include_test: bool = False,
                 assessed: bool = False, quarter: str = "") -> List[dict]:
     q = q.strip().lower()
+    wanted_hospitals = {h.strip() for h in hospital_id.split(",") if h.strip()}      # one id, or a hospital with its pilot sites
     out = []
     for r in rows:
         if not include_test and flag(r, "is_test"):
             continue
         if source and r.get("data_source") != source:
             continue
-        if hospital_id and r.get("hospital_id") != hospital_id:
+        if wanted_hospitals and r.get("hospital_id") not in wanted_hospitals:
             continue
         if tech and r["_tech"] != tech:
             continue
@@ -130,16 +190,36 @@ def stats(rows: List[dict]) -> dict:
     }
 
 
+def _pilot_parent_name(name: str) -> str:
+    """'Pilot Study - X' (or 'Pilot Study -X') -> 'X'; anything else -> ''."""
+    n = (name or "").strip()
+    if n.lower().startswith("pilot study"):
+        return n.split("-", 1)[1].strip() if "-" in n else ""
+    return ""
+
+
 def hospitals(rows: List[dict]) -> List[dict]:
-    groups: Dict[str, List[dict]] = defaultdict(list)
+    """One entry per hospital. A pilot site ('Pilot Study - X') is grouped under its parent hospital X when that hospital is present;
+    each site keeps its own CR / DR as recorded in the database."""
+    by_id: Dict[str, List[dict]] = defaultdict(list)
     for r in rows:
-        groups[r["hospital_id"]].append(r)
+        by_id[r["hospital_id"]].append(r)
+    names = {rs[0].get("hospital_name", "").strip().lower(): hid for hid, rs in by_id.items() if not _pilot_parent_name(rs[0].get("hospital_name", ""))}
+    groups: Dict[str, List[str]] = defaultdict(list)           # parent id -> [parent id, pilot site ids...]
+    for hid, rs in by_id.items():
+        parent = names.get(_pilot_parent_name(rs[0].get("hospital_name", "")).lower()) if _pilot_parent_name(rs[0].get("hospital_name", "")) else None
+        groups[parent or hid].append(hid)
     out = []
-    for hid, rs in groups.items():
-        first = rs[0]
-        out.append({"hospital_id": hid, "name": first.get("hospital_name"), "short_name": first.get("hospital_short_name"),
-                    "state": first.get("hospital_state"), "type": first.get("hospital_type"), "technology": first["_tech"],
-                    "make": first.get("mammo_make"), "machine": first.get("mammo_machine"),
+    for parent, ids in groups.items():
+        ids = sorted(ids, key=lambda i: (i != parent, i))
+        rs = [r for i in ids for r in by_id[i]]
+        first = by_id[parent][0] if parent in by_id else rs[0]
+        machines = machines_of(by_id[parent] if parent in by_id else rs)
+        sites = [{"hospital_id": i, "name": by_id[i][0].get("hospital_name"), "technology": by_id[i][0]["_tech"],
+                  "is_pilot_site": i != parent, **stats(by_id[i])} for i in ids]
+        out.append({"hospital_id": parent, "hospital_ids": ids, "name": first.get("hospital_name"), "short_name": first.get("hospital_short_name"),
+                    "state": first.get("hospital_state"), "technology": by_id[parent][0]["_tech"] if parent in by_id else first["_tech"],
+                    "machines": machines, "unique_machines": machines["unique"], "sites": sites,
                     "last_session": max((r.get("session_start_at") or "" for r in rs), default=""), **stats(rs)})
     return sorted(out, key=lambda h: (-h["sessions"], h["hospital_id"]))
 

@@ -8,6 +8,14 @@ const SOURCES = [['', 'All'], ['portal', 'Portal'], ['pilot', 'Pilot']];
 const TECHS = [['', 'All'], ['CR', 'CR'], ['DR', 'DR']];
 const Yes = ({ v }) => (v === '1' || v === 1 ? <span className="pr-pill ok">Yes</span> : <span className="pr-pill no">No</span>);
 const short = (id) => `${id.slice(0, 8)}…`;
+const techLabel = (t) => (t === 'Unknown' ? 'Not set' : t);
+const machineSummary = (m) => {                    // m = {names, makes, technologies, total, unique}
+  if (!m || (!m.total && !m.names?.length)) return 'No machine recorded';
+  const shown = (m.names || []).slice(0, 2).join(', ') + ((m.names || []).length > 2 ? ` +${m.names.length - 2}` : '');
+  return `${m.total} machine${m.total > 1 ? 's' : ''}${m.unique ? ` (${m.unique} unique)` : ''}${shown ? `: ${shown}` : ''}`;
+};
+const machineDetail = (m) => [['Machines', m?.names], ['Makes', m?.makes], ['Technology as recorded', m?.technologies]]
+  .filter(([, v]) => v && v.length).map(([k, v]) => `${k}: ${v.join(', ')}`).join('\n');
 
 const KV = ({ k, v }) => (v === undefined || v === '' ? null : <div className="pr-kv"><span>{k}</span><b>{v}</b></div>);
 
@@ -23,7 +31,7 @@ const SessionDetail = ({ id, onClose }) => {
       <div className="pr-modal ri-page" style={{ padding: 0, minHeight: 0 }} onClick={(e) => e.stopPropagation()}>
         <div className="pr-modal-top">
           <div>
-            <h3>{s.hospital_name || 'Session'} <span className={`pr-tech ${d?.technology}`}>{d?.technology}</span></h3>
+            <h3>{s.hospital_name || 'Session'} <span className={`pr-tech ${d?.technology}`}>{techLabel(d?.technology)}</span></h3>
             <p className="pr-id">{id}</p>
           </div>
           <button className="pr-x" onClick={onClose} aria-label="Close">×</button>
@@ -36,7 +44,7 @@ const SessionDetail = ({ id, onClose }) => {
               <section className="pr-sec"><h4>Overview</h4><div className="pr-grid">
                 <KV k="Source" v={s.data_source} /><KV k="Hospital" v={`${s.hospital_name} (${s.hospital_id})`} /><KV k="State" v={s.hospital_state} />
                 <KV k="Subject ID" v={s.subject_id} /><KV k="Session started" v={fmtWhen(s.session_start_at)} /><KV k="Questionnaire" v={s.questionnaire_type} />
-                <KV k="Machine" v={[s.mammo_make, s.mammo_machine].filter(Boolean).join(' ')} /><KV k="Technology" v={d.technology} />
+                <KV k="CR / DR (hospital)" v={techLabel(d.technology)} /><KV k="Machines at this hospital" v={machineSummary(d.machines)} /><KV k="Machine names" v={(d.machines?.names || []).join(', ')} /><KV k="Makes" v={(d.machines?.makes || []).join(', ')} />
                 <KV k="Sessions for this subject" v={s.n_sessions_for_subject} />
               </div></section>
               <section className="pr-sec"><h4>Questionnaire and risk</h4><div className="pr-grid">
@@ -137,9 +145,13 @@ const ProspectiveHome = () => {
             <h3>Hospitals <span className="ri-count">{hospitals.length}</span></h3>
             <div className="pr-hospitals">
               {hospitals.map((h) => (
-                <button key={h.hospital_id} className={`pr-hosp ${f.hospital_id === h.hospital_id ? 'on' : ''}`} onClick={() => set({ hospital_id: f.hospital_id === h.hospital_id ? '' : h.hospital_id })}>
-                  <h4>{h.short_name || h.hospital_id}<span className={`pr-tech ${h.technology}`}>{h.technology}</span></h4>
+                <button key={h.hospital_id} className={`pr-hosp ${f.hospital_id === h.hospital_ids.join(',') ? 'on' : ''}`} onClick={() => set({ hospital_id: f.hospital_id === h.hospital_ids.join(',') ? '' : h.hospital_ids.join(',') })}>
+                  <h4>{h.short_name || h.hospital_id}<span className={`pr-tech ${h.technology}`}>{techLabel(h.technology)}</span></h4>
                   <small>{h.name} · {h.state}</small>
+                  <small title={machineDetail(h.machines)}>{machineSummary(h.machines)}</small>
+                  {h.sites.filter((s) => s.is_pilot_site).map((s) => (
+                    <small key={s.hospital_id} className="pr-site" title={s.name}>Pilot site · <span className={`pr-tech ${s.technology}`}>{techLabel(s.technology)}</span> · {s.sessions} session{s.sessions === 1 ? '' : 's'}</small>
+                  ))}
                   <div className="pr-hosp-n"><div><b>{h.sessions}</b>sessions</div><div><b>{h.complete}</b>complete</div><div><b>{h.pilot}</b>pilot</div></div>
                 </button>
               ))}
@@ -173,7 +185,7 @@ const ProspectiveHome = () => {
                       <td className="pr-id">{short(r.session_id)}</td>
                       <td>{r.hospital_short_name || r.hospital_id}</td><td>{r.subject_id || '–'}</td>
                       <td><span className={`pr-pill ${r.data_source}`}>{r.data_source}</span></td>
-                      <td><span className={`pr-tech ${r.technology}`}>{r.technology}</span></td>
+                      <td><span className={`pr-tech ${r.technology}`}>{techLabel(r.technology)}</span></td>
                       <td>{fmtWhen(r.session_start_at)}</td><td>{r.age || '–'}</td>
                       <td>{r.has_assessment === '1' ? `${r.birads_right} / ${r.birads_left}` : '–'}</td>
                       <td>{r.has_assessment === '1' ? `${r.density_right} / ${r.density_left}` : '–'}</td>

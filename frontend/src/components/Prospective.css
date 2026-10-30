@@ -40,3 +40,4 @@
 .pr-bar2 { display: grid; grid-template-columns: 120px 1fr 54px; align-items: center; gap: 8px; font-size: 12.5px; margin: 6px 0; } .pr-bar2 > div { height: 9px; background: #edf1f3; border-radius: 9px; overflow: hidden; } .pr-bar2 i { display: block; height: 100%; border-radius: 9px; background: linear-gradient(90deg, var(--teal), var(--mint)); } .pr-bar2 b { text-align: right; }
 .pr-sectionhead { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; } .pr-sectionhead h3 { margin: 0; font-size: 18px; } .pr-sectionhead span { flex: 1; height: 1px; background: var(--line); }
 @media (max-width: 1100px) { .pr-dash { grid-template-columns: 1fr; } }
+.pr-hosp .pr-site { margin: 6px 0 0; color: var(--ink); }
