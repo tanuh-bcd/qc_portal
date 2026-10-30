@@ -324,3 +324,28 @@ def test_cut_off_batches_are_marked_interrupted(client, monkeypatch, tmp_path):
 ])
 def test_view_from_file_name(name, slot):
     assert intake.slot_from_text(name) == slot
+
+
+def test_stored_files_are_read_from_their_own_bucket():
+    assert intake.split_gs_url("gs://breast-cancer-image-dataset/retrospective/case_00003/LCC/LCC.dcm") == (
+        "breast-cancer-image-dataset", "retrospective/case_00003/LCC/LCC.dcm")
+    assert intake.split_gs_url("retrospective/case_00003/x.pdf") == (None, "retrospective/case_00003/x.pdf")
+
+
+def test_each_bucket_gets_its_own_handle(monkeypatch):
+    seen = []
+
+    class FakeClient:
+        def bucket(self, name):
+            seen.append(name)
+            return f"bucket:{name}"
+    import sys
+    import types
+    fake = types.ModuleType("google.cloud.storage")
+    fake.Client = FakeClient
+    monkeypatch.setitem(sys.modules, "google.cloud.storage", fake)
+    monkeypatch.setattr("google.cloud.storage", fake, raising=False)
+    monkeypatch.setattr(intake, "_client", None)
+    monkeypatch.setattr(intake, "_buckets", {})
+    assert intake._bucket("a") == "bucket:a" and intake._bucket("b") == "bucket:b" and intake._bucket("a") == "bucket:a"
+    assert seen == ["a", "b"]                                  # a handle is made once per bucket, then reused

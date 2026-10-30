@@ -67,7 +67,7 @@ const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding
         style={{ '--sidebar-width': `${SIDEBAR_WIDTH}px` }}
       >
         {sidebarWithMobileControls}
-        <div style={{ ...mainStyle, maxWidth: effectiveMaxWidth, padding: effectivePadding, flex: 1 }}>
+        <div style={{ ...mainStyle, maxWidth: effectiveMaxWidth, padding: effectivePadding, flex: 1, minWidth: 0 }}>
           {children}
         </div>
       </main>
