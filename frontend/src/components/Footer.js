@@ -35,7 +35,7 @@ const Footer = () => {
         }}>
           <div style={{ textAlign: 'left' }}>
             <strong style={{ display: 'block', marginBottom: '10px', fontSize: '15px', color: '#14868C' }}>Address</strong>
-            AI Centre of Excellence in Healthcare<br />
+            TANUH:AI Centre of Excellence in Healthcare<br />
             Indian Institute of Science<br />
             Seventh Floor, TCS Smart-X Hub<br />
             Bengaluru, India - 560 012
@@ -86,7 +86,7 @@ const Footer = () => {
         </div>
 
         <div style={{ borderTop: '1px solid #ddd', paddingTop: '16px', width: '100%', fontSize: '12px', textAlign: 'center', color: '#999' }}>
-          &copy; 2025 by TANUH Foundation
+          &copy; 2026 by TANUH Foundation
         </div>
       </div>
     </footer>
