@@ -83,7 +83,7 @@ def session_detail(session_id: str, _: dict = Depends(check_admin_role)):
     except ValueError:
         answers = []
     clean = {k: v for k, v in row.items() if not k.startswith("_") and k != "questionnaire_answers_json" and v != ""}
-    return {"session": clean, "technology": row["_tech"], "answers": answers, "files": d["files"].get(session_id, [])}
+    return {"session": clean, "technology": row["_tech"], "machines": pd.machines_of([row]), "answers": answers, "files": d["files"].get(session_id, [])}
 
 
 @router.get("/export")

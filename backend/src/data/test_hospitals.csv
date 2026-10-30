@@ -1,0 +1,5 @@
+hospital_id,hospital_name,is_test,note
+clinic_00002,Test,1,Test hospital
+clinic_00010,Tanuh Foundation,1,Own hospital: treated as test data
+clinic_00021,Pilot Study -Test,1,Pilot test site
+clinic_00025,Pilot Study - BISICON Conference - 2026,1,Conference pilot: test data
