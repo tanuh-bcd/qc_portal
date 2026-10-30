@@ -89,3 +89,9 @@
 .r-radiologist .rcv-rolechip, td .rcv-rolechip { }
 .rcv-kindchip { background: #3a2a10; color: #ffd98a; padding: 1px 8px; border-radius: 10px; font-size: 10.5px; font-weight: 800; }
 .chip.st-rejected, .rcv-pill.st-rejected { background: #6a1b16; color: #ffc9c4; }
+
+.rcv-viewport img.rcv-img { position: absolute; left: 0; top: 0; max-width: none; max-height: none; object-fit: fill; transform-origin: 0 0; transition: none; }
+.rcv-viewport { cursor: grab; }
+.rcv-zoombar { position: absolute; top: 10px; right: 10px; z-index: 3; display: flex; gap: 4px; }
+.rcv-zoombar button { background: rgba(0,0,0,.65); color: #e6eef0; border: 1px solid rgba(255,255,255,.18); border-radius: 6px; min-width: 30px; height: 28px; padding: 0 8px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.rcv-zoombar button:hover { background: #14796f; }

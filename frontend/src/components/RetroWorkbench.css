@@ -28,7 +28,8 @@
 /* workspace (dark, full screen) */
 .rw-overlay { padding: 10px; }
 .rw-modal { width: 100%; height: 100%; max-height: none; }
-.rw-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 400px; }
+.rw-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 400px; transition: grid-template-columns .15s; }
+.rw-body.closed { grid-template-columns: 1fr 42px; }
 .rw-editor { min-width: 0; min-height: 0; border-right: 1px solid #1d3036; }
 .rw-side { display: flex; flex-direction: column; min-height: 0; background: #0f1a1e; }
 .rw-side .rcv-tabs { padding: 0 8px; }
@@ -54,3 +55,12 @@
 .rw-notelabel { font-weight: 700; font-size: 12.5px; color: #cfe0e4; margin-top: 6px; }
 .rw-notes textarea { width: 100%; box-sizing: border-box; background: #0a1215; color: #e6eef0; border: 1px solid #1f3238; border-radius: 8px; padding: 10px; font: inherit; resize: vertical; }
 .rw-hint { font-size: 12px; color: #8fa6ad; margin: 4px 0; }
+
+.rw-rail { display: none; }
+.rw-side.closed { overflow: hidden; }
+.rw-side.closed > *:not(.rw-rail) { display: none; }
+.rw-side.closed .rw-rail { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 100%; height: 100%; padding: 14px 0; background: #0f1a1e; border: 0; color: #7fe0d3; font-size: 22px; cursor: pointer; }
+.rw-rail span { writing-mode: vertical-rl; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #8fa6ad; }
+.rw-rail:hover { background: #12262d; }
+.rw-collapse { margin-left: auto; background: transparent; border: 0; color: #8fa6ad; font: inherit; font-weight: 700; cursor: pointer; padding: 0 10px; }
+.rw-collapse:hover { color: #fff; }
