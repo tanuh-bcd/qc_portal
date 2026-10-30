@@ -23,12 +23,13 @@ JOIN qc_retro_batches b ON b.qc_id = c.qc_batch_id AND b.qc_vendor = @tag
 LEFT JOIN qc_retro_assignments a ON a.qc_case_id = c.qc_id
 ORDER BY c.qc_id;
 
--- STEP 2: one line per test case: copy the printed commands into a terminal where you are signed in to gcloud
-SELECT CONCAT('gcloud storage rm -r gs://breast-cancer-image-dataset/retrospective/', c.qc_case_code, '/') AS run_this_in_terminal
-FROM qc_retro_cases c
+-- STEP 2: one line per test case folder, with the bucket each file was really stored in.
+-- Copy the printed commands into a terminal where you are signed in to gcloud and run them.
+SELECT DISTINCT CONCAT('gcloud storage rm -r ', SUBSTRING_INDEX(f.qc_gcs_path, '/', 5), '/') AS run_this_in_terminal
+FROM qc_retro_files f
+JOIN qc_retro_cases c ON c.qc_id = f.qc_case_id
 JOIN qc_retro_batches b ON b.qc_id = c.qc_batch_id AND b.qc_vendor = @tag
-WHERE c.qc_case_code IS NOT NULL
-ORDER BY c.qc_id;
+ORDER BY 1;
 
 -- STEP 3: delete the database rows (run only after STEP 1 and 2 look right)
 SET SQL_SAFE_UPDATES = 0;   -- Workbench blocks some deletes unless this is off
