@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Sidebar from '../components/Sidebar';
-import RadiologistPage from './RadiologistPage';
 import QCAdminDashboard from '../components/QCAdminDashboard';
-import AdminDashboardHome from '../components/AdminDashboardHome';
-import AssignRadiologistHistory from '../components/AssignRadiologistHistory';
+import MasterDashboard from '../components/MasterDashboard';
+import ProspectiveHome from '../components/ProspectiveHome';
+import RetroRejectedCases from '../components/RetroRejectedCases';
+import RetroIntake from '../components/RetroIntake';
 
 const ACTIVE_TAB_STORAGE_KEY = 'qc_admin_active_tab';
 
@@ -51,21 +52,27 @@ const AdminPage = () => {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard' },
+    { id: 'prospective', label: 'Prospective' },
+    { id: 'retro-intake', label: 'Retrospective' },
+    { id: 'retro-rejected', label: 'Rejected by Radiologist' },
+    { id: 'pilot', label: 'Pilot Study' },
     { id: 'qc-admin', label: 'QC Admin' },
-    { id: 'mammo-tech-history', label: 'Mammo Tech History' },
-    { id: 'assign-history', label: 'Radiologist History' },
   ];
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <AdminDashboardHome />;
+        return <MasterDashboard />;
       case 'qc-admin':
         return <div style={contentStyle}><QCAdminDashboard /></div>;
-      case 'assign-history':
-        return <RadiologistPage key="assign-history" isEmbedded={true} historyRole="radiologist" />;
-      case 'mammo-tech-history':
-        return <RadiologistPage key="mammo-tech-history" isEmbedded={true} historyRole="mammo_tech" />;
+      case 'prospective':
+        return <ProspectiveHome />;
+      case 'retro-intake':
+        return <RetroIntake />;
+      case 'retro-rejected':
+        return <RetroRejectedCases />;
+      case 'pilot':
+        return <div style={contentStyle}>Coming soon. The Retrospective study is being completed first.</div>;
       default:
         return null;
     }

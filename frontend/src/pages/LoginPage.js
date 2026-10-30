@@ -97,10 +97,10 @@ const LoginPage = () => {
           <img src="/IISc_logo.png" alt="IISc Logo" className="logo-iisc" />
         </div>
         <h1 className="login-title">
-          QC Portal for Breast Cancer Screening
+          Database Management Portal for Breast Cancer Screening
         </h1>
         <p className="login-subtitle">
-          PinkShield QC
+          PinkShield AI
         </p>
       </header>
 

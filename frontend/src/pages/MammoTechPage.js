@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Sidebar from '../components/Sidebar';
-import MammoTechDashboardHome from '../components/MammoTechDashboardHome';
+import RetroWorkbench from '../components/RetroWorkbench';
 import MammoTechCaseViewer from '../components/MammoTechCaseViewer';
 
 const CASE_VIEW_STORAGE_KEY = 'qc_mammotech_case_view_state';
 const VIEW_STORAGE_KEY = 'qc_mammotech_active_view';
 const SIDEBAR_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'cases', label: 'Assigned Cases' },
+  { id: 'retro', label: 'Retrospective' },
 ];
 
 const STATUS_BADGE_COLORS = {
@@ -43,7 +42,7 @@ const MammoTechPage = () => {
   const [isCaseViewOpen, setIsCaseViewOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [view, setViewState] = useState(() => sessionStorage.getItem(VIEW_STORAGE_KEY) || 'dashboard');
+  const [view, setViewState] = useState(() => (sessionStorage.getItem(VIEW_STORAGE_KEY) === 'retro' ? 'retro' : null) || 'retro');
   const setView = (v) => {
     setViewState(v);
     sessionStorage.setItem(VIEW_STORAGE_KEY, v);
@@ -63,10 +62,7 @@ const MammoTechPage = () => {
     if (saved) {
       try {
         const { sessionId, caseItem } = JSON.parse(saved);
-        if (sessionId && caseItem) {
-          setView('cases');
-          fetchSessionDetail(sessionId, caseItem);
-        }
+        if (sessionId && caseItem) sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);   // the old Assigned Cases screen is no longer used
       } catch {
         sessionStorage.removeItem(CASE_VIEW_STORAGE_KEY);
       }
@@ -172,7 +168,7 @@ const MammoTechPage = () => {
       fullWidth={true}
       sidebar={<Sidebar items={SIDEBAR_ITEMS} activeId={view} onSelect={setView} />}
     >
-      {view === 'dashboard' ? <MammoTechDashboardHome /> : (
+      {view === 'retro' ? <RetroWorkbench role="mammo_tech" /> : (
       <div style={contentStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>

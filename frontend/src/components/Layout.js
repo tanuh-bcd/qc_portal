@@ -48,7 +48,7 @@ const Layout = ({ children, userRole, handleLogout, maxWidth = '1200px', padding
                 {mobileNavOpen ? <X size={20} /> : <Menu size={20} />}
               </button>
             )}
-            <h1 style={titleStyle}>QC Portal for Breast Cancer Screening</h1>
+            <h1 style={titleStyle}>Database Management Portal for Breast Cancer Screening</h1>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <button onClick={handleLogout} style={logoutButtonStyle}>
