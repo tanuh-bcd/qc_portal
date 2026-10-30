@@ -11,7 +11,7 @@ import RetroIntake from '../components/RetroIntake';
 const ACTIVE_TAB_STORAGE_KEY = 'qc_admin_active_tab';
 
 const AdminPage = () => {
-  const [activeTab, setActiveTabState] = useState(() => sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY) || 'dashboard');
+  const [activeTab, setActiveTabState] = useState(() => { const t = sessionStorage.getItem(ACTIVE_TAB_STORAGE_KEY); return t && t !== 'pilot' ? t : 'dashboard'; });
   const setActiveTab = (tab) => {
     setActiveTabState(tab);
     sessionStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tab);
@@ -55,7 +55,6 @@ const AdminPage = () => {
     { id: 'prospective', label: 'Prospective' },
     { id: 'retro-intake', label: 'Retrospective' },
     { id: 'retro-rejected', label: 'Rejected by Radiologist' },
-    { id: 'pilot', label: 'Pilot Study' },
     { id: 'qc-admin', label: 'QC Admin' },
   ];
 
@@ -71,8 +70,6 @@ const AdminPage = () => {
         return <RetroIntake />;
       case 'retro-rejected':
         return <RetroRejectedCases />;
-      case 'pilot':
-        return <div style={contentStyle}>Coming soon. The Retrospective study is being completed first.</div>;
       default:
         return null;
     }
