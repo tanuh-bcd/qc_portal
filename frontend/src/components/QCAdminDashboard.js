@@ -101,6 +101,9 @@ const QCAdminDashboard = () => {
   const [expandedSection, setExpandedSection] = useState(null); // null | 'radiologist' | 'mammotech'
   const [createForm, setCreateForm] = useState({ fullName: '', email: '', password: '' });
   const [creating, setCreating] = useState(false);
+  const [createAdminForm, setCreateAdminForm] = useState({ fullName: '', email: '', password: '' });
+  const [creatingAdmin, setCreatingAdmin] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [mammoSubjects, setMammoSubjects] = useState([]);
   const [createMTForm, setCreateMTForm] = useState({ fullName: '', email: '', password: '' });
@@ -159,6 +162,29 @@ const QCAdminDashboard = () => {
     return acc;
   }, {});
 
+  const handleCreateAdmin = async () => {
+    if (!createAdminForm.fullName || !createAdminForm.email || !createAdminForm.password) {
+      alert('Full Name, Email and Password are required.');
+      return;
+    }
+    if (!window.confirm(`Create an Admin account for ${createAdminForm.email}? Admins can see and change everything in the portal.`)) return;
+    setCreatingAdmin(true);
+    try {
+      await apiPost('/api/v1/qc/admin/users', {
+        full_name: createAdminForm.fullName,
+        email: createAdminForm.email,
+        password: createAdminForm.password,
+        role: 'Admin',
+      });
+      alert('Admin created successfully.');
+      setCreateAdminForm({ fullName: '', email: '', password: '' });
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    } finally {
+      setCreatingAdmin(false);
+    }
+  };
+
   const handleCreateRadiologist = async () => {
     if (!createForm.fullName || !createForm.email || !createForm.password) {
       alert('Full Name, Email and Password are required.');
@@ -188,22 +214,6 @@ const QCAdminDashboard = () => {
       alert('Full Name, Email and Password are required.');
       return;
     }
-    let caseIds;
-    if (createMTAssignMode === 'random') {
-      const count = Number(createMTRandomCount);
-      if (!count || count <= 0) {
-        alert('Enter a valid number of cases to randomly assign.');
-        return;
-      }
-      if (count > mammoUnassignedSubjects.length) {
-        alert(`Only ${mammoUnassignedSubjects.length} unassigned subject(s) available.`);
-        return;
-      }
-      caseIds = pickRandomSubjects(mammoUnassignedSubjects, count);
-    } else {
-      caseIds = Array.from(createMTSelectedSubjects);
-    }
-
     setCreatingMT(true);
     try {
       const result = await apiPost('/api/v1/qc/admin/users', {
@@ -211,12 +221,9 @@ const QCAdminDashboard = () => {
         email: createMTForm.email,
         password: createMTForm.password,
         role: 'Mammo Tech',
-        cases: caseIds,
+        cases: [],
       });
-      const failedNote = result.failed_cases && result.failed_cases.length
-        ? ` (${result.failed_cases.length} subject(s) could not be matched: ${result.failed_cases.join(', ')})`
-        : '';
-      alert(`Mammo Tech created and ${result.assigned_cases} case(s) assigned.${failedNote}`);
+      alert('Mammo Tech created. Cases are assigned from the Retrospective tab.');
       setCreateMTForm({ fullName: '', email: '', password: '' });
       setCreateMTSelectedSubjects(new Set());
       setCreateMTRandomCount('');
@@ -354,12 +361,6 @@ const QCAdminDashboard = () => {
             </div>
             {expandedSection === 'mammotech' && (
               <div style={accordionContentStyle}>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                  <button type="button" onClick={() => setAssignMTModalOpen(true)} style={secondaryButtonStyle}>
-                    Assign Mammo Tech
-                  </button>
-                </div>
-
                 <div style={fieldStyle}>
                   <label style={labelStyle}>Full Name</label>
                   <input
@@ -399,54 +400,8 @@ const QCAdminDashboard = () => {
                   </div>
                 </div>
 
-                <div style={fieldStyle}>
-                  <label style={labelStyle}>Assignment Mode</label>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button type="button" onClick={() => setCreateMTAssignMode('random')}
-                      style={modeButtonStyle(createMTAssignMode === 'random')}>
-                      Random Assign
-                    </button>
-                    <button type="button" onClick={() => setCreateMTAssignMode('manual')}
-                      style={modeButtonStyle(createMTAssignMode === 'manual')}>
-                      Select Manually
-                    </button>
-                  </div>
-                </div>
-
-                {createMTAssignMode === 'manual' ? (
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Select Cases / Subjects</label>
-                    <CheckboxDropdown
-                      label={`Select Subjects (${mammoUnassignedSubjects.length})`}
-                      options={mammoUnassignedSubjects}
-                      getId={(s) => s.qc_subject_id}
-                      getLabel={(s) => `${s.qc_subject_id} — ${s.hospital_name || 'Unknown hospital'}`}
-                      selected={createMTSelectedSubjects}
-                      onChange={setCreateMTSelectedSubjects}
-                    />
-                  </div>
-                ) : (
-                  <div style={fieldStyle}>
-                    <label style={labelStyle}>Number of Cases</label>
-                    <input
-                      style={inputStyle}
-                      type="number"
-                      min="1"
-                      max={mammoUnassignedSubjects.length}
-                      placeholder="e.g. 50"
-                      value={createMTRandomCount}
-                      onChange={(e) => setCreateMTRandomCount(e.target.value)}
-                    />
-                    {/* <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
-                      {mammoUnassignedSubjects.length} unassigned subject(s) available. A random, non-overlapping set will be assigned to the new Mammo Tech.
-                    </div> */}
-                  </div>
-                )}
-
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ fontSize: 12, color: '#888' }}>
-                    Total Subjects: {mammoSubjects.length} · Unassigned: {mammoUnassignedSubjects.length}
-                  </div>
+                  <div style={{ fontSize: 12, color: '#888' }}>Cases are assigned from the Retrospective tab.</div>
                   <button type="button" disabled={creatingMT} onClick={handleCreateMammoTech}
                     style={{ ...primaryButtonStyle, opacity: creatingMT ? 0.7 : 1 }}>
                     {creatingMT ? 'Creating...' : 'Create Mammo Tech'}
@@ -517,6 +472,72 @@ const QCAdminDashboard = () => {
                   <button type="button" disabled={creating} onClick={handleCreateRadiologist}
                     style={{ ...primaryButtonStyle, opacity: creating ? 0.7 : 1 }}>
                     {creating ? 'Creating...' : 'Create Radiologist'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Create Admin — only a Test-hospital admin may do this; the server enforces it and says so. */}
+          <div style={accordionStyle}>
+            <div style={accordionHeaderStyle} onClick={() => toggleSection('admin')}>
+              Create Admin
+              <span>{expandedSection === 'admin' ? '−' : '+'}</span>
+            </div>
+            {expandedSection === 'admin' && (
+              <div style={accordionContentStyle}>
+                {/* <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                  <button type="button" onClick={() => setAssignModalOpen(true)} style={secondaryButtonStyle}>
+                    Assign Radiologist
+                  </button>
+                </div> */}
+
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Full Name</label>
+                  <input
+                    style={inputStyle}
+                    name="qc-new-admin-name"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createAdminForm.fullName}
+                    onChange={(e) => setCreateAdminForm({ ...createAdminForm, fullName: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>User Email</label>
+                  {/* type="text" + inputMode keeps the email keyboard on mobile without
+                      triggering the browser's saved-email autofill on this field. */}
+                  <input
+                    style={inputStyle}
+                    type="text"
+                    inputMode="email"
+                    name="qc-new-admin-email"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={createAdminForm.email}
+                    onChange={(e) => setCreateAdminForm({ ...createAdminForm, email: e.target.value })} />
+                </div>
+                <div style={fieldStyle}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{ position: 'relative' }}>
+                    {/* autoComplete="new-password" tells the browser this is a password
+                        being set, not the signed-in admin's own saved password. */}
+                    <input
+                      style={{ ...inputStyle, paddingRight: 34 }}
+                      type={showAdminPassword ? 'text' : 'password'}
+                      name="qc-new-admin-password"
+                      autoComplete="new-password"
+                      value={createAdminForm.password}
+                      onChange={(e) => setCreateAdminForm({ ...createAdminForm, password: e.target.value })} />
+                    <span onClick={() => setShowAdminPassword(!showAdminPassword)}
+                      style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer' }}>
+                      {showAdminPassword ? '🙈' : '👁️'}
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" disabled={creatingAdmin} onClick={handleCreateAdmin}
+                    style={{ ...primaryButtonStyle, opacity: creatingAdmin ? 0.7 : 1 }}>
+                    {creatingAdmin ? 'Creating...' : 'Create Admin'}
                   </button>
                 </div>
               </div>

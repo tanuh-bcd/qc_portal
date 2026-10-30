@@ -1,0 +1,78 @@
+.seg { display: flex; flex-direction: column; height: 100%; min-height: 0; background: #0b1418; color: #dbe7ea; }
+.seg-views { display: flex; gap: 6px; align-items: center; padding: 8px 12px; background: #0f1c21; border-bottom: 1px solid #1d3036; }
+.seg-views button { background: #16282e; border: 1px solid #243c44; color: #b9ccd1; border-radius: 8px; padding: 6px 16px; font-weight: 700; cursor: pointer; }
+.seg-views button.on { background: #14796f; border-color: #1fb3a3; color: #fff; }
+.seg-views button.saved i { font-style: normal; margin-left: 6px; color: #7ff0df; }
+.seg-views button:disabled { opacity: .35; cursor: not-allowed; }
+.seg-status { margin-left: auto; font-size: 12px; color: #ffd24a; max-width: 60%; text-align: right; }
+.seg-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 7px 12px; background: #12242a; border-bottom: 1px solid #1d3036; font-size: 12px; color: #9fb6bc; }
+.seg-tools button { background: #1b343b; border: 0; color: #e6f0f2; border-radius: 6px; padding: 6px 11px; font: inherit; font-weight: 600; cursor: pointer; }
+.seg-tools button:hover:not(:disabled) { background: #26505a; }
+.seg-tools button.on { background: #14796f; } .seg-tools button.on.sub { background: #9a6a10; }
+.seg-tools button.ref { background: #1d3b66; } .seg-tools button.ref.on { background: #2f6fd6; }
+.seg-tools button:disabled { opacity: .4; cursor: not-allowed; }
+.seg-tools label { display: flex; align-items: center; gap: 6px; }
+.seg-tools input[type=range] { width: 90px; accent-color: #2fbfae; }
+.seg-tools b { min-width: 26px; color: #e6f0f2; }
+.seg-tools kbd { margin-left: 5px; font: inherit; font-size: 10px; opacity: .6; border: 1px solid #4a6a72; border-radius: 3px; padding: 0 4px; }
+.seg-wl { background: #101f25; }
+.seg-label { font-weight: 800; text-transform: uppercase; letter-spacing: .06em; font-size: 10.5px; color: #6f8f97; }
+.seg-seg { display: flex; border-radius: 6px; overflow: hidden; } .seg-seg button { border-radius: 0; }
+.seg-sep { width: 1px; height: 22px; background: #264048; margin: 0 4px; }
+.seg-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #000; user-select: none; }
+.seg-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.seg-overlay { pointer-events: none; }
+.seg-loupe { position: absolute; width: 300px; height: 300px; border: 2px solid #2fbfae; border-radius: 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, .7); pointer-events: none; z-index: 5; image-rendering: pixelated; }
+.seg-loading { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; color: #9fb6bc; z-index: 6; background: rgba(0, 0, 0, .55); }
+.seg-loading.err { color: #ff8a9b; }
+.seg-bar { width: 280px; height: 8px; background: #1d3036; border-radius: 8px; overflow: hidden; } .seg-bar i { display: block; height: 100%; background: linear-gradient(90deg, #14796f, #2fe0c8); transition: width .15s; }
+.seg-loading small { color: #6f8a92; }
+.seg-tag { position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, .65); padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; z-index: 4; pointer-events: none; }
+.seg-dims { position: absolute; bottom: 8px; left: 10px; right: 10px; text-align: right; background: rgba(0, 0, 0, .6); padding: 3px 8px; border-radius: 5px; font-size: 11px; color: #9fb6bc; z-index: 4; pointer-events: none; font-variant-numeric: tabular-nums; }
+.seg-foot { display: flex; gap: 12px; align-items: center; padding: 8px 12px; background: #0f1c21; border-top: 1px solid #1d3036; }
+.seg-hint { font-size: 11px; color: #6f8a92; flex: 1; line-height: 1.4; }
+.seg-save { background: linear-gradient(135deg, #14796f, #1fb3a3); color: #fff; border: 0; border-radius: 8px; padding: 9px 20px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.seg-save:disabled { opacity: .45; cursor: not-allowed; }
+.seg-guide { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 8px 14px; background: #10252b; border-bottom: 1px solid #1f3238; font-size: 12.5px; color: #cfe0e4; }
+.seg-guide span { color: #8fa6ad; }
+.seg-guide-act { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.seg-guide-act em { font-style: normal; color: #7fe0d3; font-weight: 700; }
+.seg-guide-act button { background: #1e3840; border: 0; color: #e6eef0; border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; font-weight: 600; }
+.seg-guide-act button.on { background: #14796f; }
+.seg-guide-act button:disabled { opacity: .4; cursor: default; }
+.seg-tools button.danger { background: #5c2330; color: #ffd0da; }
+.seg-tools button.danger:disabled { opacity: .4; }
+
+/* ---- multi-view workspace ---- */
+.seg2 { display: grid; grid-template-columns: 230px 1fr; height: 100%; min-height: 0; background: #0b1418; color: #dbe7ea; }
+.seg-left { overflow-y: auto; padding: 10px; background: #0f1c21; border-right: 1px solid #1d3036; display: flex; flex-direction: column; gap: 14px; }
+.seg-left h4 { margin: 0 0 7px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: #6f8f97; } .seg-left h4 small { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 4px; color: #55747c; }
+.seg-left button { background: #1b343b; border: 0; color: #e6f0f2; border-radius: 6px; padding: 6px 9px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.seg-left button:hover:not(:disabled) { background: #26505a; } .seg-left button.on { background: #14796f; } .seg-left button.on.sub { background: #9a6a10; } .seg-left button:disabled { opacity: .4; cursor: not-allowed; }
+.seg-left kbd { margin-left: 6px; font: inherit; font-size: 10px; opacity: .55; border: 1px solid #4a6a72; border-radius: 3px; padding: 0 4px; }
+.seg-layouts { display: flex; gap: 6px; } .seg-layouts button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 7px 0; }
+.seg-layouts svg rect { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.seg-thumbs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.segt { cursor: grab; border: 2px solid #243c44; border-radius: 8px; background: #000; overflow: hidden; text-align: center; font-size: 11px; font-weight: 700; color: #b9ccd1; }
+.segt.used { border-color: #1fb3a3; } .segt-img { height: 92px; display: grid; place-items: center; } .segt-img img { max-width: 100%; max-height: 92px; object-fit: contain; pointer-events: none; }
+.segt span { display: block; padding: 3px 0; background: #12242a; } .segt span b { color: #7ff0df; }
+.seg-toolgrid { display: flex; flex-direction: column; gap: 5px; } .seg-toolgrid button { text-align: left; display: flex; justify-content: space-between; align-items: center; }
+.seg-tip { margin: 8px 0 4px; font-size: 11.5px; line-height: 1.4; color: #8fa6ad; }
+.seg-seg2 { display: flex; margin: 6px 0; } .seg-seg2 button { flex: 1; border-radius: 0; } .seg-seg2 button:first-child { border-radius: 6px 0 0 6px; } .seg-seg2 button:last-child { border-radius: 0 6px 6px 0; }
+.seg-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #9fb6bc; margin-top: 7px; } .seg-row input { flex: 1; min-width: 0; accent-color: #2fbfae; } .seg-row b { min-width: 26px; color: #e6f0f2; }
+.seg-swatches { display: flex; gap: 7px; flex-wrap: wrap; } .seg-left .seg-swatches button { width: 24px; height: 24px; border-radius: 50%; padding: 0; border: 2px solid #0f1c21; } .seg-left .seg-swatches button.on { outline: 2px solid #fff; }
+.seg-wrap { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+.seg-left .seg-ref { margin-top: 8px; width: 100%; background: #1d3b66; } .seg-left .seg-ref.on { background: #2f6fd6; }
+.seg-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.seg-grid { flex: 1; min-height: 0; display: grid; gap: 4px; padding: 4px; background: #000; }
+.seg-grid.g1 { grid-template-columns: 1fr; } .seg-grid.g2 { grid-template-columns: 1fr 1fr; } .seg-grid.g4 { grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; }
+.seg-box { position: relative; min-width: 0; min-height: 0; border: 2px solid #1d3036; background: #050a0c; overflow: hidden; } .seg-box.active { border-color: #1fb3a3; } .seg-box.over { border-color: #ffd24a; background: #1a1706; }
+.segv { position: absolute; inset: 0; user-select: none; }
+.seg-box-x { position: absolute; top: 8px; right: 8px; z-index: 7; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; cursor: pointer; font-size: 16px; line-height: 1; }
+.seg-empty { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: #55747c; border: 2px dashed #1d3036; margin: 10px; border-radius: 10px; } .seg-empty b { color: #8fa6ad; }
+.seg-side { position: absolute; top: 50%; z-index: 4; color: #ffd24a; font-weight: 800; font-size: 13px; pointer-events: none; transform: translateY(-50%); } .seg-side.l { left: 8px; } .seg-side.r { right: 8px; }
+.seg-scale { position: absolute; left: 12px; bottom: 30px; z-index: 4; color: #7ff0df; font-size: 11px; pointer-events: none; display: flex; flex-direction: column; gap: 2px; } .seg-scale i { display: block; height: 4px; border: 1px solid #7ff0df; border-top: 0; }
+.seg-actbar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; padding: 8px 12px; background: #0f1c21; border-top: 1px solid #1d3036; }
+.seg-actbar button { background: #1b343b; border: 0; color: #e6f0f2; border-radius: 6px; padding: 7px 12px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; } .seg-actbar button.on { background: #14796f; } .seg-actbar button.danger { background: #5c2330; color: #ffd0da; } .seg-actbar button:disabled { opacity: .4; cursor: not-allowed; } .seg-actbar button.seg-save { background: linear-gradient(135deg, #14796f, #1fb3a3); font-weight: 800; padding: 8px 18px; }
+.seg-msg { flex: 1; min-width: 160px; font-size: 12px; color: #ffd24a; } .seg-area { font-size: 11.5px; color: #8fa6ad; } .seg-sepv { width: 1px; height: 22px; background: #264048; }
+@media (max-width: 900px) { .seg2 { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .seg-left { max-height: 200px; } }

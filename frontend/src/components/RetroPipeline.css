@@ -1,0 +1,21 @@
+.rp { background: #fff; border: 1px solid #dde5e8; border-radius: 14px; padding: 14px 18px 18px; margin-bottom: 18px; }
+.rp-head { display: flex; justify-content: space-between; align-items: center; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.rp-title { font-weight: 800; font-size: 15px; color: #15252d; }
+.rp-toggle { font-size: 12px; font-weight: 700; color: #14796f; }
+.rp-intro { margin: 8px 0 14px; color: #66787f; font-size: 13px; line-height: 1.5; max-width: 900px; }
+.rp-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(130px, 1fr); gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.rp-step { position: relative; }
+.rp-step:not(:last-child)::after { content: '›'; position: absolute; right: -9px; top: 22px; color: #9db1b7; font-size: 18px; z-index: 1; }
+.rp-step button { width: 100%; height: 100%; text-align: left; display: flex; flex-direction: column; gap: 4px; background: #f6f9fa; border: 1.5px solid #e3eaec; border-radius: 12px; padding: 10px 12px; font: inherit; cursor: pointer; transition: all .15s; }
+.rp-step button:disabled { cursor: default; }
+.rp-step button:not(:disabled):hover { border-color: #14a394; transform: translateY(-1px); }
+.rp-step.has button { background: #fff; }
+.rp-step.active button { border-color: #14796f; box-shadow: 0 0 0 3px rgba(20, 163, 148, .18); background: #effaf8; }
+.rp-num { width: 20px; height: 20px; border-radius: 50%; background: #dde7ea; color: #46606a; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+.rp-n { font-size: 26px; font-weight: 800; line-height: 1; color: #15252d; } .rp-n small { font-size: 11px; font-weight: 600; margin-left: 5px; color: #b52a49; }
+.rp-step b { font-size: 12.5px; color: #15252d; }
+.rp-text { font-size: 11.5px; color: #66787f; line-height: 1.35; }
+.rp-who { align-self: flex-start; font-style: normal; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 10px; background: #e8eef0; color: #4c626b; }
+.rp-who.who-mammo-tech { background: #dbe8fd; color: #214f9e; } .rp-who.who-radiologist { background: #fbdce8; color: #a3205a; }
+.rp-who.who-admin { background: #e4e0fb; color: #4a3fb0; } .rp-who.who-you { background: #d5f4ee; color: #0a7466; } .rp-who.who-system { background: #fdeccb; color: #8a5a07; }
+.rp-step.ok .rp-n { color: #0a7466; } .rp-step.bad .rp-n { color: #b52a49; }

@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import Sidebar from '../components/Sidebar';
-import RadiologistDashboardHome from '../components/RadiologistDashboardHome';
+import RetroWorkbench from '../components/RetroWorkbench';
 import DicomCaseViewer from '../components/DicomCaseViewer';
 import MammoTechCaseViewer from '../components/MammoTechCaseViewer';
 
 const SIDEBAR_ITEMS = [
-  { id: 'dashboard', label: 'Dashboard' },
   { id: 'cases', label: 'Assigned Cases' },
+  { id: 'retro', label: 'Retrospective' },
 ];
 
 const RISK_COLORS = { Baseline: '#6ee7b7', Evident: '#fde047', Significant: '#fb923c', High: '#fb7185' };
@@ -61,7 +61,7 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
   const [currentPage, setCurrentPage] = useState(1);
   const [reasonModal, setReasonModal] = useState(null);
   const VIEW_STORAGE_KEY = 'qc_radiologist_active_view';
-  const [view, setViewState] = useState(() => sessionStorage.getItem(VIEW_STORAGE_KEY) || 'dashboard');
+  const [view, setViewState] = useState(() => (sessionStorage.getItem(VIEW_STORAGE_KEY) === 'dashboard' ? null : sessionStorage.getItem(VIEW_STORAGE_KEY)) || 'retro');
   const setView = (v) => {
     setViewState(v);
     sessionStorage.setItem(VIEW_STORAGE_KEY, v);
@@ -430,7 +430,7 @@ const RadiologistPage = ({ isEmbedded = false, historyRole = 'radiologist' }) =>
       fullWidth={true}
       sidebar={<Sidebar items={SIDEBAR_ITEMS} activeId={view} onSelect={setView} />}
     >
-      {view === 'dashboard' ? <RadiologistDashboardHome /> : content}
+      {view === 'retro' ? <RetroWorkbench role="radiologist" /> : content}
     </Layout>
   );
 };

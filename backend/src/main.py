@@ -11,6 +11,10 @@ from .api import (
     radiologist,
     mammo_tech,
     jobs,
+    retro,
+    prospective,
+    retro_assign,
+    retro_work,
 )
 
 # Setup logging
@@ -48,6 +52,10 @@ app.include_router(doctor.router, prefix="/api/v1/qc/doctor", tags=["doctor"])
 app.include_router(radiologist.router, prefix="/api/v1/qc/radiologist", tags=["radiologist"])
 app.include_router(mammo_tech.router, prefix="/api/v1/qc/mammo-tech", tags=["mammo-tech"])
 app.include_router(admin.router, prefix="/api/v1/qc/admin", tags=["admin"])
+app.include_router(retro.router, prefix="/api/v1/qc/retro", tags=["retro"])
+app.include_router(prospective.router, prefix="/api/v1/qc/prospective", tags=["prospective"])
+app.include_router(retro_assign.router, prefix="/api/v1/qc/retro", tags=["retro"])
+app.include_router(retro_work.router, prefix="/api/v1/qc/retro", tags=["retro"])
 app.include_router(jobs.router, prefix="/api/internal/jobs", tags=["internal-jobs"])
 
 

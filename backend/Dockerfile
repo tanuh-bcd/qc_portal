@@ -2,6 +2,10 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# pdftotext reads the Retrospective BI-RADS reports. Without it every report is unreadable and every case is rejected.
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -18,5 +22,5 @@ CMD ["gunicorn", "src.main:app", \
      "--timeout", "300", \
      "--graceful-timeout", "30", \
      "--keep-alive", "5", \
-     "--max-requests", "1000", \
-     "--max-requests-jitter", "100"]
+     "--max-requests", "100000", \
+     "--max-requests-jitter", "10000"]
