@@ -280,6 +280,36 @@ def list_cases(
     }
 
 
+def _csv_cell(value) -> str:
+    """Plain text for a spreadsheet; a leading = + - @ would otherwise be run as a formula."""
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@") else text
+
+
+@router.get("/assignments/export")
+def export_assignments(db: Session = Depends(get_db), current_user: dict = Depends(check_admin_role)):
+    """Every case assigned to a Mammo Tech, grouped by person, as a CSV that opens in Excel."""
+    import csv
+    import io
+    rows = (db.query(RetroAssignment, RetroCase, User)
+            .join(RetroCase, RetroCase.qc_id == RetroAssignment.qc_case_id)
+            .join(User, User.qc_id == RetroAssignment.qc_mammo_tech_id).all())
+    rows.sort(key=lambda r: ((r[2].qc_full_name or r[2].qc_email or "").lower(), r[1].qc_case_code or ""))
+    stamp = lambda d: d.strftime("%Y-%m-%d %H:%M") if d else ""
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["Mammo Tech", "Mammo Tech email", "Case ID", "Case folder name", "Status", "BI-RADS", "Density",
+                "Vendor", "Assigned on", "Started on", "Segmented on", "Uploaded on"])
+    for a, c, u in rows:
+        w.writerow([_csv_cell(u.qc_full_name or ""), _csv_cell(u.qc_email), c.qc_case_code or "",
+                    _csv_cell(c.qc_original_name), STATUS_LABELS.get(a.qc_status, a.qc_status),
+                    c.qc_birads or "", c.qc_density or "", _csv_cell(c.qc_vendor),
+                    stamp(a.qc_assigned_at), stamp(a.qc_started_at), stamp(a.qc_completed_at), stamp(c.qc_created_at)])
+    name = f"mammo_tech_assignments_{datetime.date.today().isoformat()}.csv"
+    return Response("\ufeff" + out.getvalue(), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
 @router.get("/case-facets")
 def case_facets(db: Session = Depends(get_db), current_user: dict = Depends(check_admin_role)):
     """Distinct vendors and manufacturers, for the filter dropdowns."""

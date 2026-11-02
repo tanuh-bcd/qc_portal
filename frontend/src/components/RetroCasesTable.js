@@ -1,10 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import RetroCaseViewer, { downloadMasksZip, fmtDate } from './RetroCaseViewer';
-import { getJson, postJson, deleteJson, usePoll, STATUS, STATUS_ORDER, isAssignable } from './retroApi';
+import { getJson, postJson, deleteJson, usePoll, STATUS, STATUS_ORDER, isAssignable, API, authHeaders } from './retroApi';
 
 const PAGE_SIZE = 50;
 const BIRADS = ['3', '4', '5', '6'];
 const BIRADS_COLORS_CLASS = (b) => (b ? `ri-tag b${b[0]}` : '');
+const downloadAssignments = async () => {
+  const res = await fetch(`${API}/assignments/export`, { headers: authHeaders() });
+  if (!res.ok) throw new Error('Download failed');
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url; a.download = `mammo_tech_assignments_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
 const openCount = (t) => Object.entries(t.counts || {}).reduce((n, [k, v]) => (k === 'segmented' ? n : n + v), 0);
 
 // The one place cases are assigned: filter, tick, then use the action bar.
@@ -135,7 +143,8 @@ const RetroCasesTable = ({ tally, techs, statusFilter, setStatusFilter, reloadKe
   return (
     <>
       <section className="ri-card">
-        <h3>Mammo Tech workload <span className="ri-count">{tally?.by_status?.unassigned ?? 0} unassigned</span></h3>
+        <h3>Mammo Tech workload <span className="ri-count">{tally?.by_status?.unassigned ?? 0} unassigned</span>
+          <button className="ri-link" style={{ float: 'right' }} title="Every assigned case, grouped by Mammo Tech (opens in Excel)" onClick={() => downloadAssignments().catch((e) => setMsg({ ok: false, text: e.message }))}>⬇ Download assignments (CSV)</button></h3>
         <p className="ri-muted ri-hint">To assign: filter the list below, tick the cases, choose a Mammo Tech in the bar that appears, and press Assign. Click a person here to see only their cases.</p>
         {techs.length === 0 && <p className="ri-muted">No active Mammo Tech users found.</p>}
         <div className="ri-techs">
