@@ -390,3 +390,19 @@ def test_radiologist_reject_then_admin_delete_keeps_counts(client, env, monkeypa
     db = TestSession()
     assert db.query(RetroDeletedCase).filter(RetroDeletedCase.qc_content_hash == h).count() == 1
     db.close()
+
+
+def test_assignment_export_lists_assigned_cases_per_mammo_tech(client, env):
+    ids, _ = env
+    admin = token("admin@test.com", "Admin")
+    tech = uid("mammotech@test.com")
+    client.post(f"{B}/assign", json={"mammo_tech_id": tech, "from_case": ids[1], "to_case": ids[2]}, headers=admin)
+    res = client.get(f"{B}/assignments/export", headers=admin)
+    assert res.status_code == 200 and "attachment" in res.headers["content-disposition"]
+    lines = res.text.lstrip("﻿").strip().splitlines()
+    assert lines[0].startswith("Mammo Tech,Mammo Tech email,Case ID")
+    codes = client.get(f"{B}/cases?status=awaiting&page_size=50", headers=admin).json()["items"]
+    mine = {c["case_code"] for c in codes if c["id"] in (ids[1], ids[2])}
+    rows = [l for l in lines[1:] if l.split(",")[2] in mine]
+    assert len(rows) == 2 and all("Tina Mammo Tech" in l and "Awaiting" in l for l in rows)
+    assert client.get(f"{B}/assignments/export", headers=token("mammotech@test.com", "Mammo Tech")).status_code == 403
