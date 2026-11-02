@@ -83,7 +83,7 @@ ROMAN = {"I": "1", "II": "2", "III": "3", "IV": "4", "V": "5", "VI": "6"}
 _BIRADS_VALUE = r"((?:[0-6]|VI|IV|V|III|II|I)(?:\s?[ABC])?)(?![A-Za-z0-9])"
 _SEP = r"[\s:.\-=]*"
 BIRADS_PATTERNS = (
-    re.compile(r"\bBI\s*-?\s*RADS?\b(?:\s+(?:Assessment|Category|Score|Classification|Grade)){0,3}" + _SEP + _BIRADS_VALUE, re.I),
+    re.compile(r"\bBI\s*-?\s*RADS?\b(?:[\s:.\-]+(?:Assessment|Categor(?:y|ies)|Score|Classification|Grade)){0,4}" + _SEP + _BIRADS_VALUE, re.I),
     re.compile(r"\b(?:left|right)\s+breast\s+category" + _SEP + _BIRADS_VALUE, re.I),
 )
 
@@ -196,9 +196,12 @@ def parse_text_report(text: str) -> Tuple[str, str]:
     ref = re.search(r"FOR\s+REFERENCE\s*:", text, re.I)
     if ref:
         text = text[:ref.start()]
-    legend = re.search(r"BI\s*-?\s*RADS?\s+Assessment\s+Categories", text, re.I)
-    if legend and re.search(r"\bCategory\s+0\s*:", text[legend.end():legend.end() + 1600], re.I):
-        text = text[:legend.start()]
+    # The legend heading is the one that is immediately followed by "Category 0:"; an earlier
+    # "BI-RADS Assessment Categories : Category 6." line is the real answer and must stay.
+    for legend in re.finditer(r"BI\s*-?\s*RADS?\s+Assessment\s+Categories", text, re.I):
+        if re.match(r"\s*:?\s*Category\s+0\s*:", text[legend.end():legend.end() + 60], re.I):
+            text = text[:legend.start()]
+            break
 
     def birads_in(chunk: str) -> str:
         values = []
@@ -461,7 +464,10 @@ def _has_files(d: Path) -> bool:
 def _is_case_root(d: Path) -> bool:
     """A folder is one case when it holds files itself or has a dicom/pdf/json/view-style sub-folder."""
     if any(p.is_file() and not p.name.startswith(".") for p in d.iterdir()):
-        return True
+        # Loose files (README, manifest csv) next to case folders do not make the parent a case.
+        return not any(not _STRUCTURAL.match(c.name) and _has_files(c)
+                       and any(_STRUCTURAL.match(g.name) and _has_files(g) for g in _visible_dirs(c))
+                       for c in _visible_dirs(d))
     return any(_STRUCTURAL.match(c.name) for c in _visible_dirs(d) if _has_files(c))
 
 
