@@ -349,3 +349,9 @@ def test_each_bucket_gets_its_own_handle(monkeypatch):
     monkeypatch.setattr(intake, "_buckets", {})
     assert intake._bucket("a") == "bucket:a" and intake._bucket("b") == "bucket:b" and intake._bucket("a") == "bucket:a"
     assert seen == ["a", "b"]                                  # a handle is made once per bucket, then reused
+
+
+def test_birads_stated_before_the_legend_heading_is_kept():
+    text = ("Biopsy proven case of malignancy.\nBI-RADS Assessment Categories : Category 6.\nLeft breast lesion.\n\n"
+            "BI-RADS Assessment Categories :\n     Category 0: Incomplete\n     Category 1: Negative\n")
+    assert intake.parse_text_report(text)[0] == "6"
