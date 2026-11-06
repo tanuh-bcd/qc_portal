@@ -259,6 +259,13 @@ def norm_view(value: str) -> str:
     return "MLO" if "MLO" in v else "CC" if v.startswith("CC") or v.endswith("CC") or v == "CC" else ""
 
 
+def norm_view_text(value: str) -> str:
+    """View from free text (series description / protocol): like norm_view, but a bare
+    'ML' / 'R-ML' / 'L-ML' is read as MLO, which is how some suppliers label it."""
+    v = re.sub(r"[^A-Z]", "", value.upper())
+    return norm_view(value) or ("MLO" if re.fullmatch(r"[LR]?ML", v) else "")
+
+
 def slot_from_text(text: str) -> str:
     up = text.upper()
     m = re.search(r"(?<![A-Za-z])([LR])[-_ ]?(MLO|CC)(?![A-Za-z])", up)
@@ -333,7 +340,7 @@ def inspect_dicom(path: Path) -> DicomInfo:
     info.institution = _txt(ds, "InstitutionName")
     info.description = " ".join(_txt(ds, k) for k in ("SeriesDescription", "ProtocolName", "ImageType"))
     lat = norm_laterality(_txt(ds, "ImageLaterality") or _txt(ds, "Laterality"))
-    view = norm_view(_txt(ds, "ViewPosition")) or norm_view(_txt(ds, "SeriesDescription")) or norm_view(_txt(ds, "ProtocolName"))
+    view = norm_view(_txt(ds, "ViewPosition")) or norm_view_text(_txt(ds, "SeriesDescription")) or norm_view_text(_txt(ds, "ProtocolName"))
     info.slot = f"{lat}{view}" if lat and view else ""
     h = hashlib.sha256()
     with open(path, "rb") as fh:

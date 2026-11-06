@@ -360,3 +360,10 @@ def test_birads_stated_before_the_legend_heading_is_kept():
 def test_only_birads_4_keeps_a_sub_letter():
     assert [intake.to_birads(v) for v in ("4c", "IVb", "4A", "Vc", "5C", "6a", "VI", "3b", "5")] == \
         ["4C", "4B", "4A", "5", "5", "6", "6", "3", "5"]
+
+
+def test_bare_ml_in_the_series_description_is_read_as_mlo():
+    assert intake.norm_view_text("R-ML") == "MLO"
+    assert intake.norm_view_text("L-ML") == "MLO"
+    assert intake.norm_view_text("R-CC") == "CC"
+    assert intake.norm_view_text("XML data") == ""
