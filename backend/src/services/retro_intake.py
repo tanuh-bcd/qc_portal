@@ -79,7 +79,7 @@ def staging_root() -> Path:
 # Value normalisation
 # --------------------------------------------------------------------------- #
 ROMAN = {"I": "1", "II": "2", "III": "3", "IV": "4", "V": "5", "VI": "6"}
-# value: 4, 4A, 4c, IV, IVc ...  (longest Roman numeral first; must not run into more letters/digits)
+# value: 4, 4A, 4c, IV, IVc ... (a letter after anything but 4 is dropped by to_birads)  (longest Roman numeral first; must not run into more letters/digits)
 _BIRADS_VALUE = r"((?:[0-6]|VI|IV|V|III|II|I)(?:\s?[ABC])?)(?![A-Za-z0-9])"
 _SEP = r"[\s:.\-=]*"
 BIRADS_PATTERNS = (
@@ -101,7 +101,8 @@ def to_birads(token: Any) -> str:
     m = re.fullmatch(r"(VI|IV|V|III|II|I|[0-6])([ABC])?", text)
     if not m:
         return ""
-    return ROMAN.get(m.group(1), m.group(1)) + (m.group(2) or "")
+    number = ROMAN.get(m.group(1), m.group(1))
+    return number + (m.group(2) or "" if number == "4" else "")  # only category 4 has A/B/C; "Vc" is just 5
 
 
 DENSITY_PATTERNS = (

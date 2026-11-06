@@ -355,3 +355,8 @@ def test_birads_stated_before_the_legend_heading_is_kept():
     text = ("Biopsy proven case of malignancy.\nBI-RADS Assessment Categories : Category 6.\nLeft breast lesion.\n\n"
             "BI-RADS Assessment Categories :\n     Category 0: Incomplete\n     Category 1: Negative\n")
     assert intake.parse_text_report(text)[0] == "6"
+
+
+def test_only_birads_4_keeps_a_sub_letter():
+    assert [intake.to_birads(v) for v in ("4c", "IVb", "4A", "Vc", "5C", "6a", "VI", "3b", "5")] == \
+        ["4C", "4B", "4A", "5", "5", "6", "6", "3", "5"]
