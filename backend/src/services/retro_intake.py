@@ -225,6 +225,8 @@ def parse_text_report(text: str) -> Tuple[str, str]:
 
 
 def parse_pdf_report(path: Path) -> ReportResult:
+    if not shutil.which("pdftotext"):
+        return ReportResult(problem=f"{path.name}: pdftotext is not installed on this machine (install poppler-utils)")
     text = pdf_text(path)
     if not text.strip():
         return ReportResult(problem=f"{path.name}: PDF has no extractable text")
