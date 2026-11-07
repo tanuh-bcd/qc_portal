@@ -17,6 +17,7 @@ from ..models.models import User
 from ..models.retro import (ASSIGN_REJECTED, RetroAssignment, RetroBatch, RetroCase, RetroDeletedCase, RetroFile,
                             RetroRejection, RetroMask, RetroMark, RetroNote)
 from ..services.retro_workflow import progress_for_cases, STATUS_LABELS
+from ..services import retro_bucket_import as bucket_import
 from ..services import retro_intake as intake
 from .admin import check_admin_role
 from .retro_access import any_role, authorize_case
@@ -164,6 +165,43 @@ def finalize_batch(
     db.commit()
     intake.touch_heartbeat(batch_id)
     threading.Thread(target=intake.process_batch, args=(batch_id, lambda: db_session.SessionLocal()),
+                     daemon=True).start()
+    return _batch_dict(batch)
+
+
+@router.get("/import/folders")
+def import_folders(current_user: dict = Depends(check_admin_role)):
+    """Folders waiting in the incoming/ area of the storage bucket."""
+    try:
+        folders = bucket_import.list_folders()
+    except Exception as exc:
+        logger.exception("Could not list the incoming folders")
+        raise HTTPException(status_code=502, detail=f"Could not read the bucket: {type(exc).__name__}")
+    return {"bucket": bucket_import.import_bucket(), "root": bucket_import.import_root(), "folders": folders}
+
+
+@router.post("/import/start")
+def import_start(
+    folder: str = Form(...),
+    vendor: str = Form(""),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role),
+):
+    """Check and store every case in one incoming folder, in the background. Follow it with GET /batches/{id}."""
+    try:
+        bucket_import.clean_folder(folder)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid folder")
+    running = db.query(RetroBatch).filter(RetroBatch.qc_status == "processing",
+                                          RetroBatch.qc_source_name.like("bucket:%")).all()
+    if any(_expire_if_stale(db, b).qc_status == "processing" for b in running):
+        raise HTTPException(status_code=409, detail="Another bucket import is still running")
+    batch = RetroBatch(qc_uploaded_by=current_user.get("id"), qc_source_name=f"bucket:{folder}"[:255],
+                       qc_vendor=vendor[:160] or None, qc_status="processing", qc_phase="Queued")
+    db.add(batch)
+    db.commit()
+    intake.touch_heartbeat(batch.qc_id)
+    threading.Thread(target=bucket_import.import_folder, args=(batch.qc_id, folder, lambda: db_session.SessionLocal()),
                      daemon=True).start()
     return _batch_dict(batch)
 
@@ -318,6 +356,25 @@ def case_facets(db: Session = Depends(get_db), current_user: dict = Depends(chec
     return {"vendors": distinct(RetroCase.qc_vendor), "manufacturers": distinct(RetroCase.qc_manufacturer)}
 
 
+def _remove_case(db: Session, case: RetroCase, assignment: Optional[RetroAssignment], user_id: int,
+                 final_status: str, reason: Optional[str] = None):
+    """Delete a case's files and rows. A small record stays: it feeds the counts and blocks re-uploading the same images."""
+    masks = db.query(RetroMask).filter(RetroMask.qc_case_id == case.qc_id).all()
+    intake.delete_blobs([f.qc_gcs_path for f in case.files] + [m.qc_gcs_path for m in masks])   # raises: then nothing is deleted
+    a = assignment
+    db.add(RetroDeletedCase(
+        qc_case_id=case.qc_id, qc_case_code=case.qc_case_code, qc_session_id=case.qc_session_id,
+        qc_content_hash=case.qc_content_hash, qc_original_name=case.qc_original_name, qc_modality=case.qc_modality,
+        qc_birads=case.qc_birads, qc_density=case.qc_density, qc_manufacturer=case.qc_manufacturer, qc_vendor=case.qc_vendor,
+        qc_batch_id=case.qc_batch_id, qc_mammo_tech_id=a.qc_mammo_tech_id if a else None, qc_final_status=final_status,
+        qc_reason=(a.qc_reject_reason if a else reason), qc_rejected_by=a.qc_rejected_by if a else None,
+        qc_rejected_at=a.qc_rejected_at if a else None, qc_uploaded_at=case.qc_created_at, qc_deleted_by=user_id))
+    for model in (RetroNote, RetroMask, RetroAssignment, RetroFile):
+        db.query(model).filter(model.qc_case_id == case.qc_id).delete()
+    db.delete(case)
+    db.commit()
+
+
 @router.delete("/cases/{case_id}")
 def delete_case(case_id: int, db: Session = Depends(get_db), current_user: dict = Depends(check_admin_role)):
     """Remove a case the Radiologist rejected: its files leave GCS and the database, a small record stays for the counts."""
@@ -327,27 +384,58 @@ def delete_case(case_id: int, db: Session = Depends(get_db), current_user: dict 
     a = db.query(RetroAssignment).filter(RetroAssignment.qc_case_id == case_id).first()
     if not a or a.qc_status != ASSIGN_REJECTED:
         raise HTTPException(status_code=409, detail="Only cases rejected by the Radiologist can be deleted")
-    masks = db.query(RetroMask).filter(RetroMask.qc_case_id == case_id).all()
-    urls = [f.qc_gcs_path for f in case.files] + [m.qc_gcs_path for m in masks]
     try:
-        intake.delete_blobs(urls)
+        _remove_case(db, case, a, current_user["id"], a.qc_status)
     except Exception:
+        db.rollback()
         logger.exception("GCS delete failed for case %s", case_id)
         raise HTTPException(status_code=500, detail="Could not remove the files from storage. Nothing was deleted; try again.")
-    db.add(RetroDeletedCase(
-        qc_case_id=case.qc_id, qc_case_code=case.qc_case_code, qc_session_id=case.qc_session_id,
-        qc_content_hash=case.qc_content_hash, qc_original_name=case.qc_original_name, qc_modality=case.qc_modality,
-        qc_birads=case.qc_birads, qc_density=case.qc_density, qc_manufacturer=case.qc_manufacturer, qc_vendor=case.qc_vendor,
-        qc_batch_id=case.qc_batch_id, qc_mammo_tech_id=a.qc_mammo_tech_id, qc_final_status=a.qc_status,
-        qc_reason=a.qc_reject_reason, qc_rejected_by=a.qc_rejected_by, qc_rejected_at=a.qc_rejected_at,
-        qc_uploaded_at=case.qc_created_at, qc_deleted_by=current_user["id"]))
-    db.query(RetroNote).filter(RetroNote.qc_case_id == case_id).delete()
-    db.query(RetroMask).filter(RetroMask.qc_case_id == case_id).delete()
-    db.query(RetroAssignment).filter(RetroAssignment.qc_case_id == case_id).delete()
-    db.query(RetroFile).filter(RetroFile.qc_case_id == case_id).delete()
-    db.delete(case)
-    db.commit()
     return {"deleted": case_id, "case_code": case.qc_case_code}
+
+
+REMOVED_BY_ADMIN = "removed_by_admin"
+
+
+def _unassigned_by_manufacturer(db: Session, manufacturer: str):
+    needle = manufacturer.strip()
+    if not needle:
+        raise HTTPException(status_code=400, detail="Choose a manufacturer")
+    return (db.query(RetroCase).outerjoin(RetroAssignment, RetroAssignment.qc_case_id == RetroCase.qc_id)
+            .filter(RetroAssignment.qc_id.is_(None), func.lower(RetroCase.qc_manufacturer).like(f"%{needle.lower()}%")))
+
+
+@router.get("/cases/removable")
+def removable_count(manufacturer: str = Query(""), db: Session = Depends(get_db), current_user: dict = Depends(check_admin_role)):
+    """How many cases 'remove unassigned' would delete for this manufacturer."""
+    return {"count": _unassigned_by_manufacturer(db, manufacturer).count()}
+
+
+@router.post("/cases/remove-unassigned")
+def remove_unassigned(
+    manufacturer: str = Form(...),
+    expected_count: int = Form(...),
+    reason: str = Form("Removed by admin"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(check_admin_role),
+):
+    """Delete every case of this manufacturer that nobody has been assigned yet (files and rows).
+
+    Assigned cases are never touched. expected_count must equal what the preview showed, so a list that changed
+    in the meantime is not deleted by surprise.
+    """
+    cases = _unassigned_by_manufacturer(db, manufacturer).order_by(RetroCase.qc_id).all()
+    if len(cases) != expected_count:
+        raise HTTPException(status_code=409, detail=f"{len(cases)} cases match now, not {expected_count}. Check again.")
+    removed = 0
+    for case in cases:
+        try:
+            _remove_case(db, case, None, current_user["id"], REMOVED_BY_ADMIN, reason[:500])
+        except Exception:
+            db.rollback()
+            logger.exception("Removing case %s failed", case.qc_id)
+            raise HTTPException(status_code=500, detail=f"Stopped after removing {removed} case(s): files of {case.qc_case_code} could not be removed from storage. Run it again to continue.")
+        removed += 1
+    return {"removed": removed}
 
 
 @router.get("/cases/{case_id}")

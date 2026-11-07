@@ -367,3 +367,32 @@ def test_bare_ml_in_the_series_description_is_read_as_mlo():
     assert intake.norm_view_text("L-ML") == "MLO"
     assert intake.norm_view_text("R-CC") == "CC"
     assert intake.norm_view_text("XML data") == ""
+
+
+def test_cr_storage_phosphor_detector_is_rejected_even_with_a_dr_sop_class(tmp_path):
+    case = make_case(tmp_path)
+    for f in (case / "DICOM").glob("*.dcm"):
+        ds = pydicom.dcmread(f)
+        ds.DetectorType, ds.Manufacturer = "STORAGE", "Agfa"
+        ds.save_as(f)
+    r = intake.evaluate_case(case)
+    assert r.outcome == "rejected"
+    assert any("Computed Radiography (CR)" in x and "Agfa" in x for x in r.reasons)
+
+
+def test_flat_panel_detector_still_passes(tmp_path):
+    case = make_case(tmp_path)
+    for f in (case / "DICOM").glob("*.dcm"):
+        ds = pydicom.dcmread(f)
+        ds.DetectorType = "SCINTILLATOR"
+        ds.save_as(f)
+    assert intake.evaluate_case(case).outcome == "passed"
+
+
+def test_any_agfa_case_is_rejected_whatever_the_detector_says(tmp_path):
+    case = make_case(tmp_path)
+    for f in (case / "DICOM").glob("*.dcm"):
+        ds = pydicom.dcmread(f)
+        ds.DetectorType, ds.Manufacturer = "SCINTILLATOR", "Agfa"
+        ds.save_as(f)
+    assert intake.evaluate_case(case).outcome == "rejected"
