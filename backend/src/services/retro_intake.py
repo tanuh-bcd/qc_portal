@@ -309,6 +309,7 @@ class DicomInfo:
     manufacturer: str = ""
     model: str = ""
     institution: str = ""
+    detector_type: str = ""  # DICOM DetectorType: STORAGE = phosphor plate (CR), SCINTILLATOR/DIRECT = flat panel (DR)
     description: str = ""  # series/protocol/image type text, used to spot DBT/synthetic
     rel: str = ""  # path relative to the case folder
     size: int = 0
@@ -316,9 +317,16 @@ class DicomInfo:
     headers: List[dict] = field(default_factory=list)
 
     @property
+    def is_cr(self) -> bool:
+        """Computed radiography. CR readers such as the Agfa DX-M write the digital-mammography SOP class, so the SOP class cannot be trusted: a storage-phosphor detector, or any Agfa equipment (not accepted for this study), is treated as CR."""
+        return self.detector_type.upper() == "STORAGE" or "agfa" in self.manufacturer.lower()
+
+    @property
     def is_dr(self) -> bool:
         """FFDM/DR: MG with a digital mammography SOP class, not tomosynthesis or synthetic 2D."""
         if self.modality != "MG" or self.sop_class not in DR_SOP_CLASSES:
+            return False
+        if self.is_cr:
             return False
         return not any(token in self.description.lower() for token in NON_DR_TOKENS)
 
@@ -338,6 +346,7 @@ def inspect_dicom(path: Path) -> DicomInfo:
     info.manufacturer = _txt(ds, "Manufacturer")
     info.model = _txt(ds, "ManufacturerModelName")
     info.institution = _txt(ds, "InstitutionName")
+    info.detector_type = _txt(ds, "DetectorType")
     info.description = " ".join(_txt(ds, k) for k in ("SeriesDescription", "ProtocolName", "ImageType"))
     lat = norm_laterality(_txt(ds, "ImageLaterality") or _txt(ds, "Laterality"))
     view = norm_view(_txt(ds, "ViewPosition")) or norm_view_text(_txt(ds, "SeriesDescription")) or norm_view_text(_txt(ds, "ProtocolName"))
@@ -406,8 +415,12 @@ def evaluate_case(case_dir: Path, name: Optional[str] = None) -> CaseResult:
     if not missing and not any(len(i) > 1 for i in by_slot.values()):
         result.views = {slot: items[0] for slot, items in by_slot.items()}
         if any(not i.is_dr for i in result.views.values()):
-            seen = sorted({f"{i.modality or '?'}" for i in result.views.values() if not i.is_dr})
-            result.fail("Not Digital Mammogram (DR): modality/SOP class " + ", ".join(seen))
+            if any(i.is_cr for i in result.views.values()):
+                makers = sorted({i.manufacturer or "unknown" for i in result.views.values() if i.is_cr})
+                result.fail("Computed Radiography (CR) / Agfa is not accepted, only DR (" + ", ".join(makers) + ")")
+            else:
+                seen = sorted({f"{i.modality or '?'}" for i in result.views.values() if not i.is_dr})
+                result.fail("Not Digital Mammogram (DR): modality/SOP class " + ", ".join(seen))
 
     result.rel_paths = {p: p.relative_to(case_dir).as_posix() for p in reports}
 
@@ -706,6 +719,35 @@ def _store_passed(db, batch: RetroBatch, result: CaseResult) -> RetroCase:
     return case
 
 
+def record_case(db, batch: RetroBatch, name: str, result: CaseResult, skip_known: bool = False) -> str:
+    """Apply the duplicate rules to one evaluated case, store it or record why it was rejected.
+
+    Returns 'passed', 'rejected' or (only with skip_known) 'known' for a case that is already stored.
+    """
+    if result.outcome == "passed":
+        existing = db.query(RetroCase).filter(RetroCase.qc_content_hash == result.content_hash).first()
+        if existing:
+            if skip_known:
+                batch.qc_checked_cases += 1
+                db.commit()
+                return "known"
+            result.fail(f"Duplicate of {existing.qc_case_code}")
+        elif db.query(RetroDeletedCase.qc_id).filter(RetroDeletedCase.qc_content_hash == result.content_hash).first():
+            result.fail("Duplicate of a case that was rejected and deleted earlier")
+    if result.outcome == "passed":
+        batch.qc_phase = f"Storing {name}"
+        db.commit()
+        _store_passed(db, batch, result)
+        batch.qc_passed += 1
+    else:
+        db.add(RetroRejection(qc_batch_id=batch.qc_id, qc_original_name=name[:255],
+                              qc_outcome=result.outcome, qc_reasons=result.reasons))
+        batch.qc_rejected += 1
+    batch.qc_checked_cases += 1
+    db.commit()
+    return result.outcome
+
+
 def process_batch(batch_id: int, session_factory):
     """Run in a background thread after all files have been received."""
     db = session_factory()
@@ -727,24 +769,7 @@ def process_batch(batch_id: int, session_factory):
 
         for name, folder in cases:
             touch_heartbeat(batch_id)
-            result = evaluate_case(folder, name)
-            if result.outcome == "passed":
-                existing = db.query(RetroCase).filter(RetroCase.qc_content_hash == result.content_hash).first()
-                if existing:
-                    result.fail(f"Duplicate of {existing.qc_case_code}")
-                elif db.query(RetroDeletedCase.qc_id).filter(RetroDeletedCase.qc_content_hash == result.content_hash).first():
-                    result.fail("Duplicate of a case that was rejected and deleted earlier")
-            if result.outcome == "passed":
-                batch.qc_phase = f"Storing {name}"
-                db.commit()
-                _store_passed(db, batch, result)
-                batch.qc_passed += 1
-            else:
-                db.add(RetroRejection(qc_batch_id=batch.qc_id, qc_original_name=name[:255],
-                                      qc_outcome=result.outcome, qc_reasons=result.reasons))
-                batch.qc_rejected += 1
-            batch.qc_checked_cases += 1
-            db.commit()
+            record_case(db, batch, name, evaluate_case(folder, name))
 
         batch.qc_status, batch.qc_phase = "completed", "Done"
         batch.qc_finished_at = datetime.datetime.utcnow()

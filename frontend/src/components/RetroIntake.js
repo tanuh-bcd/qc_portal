@@ -148,6 +148,9 @@ const STEPS = ['Upload', 'Checks', 'Stored'];
 
 const RetroIntake = () => {
   const [vendor, setVendor] = useState('');
+  const [inbox, setInbox] = useState(null);       // folders waiting in the bucket's incoming/ area
+  const [inboxError, setInboxError] = useState('');
+  const [pickedFolder, setPickedFolder] = useState('');
   const [entries, setEntries] = useState([]);
   const [sourceName, setSourceName] = useState('');
   const [phase, setPhase] = useState('idle'); // idle | uploading | processing | done
@@ -257,6 +260,50 @@ const RetroIntake = () => {
     }
   };
 
+  const [rmMaker, setRmMaker] = useState('');
+  const [rmCount, setRmCount] = useState(null);
+  const [rmMsg, setRmMsg] = useState(null);
+  const [makers, setMakers] = useState([]);
+  useEffect(() => { getJson('/case-facets').then((f) => setMakers(f.manufacturers || [])).catch(() => {}); }, [casesKey]);
+  const previewRemove = async (maker) => {
+    setRmMaker(maker); setRmCount(null); setRmMsg(null);
+    if (!maker) return;
+    try { setRmCount((await getJson(`/cases/removable?manufacturer=${encodeURIComponent(maker)}`)).count); }
+    catch (err) { setRmMsg({ ok: false, text: err.message }); }
+  };
+  const removeUnassigned = async () => {
+    if (!window.confirm(`Permanently remove ${rmCount} unassigned ${rmMaker} case(s)?\n\nTheir files are deleted from storage and the database. Cases already assigned to a Mammo Tech are not touched. This cannot be undone.`)) return;
+    try {
+      const form = new FormData();
+      form.append('manufacturer', rmMaker); form.append('expected_count', rmCount); form.append('reason', `Removed by admin: ${rmMaker} not accepted`);
+      const out = await postForm('/cases/remove-unassigned', form);
+      setRmMsg({ ok: true, text: `Removed ${out.removed} case(s).` });
+      setRmCount(0); refreshTally(); refreshCases();
+    } catch (err) { setRmMsg({ ok: false, text: err.message }); }
+  };
+
+  const loadInbox = async () => {
+    setInboxError('');
+    try { setInbox(await getJson('/import/folders')); } catch (err) { setInboxError(err.message); }
+  };
+
+  const importFolder = async () => {
+    setError('');
+    setRejections([]);
+    try {
+      const form = new FormData();
+      form.append('folder', pickedFolder);
+      form.append('vendor', vendor);
+      const created = await postForm('/import/start', form);
+      setBatch(created);
+      setUploadPct(100);
+      setPhase('processing');
+      poll(created.id);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const reset = () => { setPhase('idle'); setEntries([]); setSourceName(''); setBatch(null); setRejections([]); setError(''); setUploadPct(0); };
 
   const busy = phase === 'uploading' || phase === 'processing';
@@ -329,6 +376,24 @@ const RetroIntake = () => {
           <input ref={zipRef} type="file" accept=".zip" hidden onChange={pickZip} />
         </div>
 
+        <div className="ri-import">
+          <strong>Or import from the bucket</strong>
+          <span className="ri-muted">Folders copied into <code>incoming/</code> of the storage bucket are checked with the same rules and stored. Nothing is downloaded to your computer.</span>
+          <div className="ri-drop-actions">
+            <button className="ri-btn ghost" disabled={busy} onClick={loadInbox}>{inbox ? 'Refresh list' : 'Show folders in the bucket'}</button>
+            {inbox && (
+              <select value={pickedFolder} onChange={(e) => setPickedFolder(e.target.value)} disabled={busy}>
+                <option value="">Choose a folder…</option>
+                {inbox.folders.map((f) => <option key={f.folder} value={f.folder}>{f.folder} · {f.objects} files · {fmtBytes(f.bytes)}</option>)}
+              </select>
+            )}
+            <button className="ri-btn" onClick={importFolder} disabled={busy || !pickedFolder || !vendor.trim()}
+              title={!vendor.trim() ? 'Enter the supplying organisation above first' : ''}>Import &amp; check</button>
+          </div>
+          {inbox && inbox.folders.length === 0 && <span className="ri-muted">Nothing is waiting in {inbox.bucket}/{inbox.root}</span>}
+          {inboxError && <p className="ri-error">{inboxError}</p>}
+        </div>
+
         {phase !== 'idle' && (
           <div className="ri-progress">
             <ol className="ri-steps">
@@ -336,7 +401,7 @@ const RetroIntake = () => {
                 <li key={label} className={i < step ? 'done' : i === step ? 'now' : ''}><b>{i < step ? '✓' : i + 1}</b>{label}</li>
               ))}
             </ol>
-            <div className="ri-pbar"><div><span>Uploading</span><span>{uploadPct}%</span></div>
+            <div className="ri-pbar"><div><span>{batch?.source_name?.startsWith('bucket:') ? 'Reading from the bucket' : 'Uploading'}</span><span>{uploadPct}%</span></div>
               <div className="ri-track"><i style={{ width: `${uploadPct}%` }} /></div></div>
             <div className="ri-pbar"><div><span>Checking cases {batch?.phase ? `· ${batch.phase}` : ''}</span>
               <span>{batch?.checked_cases ?? 0} / {batch?.total_cases ?? 0}</span></div>
@@ -369,6 +434,19 @@ const RetroIntake = () => {
           </div>
         </section>
       )}
+
+      <section className="ri-card">
+        <h3>Remove unassigned cases by manufacturer</h3>
+        <p className="ri-muted">For data that should not be in the study, for example Agfa CR. Only cases that have not been assigned to a Mammo Tech are removed.</p>
+        <div className="ri-drop-actions">
+          <select value={rmMaker} onChange={(e) => previewRemove(e.target.value)} className="ri-select">
+            <option value="">Choose a manufacturer…</option>{makers.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <button className="ri-btn" disabled={!rmCount} onClick={removeUnassigned}>{rmCount ? `Remove ${rmCount} case(s)` : 'Remove'}</button>
+        </div>
+        {rmMaker && rmCount === 0 && !rmMsg && <p className="ri-muted">No unassigned {rmMaker} cases.</p>}
+        {rmMsg && <p className={rmMsg.ok ? 'ri-muted' : 'ri-error'}>{rmMsg.text}</p>}
+      </section>
 
       <RetroCasesTable tally={tally} techs={techs} statusFilter={statusFilter} setStatusFilter={setStatusFilter}
         reloadKey={casesKey} onChanged={() => { refreshTally(); refreshTechs(); }} />

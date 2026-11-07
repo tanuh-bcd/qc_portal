@@ -406,3 +406,31 @@ def test_assignment_export_lists_assigned_cases_per_mammo_tech(client, env):
     rows = [l for l in lines[1:] if l.split(",")[2] in mine]
     assert len(rows) == 2 and all("Tina Mammo Tech" in l and "Awaiting" in l for l in rows)
     assert client.get(f"{B}/assignments/export", headers=token("mammotech@test.com", "Mammo Tech")).status_code == 403
+
+
+def test_admin_removes_only_unassigned_cases_of_one_manufacturer(client, env, monkeypatch):
+    from backend.src.models.retro import RetroCase as RC, RetroDeletedCase
+    ids, _ = env
+    removed = []
+    monkeypatch.setattr(intake, "delete_blobs", lambda urls: removed.extend(urls))
+    admin, mt = token("admin@test.com", "Admin"), token("mammotech@test.com", "Mammo Tech")
+    db = TestSession()
+    for i in ids[:4]:
+        db.query(RC).filter(RC.qc_id == i).update({"qc_manufacturer": "Agfa"})
+    db.query(RC).filter(RC.qc_id == ids[4]).update({"qc_manufacturer": "DRTECH"})
+    db.commit()
+    db.close()
+    client.post(f"{B}/assign", json={"mammo_tech_id": uid("mammotech@test.com"), "from_case": ids[3], "to_case": ids[3]}, headers=admin)
+
+    assert client.get(f"{B}/cases/removable", params={"manufacturer": "agfa"}, headers=admin).json()["count"] == 3
+    assert client.post(f"{B}/cases/remove-unassigned", data={"manufacturer": "Agfa", "expected_count": 3}, headers=mt).status_code in (401, 403)
+    assert client.post(f"{B}/cases/remove-unassigned", data={"manufacturer": "Agfa", "expected_count": 99}, headers=admin).status_code == 409
+    assert client.post(f"{B}/cases/remove-unassigned", data={"manufacturer": "Agfa", "expected_count": 3}, headers=admin).json() == {"removed": 3}
+
+    db = TestSession()
+    left = {c.qc_id for c in db.query(RC).filter(RC.qc_id.in_(ids))}
+    assert left == {ids[3], ids[4], ids[5]}                    # the assigned Agfa case and the other makes stay
+    assert db.query(RetroDeletedCase).filter(RetroDeletedCase.qc_case_id.in_(ids[:3])).count() == 3
+    db.close()
+    t = client.get(f"{B}/tally", headers=admin).json()
+    assert t["deleted_by_admin"] >= 3
