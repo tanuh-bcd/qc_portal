@@ -593,6 +593,23 @@ def render_dicom_png(data: bytes, center: Optional[float] = None, width: Optiona
     return out.getvalue()
 
 
+def render_mask_overlay_png(mask_bytes: bytes, max_side: int = 1800, color=(255, 60, 20)) -> bytes:
+    """A transparent PNG the same pixel size as the matching render_dicom_png/render_png_from_pixels output,
+    lit up wherever the mask is set, for the admin's view/overlay toggle."""
+    import io
+    import numpy as np
+    from PIL import Image
+    from . import retro_workflow
+    mask = retro_workflow.decode_nifti_mask(mask_bytes)
+    rgba = np.zeros((*mask.shape, 4), dtype="uint8")
+    rgba[mask] = (*color, 150)
+    img = Image.fromarray(rgba, mode="RGBA")
+    img.thumbnail((max_side, max_side), Image.NEAREST)
+    out = io.BytesIO()
+    img.save(out, format="PNG", optimize=False)
+    return out.getvalue()
+
+
 def pixel_cache_path(file_id: int, sha: Optional[str]) -> Path:
     return staging_root() / "pixcache" / f"{file_id}_{(sha or 'x')[:12]}.u16.gz"
 

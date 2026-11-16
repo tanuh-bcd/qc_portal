@@ -69,6 +69,7 @@
 .ri-filters { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .ri-pill { border: 1px solid var(--line); background: #fff; border-radius: 20px; padding: 6px 13px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); }
 .ri-pill.on { background: var(--teal); color: #fff; border-color: var(--teal); }
+.ri-pill:disabled { opacity: .4; cursor: not-allowed; }
 .ri-search { width: 240px; margin-left: 6px; padding: 7px 12px; }
 .ri-scroll { overflow-x: auto; }
 .ri-table { width: 100%; border-collapse: collapse; }

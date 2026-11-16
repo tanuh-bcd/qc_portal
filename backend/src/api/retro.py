@@ -536,6 +536,30 @@ def file_image(
     return Response(content=png, media_type="image/png", headers=headers)
 
 
+@router.get("/cases/{case_id}/masks/{mask_id}/overlay.png")
+def mask_overlay_png(case_id: int, mask_id: int, db: Session = Depends(get_db), current_user: dict = Depends(any_role)):
+    """The mask as a transparent PNG, the same pixel size as /files/{file_id}/image, for the viewer's overlay toggle."""
+    authorize_case(db, current_user, case_id)
+    mask = db.query(RetroMask).filter(RetroMask.qc_id == mask_id, RetroMask.qc_case_id == case_id).first()
+    if not mask:
+        raise HTTPException(status_code=404, detail="Mask not found")
+    headers = {"Cache-Control": "private, max-age=3600"}
+    cached = intake.png_cache_path(mask.qc_id, None, f"overlay-{mask.qc_version}")
+    if cached.exists():
+        return FileResponse(cached, media_type="image/png", headers=headers)
+    try:
+        png = intake.render_mask_overlay_png(intake.read_from_gcs(mask.qc_gcs_path))
+    except Exception:
+        logger.exception("Overlay render failed for mask %s", mask_id)
+        raise HTTPException(status_code=500, detail="Could not render the mask overlay")
+    cached.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cached.with_suffix(".tmp")
+    tmp.write_bytes(png)
+    tmp.replace(cached)
+    intake._trim_cache(cached.parent, "*.png", 600)
+    return Response(content=png, media_type="image/png", headers=headers)
+
+
 @router.get("/files/{file_id}/pixels")
 def file_pixels(file_id: int, db: Session = Depends(get_db), current_user: dict = Depends(any_role)):
     """Raw 16-bit pixels of one view (little-endian, row-major, width x height from the DICOM header), gzip-encoded.

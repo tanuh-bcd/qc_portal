@@ -14,6 +14,14 @@ const downloadAssignments = async () => {
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 };
 const openCount = (t) => Object.entries(t.counts || {}).reduce((n, [k, v]) => (k === 'segmented' ? n : n + v), 0);
+const downloadTechMasksZip = async (tech) => {
+  const res = await fetch(`${API}/mammo-techs/${tech.id}/masks.zip`, { headers: authHeaders() });
+  if (!res.ok) { alert('No segmented cases with saved masks for this Mammo Tech yet'); return; }
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url; a.download = `${(tech.name || `tech_${tech.id}`).replace(/\s+/g, '_')}_cases.zip`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
 
 // The one place cases are assigned: filter, tick, then use the action bar.
 const RetroCasesTable = ({ tally, techs, statusFilter, setStatusFilter, reloadKey, onChanged }) => {
@@ -185,6 +193,14 @@ const RetroCasesTable = ({ tally, techs, statusFilter, setStatusFilter, reloadKe
             <option value="">All manufacturers</option>{facets.manufacturers.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
           {techFilter && <button className="ri-pill on" onClick={() => setTechFilter('')}>{techs.find((t) => String(t.id) === techFilter)?.name} ✕</button>}
+          {techFilter && (() => {
+            const t = techs.find((x) => String(x.id) === techFilter);
+            const segmented = t?.counts?.segmented || 0;
+            return (
+              <button className="ri-pill" disabled={!segmented} title={segmented ? `Download ${segmented} segmented case(s), each with its 4 views and masks, as one zip` : 'No segmented cases for this Mammo Tech yet'}
+                onClick={() => downloadTechMasksZip(t)}>⬇ All cases for {t?.name} (views + masks)</button>
+            );
+          })()}
         </div>
 
         {pageAllTicked && !allMatching && data.assignable_total > selected.length && (

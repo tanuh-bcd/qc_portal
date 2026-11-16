@@ -39,8 +39,9 @@ export const useBlobUrl = (path, deps = []) => {
   return state;
 };
 
-const Viewport = ({ file, label, tone, invert, resetKey, selected, onSelect }) => {
+const Viewport = ({ file, label, tone, invert, resetKey, selected, onSelect, caseId, mask, showMask }) => {
   const { url, error, loading } = useBlobUrl(file ? `/files/${file.id}/image?invert=${invert}` : null, [invert]);
+  const { url: maskUrl } = useBlobUrl(showMask && mask ? `/cases/${caseId}/masks/${mask.id}/overlay.png` : null, [showMask, mask && mask.id]);
   const boxRef = useRef(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [nat, setNat] = useState({ w: 0, h: 0 });          // natural size of the picture
@@ -105,6 +106,12 @@ const Viewport = ({ file, label, tone, invert, resetKey, selected, onSelect }) =
             width: nat.w || undefined, height: nat.h || undefined, filter: tone, visibility: nat.w ? 'visible' : 'hidden',
             transform: `translate(${box.w / 2 + pan.x - (nat.w * scale) / 2}px, ${box.h / 2 + pan.y - (nat.h * scale) / 2}px) scale(${scale})`,
           }} />
+      )}
+      {url && showMask && maskUrl && (
+        <img className="rcv-img rcv-mask-img" src={maskUrl} alt="" draggable={false} style={{
+          width: nat.w || undefined, height: nat.h || undefined, visibility: nat.w ? 'visible' : 'hidden', pointerEvents: 'none',
+          transform: `translate(${box.w / 2 + pan.x - (nat.w * scale) / 2}px, ${box.h / 2 + pan.y - (nat.h * scale) / 2}px) scale(${scale})`,
+        }} />
       )}
     </div>
   );
@@ -262,6 +269,7 @@ const RetroCaseViewer = ({ caseId, onClose }) => {
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
   const [selected, setSelected] = useState(null);
+  const [showMasks, setShowMasks] = useState(false);
 
   useEffect(() => {
     fetch(`${API}/cases/${caseId}`, { headers: auth() })
@@ -280,6 +288,11 @@ const RetroCaseViewer = ({ caseId, onClose }) => {
   const report = (data?.files || []).find((f) => f.kind === 'report');
   const byView = Object.fromEntries(views.map((v) => [v.view, v]));
   const totalBytes = (data?.files || []).reduce((s, f) => s + (f.size_bytes || 0), 0);
+  const maskByView = {};
+  (data?.masks || []).forEach((m) => {
+    if (m.role === 'mammo_tech' && (!maskByView[m.view] || m.version > maskByView[m.view].version)) maskByView[m.view] = m;
+  });
+  const hasMasks = Object.keys(maskByView).length > 0;
   const tone = `brightness(${brightness}%) contrast(${contrast}%)`;
 
   const TABS = [['views', 'Mammograms'], ['report', 'Report'], ['headers', 'DICOM headers'], ['files', 'Files'], ['seg', 'Segmentation']];
@@ -318,12 +331,15 @@ const RetroCaseViewer = ({ caseId, onClose }) => {
               <label>Brightness<input type="range" min="50" max="170" value={brightness} onChange={(e) => setBrightness(+e.target.value)} /></label>
               <label>Contrast<input type="range" min="50" max="220" value={contrast} onChange={(e) => setContrast(+e.target.value)} /></label>
               <button className={invert ? 'on' : ''} onClick={() => setInvert((v) => !v)}>Invert</button>
+              <button className={showMasks ? 'on' : ''} disabled={!hasMasks} title={hasMasks ? 'Show the Mammo Tech segmentation on top of each view' : 'No segmentation saved for this case yet'}
+                onClick={() => setShowMasks((v) => !v)}>Mask overlay</button>
               <span className="hint">Wheel zooms the image under the cursor · drag to pan · double-click to fit</span>
             </div>
             <div className="rcv-grid">
               {LAYOUT.map((slot) => (
                 <Viewport key={slot} file={byView[slot]} label={`${slot} · ${VIEW_NAMES[slot]}`} tone={tone}
-                  invert={invert} resetKey={resetKey} selected={selected === slot} onSelect={() => setSelected(slot)} />
+                  invert={invert} resetKey={resetKey} selected={selected === slot} onSelect={() => setSelected(slot)}
+                  caseId={caseId} mask={maskByView[slot]} showMask={showMasks} />
               ))}
             </div>
           </>
