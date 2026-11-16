@@ -568,6 +568,16 @@ def read_from_gcs(url: str) -> bytes:
     return _bucket(bucket).blob(blob).download_as_bytes()
 
 
+def download_gcs_to(url: str, fileobj):
+    """Stream a stored file straight into an open file object, instead of holding the whole thing in memory first.
+
+    Used when many files are gathered into one response (e.g. a multi-case zip); downloading each one as a Python
+    bytes object first, on top of the zip's own buffering, can multiply peak memory well past a small container's limit.
+    """
+    bucket, blob = split_gs_url(url)
+    _bucket(bucket).blob(blob).download_to_file(fileobj)
+
+
 def render_dicom_png(data: bytes, center: Optional[float] = None, width: Optional[float] = None,
                      invert: bool = False, max_side: int = 1800) -> bytes:
     """Window a DICOM to an 8-bit PNG for browser display (headers/PHI are not embedded)."""

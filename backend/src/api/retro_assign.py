@@ -1,5 +1,4 @@
 import datetime
-import io
 import logging
 import os
 import tempfile
@@ -7,7 +6,9 @@ import zipfile
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -105,20 +106,26 @@ def download_tech_masks_zip(tech_id: int, db: Session = Depends(get_db), current
         seen_folders.add(folder)
         folder_by_case[case_id] = folder
 
-    buf = io.BytesIO()
+    # Written straight to a temp file on disk, one file at a time, instead of an in-memory zip: a tech's segmented
+    # cases can carry many full-size DICOMs, and holding them all (plus the zip buffer) in RAM at once has been seen
+    # to exhaust a container's memory in production, killing the worker mid-request with no error reaching the browser.
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp.close()
     try:
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_DEFLATED) as z:
             for f in views:
-                z.writestr(f"{folder_by_case[f.qc_case_id]}/{f.qc_view or f.qc_filename}/{f.qc_filename}",
-                          intake.read_from_gcs(f.qc_gcs_path))
+                with z.open(f"{folder_by_case[f.qc_case_id]}/{f.qc_view or f.qc_filename}/{f.qc_filename}", "w") as out:
+                    intake.download_gcs_to(f.qc_gcs_path, out)
             for (case_id, _view), m in latest_mask.items():
-                z.writestr(f"{folder_by_case[case_id]}/segmentation/{m.qc_filename}", intake.read_from_gcs(m.qc_gcs_path))
+                with z.open(f"{folder_by_case[case_id]}/segmentation/{m.qc_filename}", "w") as out:
+                    intake.download_gcs_to(m.qc_gcs_path, out)
     except Exception:
+        os.unlink(tmp.name)
         logger.exception("Mask zip failed for mammo tech %s", tech_id)
         raise HTTPException(status_code=500, detail="Could not read the cases")
     name = (tech.qc_full_name or tech.qc_email or f"tech_{tech_id}").replace(" ", "_")
-    return Response(content=buf.getvalue(), media_type="application/zip",
-                    headers={"Content-Disposition": f'attachment; filename="{name}_cases.zip"'})
+    return FileResponse(tmp.name, media_type="application/zip", filename=f"{name}_cases.zip",
+                        background=BackgroundTask(os.unlink, tmp.name))
 
 
 @router.post("/assign")

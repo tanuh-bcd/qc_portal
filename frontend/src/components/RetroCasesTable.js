@@ -15,8 +15,19 @@ const downloadAssignments = async () => {
 };
 const openCount = (t) => Object.entries(t.counts || {}).reduce((n, [k, v]) => (k === 'segmented' ? n : n + v), 0);
 const downloadTechMasksZip = async (tech) => {
-  const res = await fetch(`${API}/mammo-techs/${tech.id}/masks.zip`, { headers: authHeaders() });
-  if (!res.ok) { alert('No segmented cases with saved masks for this Mammo Tech yet'); return; }
+  let res;
+  try {
+    res = await fetch(`${API}/mammo-techs/${tech.id}/masks.zip`, { headers: authHeaders() });
+  } catch (e) {
+    alert(`Could not reach the server: ${e.message}`);
+    return;
+  }
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json()).detail || ''; } catch (e) { /* not JSON */ }
+    alert(detail || `Download failed (${res.status}). This can happen if the zip is very large; try again, or ask an admin to check the server logs.`);
+    return;
+  }
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement('a');
   a.href = url; a.download = `${(tech.name || `tech_${tech.id}`).replace(/\s+/g, '_')}_cases.zip`;
@@ -26,6 +37,7 @@ const downloadTechMasksZip = async (tech) => {
 // The one place cases are assigned: filter, tick, then use the action bar.
 const RetroCasesTable = ({ tally, techs, statusFilter, setStatusFilter, reloadKey, onChanged }) => {
   const [data, setData] = useState({ items: [], total: 0, assignable_total: 0 });
+  const [zipBusy, setZipBusy] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [birads, setBirads] = useState('');
@@ -197,8 +209,11 @@ const RetroCasesTable = ({ tally, techs, statusFilter, setStatusFilter, reloadKe
             const t = techs.find((x) => String(x.id) === techFilter);
             const segmented = t?.counts?.segmented || 0;
             return (
-              <button className="ri-pill" disabled={!segmented} title={segmented ? `Download ${segmented} segmented case(s), each with its 4 views and masks, as one zip` : 'No segmented cases for this Mammo Tech yet'}
-                onClick={() => downloadTechMasksZip(t)}>⬇ All cases for {t?.name} (views + masks)</button>
+              <button className="ri-pill" disabled={!segmented || zipBusy}
+                title={segmented ? `Download ${segmented} segmented case(s), each with its 4 views and masks, as one zip` : 'No segmented cases for this Mammo Tech yet'}
+                onClick={async () => { setZipBusy(true); try { await downloadTechMasksZip(t); } finally { setZipBusy(false); } }}>
+                {zipBusy ? <><i className="ri-spin" /> Zipping… this can take a while for many cases</> : `⬇ All cases for ${t?.name} (views + masks)`}
+              </button>
             );
           })()}
         </div>

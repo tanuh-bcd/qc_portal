@@ -87,6 +87,7 @@ def env(monkeypatch):
     stored, mails = {}, []
     monkeypatch.setattr(intake, "upload_to_gcs", lambda local, blob: stored.setdefault(blob, open(local, "rb").read()) and f"gs://b/{blob}")
     monkeypatch.setattr(intake, "read_from_gcs", lambda url: stored[url.split("/", 3)[3]])
+    monkeypatch.setattr(intake, "download_gcs_to", lambda url, fileobj: fileobj.write(stored[url.split("/", 3)[3]]))
     monkeypatch.setattr(retro_mail, "send_template_email", lambda db, key, to, vars, **kw: mails.append((key, to, vars)) or True)
     db = TestSession()
     batch = RetroBatch(qc_status="completed")
