@@ -108,6 +108,39 @@ def validate_nifti_gz(data: bytes) -> str:
     return read_nifti_header(data)[0]
 
 
+def decode_nifti_mask(data: bytes):
+    """Decode a gzipped NIfTI-1 mask (written by the browser's seg tool, see frontend seg/segTools.js buildNifti)
+    into a (rows, cols) boolean array. The client writes the mask flat, row-major (y * nx + x), with no transpose
+    or flip, so the result lines up with a DICOM pixel array (also (rows, cols)) index for index."""
+    import numpy as np
+    try:
+        raw = gzip.GzipFile(fileobj=io.BytesIO(data)).read()
+    except Exception as e:
+        raise ValueError("File is corrupt or truncated gzip") from e
+    if len(raw) < 352:
+        raise ValueError("File is too small to be a NIfTI image")
+    order = None
+    for cand in ("<", ">"):
+        if struct.unpack(f"{cand}i", raw[:4])[0] == 348 and raw[344:347] in (b"n+1", b"ni1"):
+            order = cand
+            break
+    if not order:
+        raise ValueError("Not a valid NIfTI-1 header")
+    dims = struct.unpack(f"{order}8h", raw[40:56])
+    nx, ny = dims[1], dims[2]
+    dtype = struct.unpack(f"{order}h", raw[70:72])[0]
+    off = round(struct.unpack(f"{order}f", raw[108:112])[0]) or 352
+    np_dtype = {2: np.dtype("u1"), 4: np.dtype(f"{order}i2"), 512: np.dtype(f"{order}u2"),
+                8: np.dtype(f"{order}i4"), 16: np.dtype(f"{order}f4")}.get(dtype)
+    if not np_dtype or nx <= 0 or ny <= 0:
+        raise ValueError("Unsupported mask data type")
+    count = nx * ny
+    if off + count * np_dtype.itemsize > len(raw):
+        raise ValueError("File is too small for its declared dimensions")
+    flat = np.frombuffer(raw, dtype=np_dtype, count=count, offset=off)
+    return (flat.reshape((ny, nx)) != 0)
+
+
 def view_dimensions(db: Session, case_id: int, view: str) -> Optional[Tuple[int, int]]:
     """(columns, rows) of a view's DICOM from the stored header cache, or None if unknown."""
     f = db.query(RetroFile).filter(RetroFile.qc_case_id == case_id, RetroFile.qc_kind == "view",

@@ -1,7 +1,9 @@
 import datetime
+import io
 import logging
 import os
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import List, Optional
 
@@ -13,8 +15,9 @@ from sqlalchemy.orm import Session
 from ..db.session import get_db
 from ..models.models import Role, User
 from ..models.retro import (ASSIGN_AWAITING, ASSIGN_IN_PROGRESS, ASSIGN_SEGMENTED, ASSIGN_WITH_RADIOLOGIST,
-                            RetroAssignment, RetroCase)
+                            RetroAssignment, RetroCase, RetroFile, RetroMask)
 from ..services import retro_mail
+from ..services import retro_intake as intake
 from .admin import check_admin_role, MAMMO_TECH_ROLE_NAME
 from .retro import assignable, filtered_cases
 
@@ -68,6 +71,54 @@ def list_mammo_techs(db: Session = Depends(get_db), current_user: dict = Depends
         "id": u.qc_id, "name": u.qc_full_name or u.qc_email, "email": u.qc_email,
         "counts": counts.get(u.qc_id, {}), "total": sum(counts.get(u.qc_id, {}).values()),
     } for u in _mammo_techs(db)]
+
+
+@router.get("/mammo-techs/{tech_id}/masks.zip")
+def download_tech_masks_zip(tech_id: int, db: Session = Depends(get_db), current_user: dict = Depends(check_admin_role)):
+    """Every segmented case for one tech, one folder per case (named by the original upload folder) holding that
+    case's 4 view DICOMs plus the Mammo Tech's latest mask for each view."""
+    tech = db.query(User).filter(User.qc_id == tech_id).first()
+    if not tech:
+        raise HTTPException(status_code=404, detail="Mammo Tech not found")
+    pairs = db.query(RetroAssignment, RetroCase).join(RetroCase, RetroCase.qc_id == RetroAssignment.qc_case_id) \
+        .filter(RetroAssignment.qc_mammo_tech_id == tech_id, RetroAssignment.qc_status == ASSIGN_SEGMENTED).all()
+    if not pairs:
+        raise HTTPException(status_code=404, detail="This Mammo Tech has no segmented cases yet")
+    case_ids = [c.qc_id for _, c in pairs]
+    cases_by_id = {c.qc_id: c for _, c in pairs}
+    masks = db.query(RetroMask).filter(RetroMask.qc_case_id.in_(case_ids), RetroMask.qc_role == "mammo_tech") \
+        .order_by(RetroMask.qc_version).all()
+    latest_mask = {}
+    for m in masks:  # ascending version, so the last write per (case, view) wins
+        latest_mask[(m.qc_case_id, m.qc_view or "")] = m
+    if not latest_mask:
+        raise HTTPException(status_code=404, detail="This Mammo Tech has no saved masks yet")
+    cases_with_masks = {cid for cid, _ in latest_mask}
+    views = db.query(RetroFile).filter(RetroFile.qc_case_id.in_(cases_with_masks), RetroFile.qc_kind == "view").all()
+
+    folder_by_case, seen_folders = {}, set()
+    for case_id in sorted(cases_with_masks, key=lambda cid: cases_by_id[cid].qc_case_code):
+        case = cases_by_id[case_id]
+        folder = case.qc_original_name or case.qc_case_code
+        if folder in seen_folders:
+            folder = f"{folder}_{case.qc_case_code}"  # two uploads shared an original folder name
+        seen_folders.add(folder)
+        folder_by_case[case_id] = folder
+
+    buf = io.BytesIO()
+    try:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in views:
+                z.writestr(f"{folder_by_case[f.qc_case_id]}/{f.qc_view or f.qc_filename}/{f.qc_filename}",
+                          intake.read_from_gcs(f.qc_gcs_path))
+            for (case_id, _view), m in latest_mask.items():
+                z.writestr(f"{folder_by_case[case_id]}/segmentation/{m.qc_filename}", intake.read_from_gcs(m.qc_gcs_path))
+    except Exception:
+        logger.exception("Mask zip failed for mammo tech %s", tech_id)
+        raise HTTPException(status_code=500, detail="Could not read the cases")
+    name = (tech.qc_full_name or tech.qc_email or f"tech_{tech_id}").replace(" ", "_")
+    return Response(content=buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": f'attachment; filename="{name}_cases.zip"'})
 
 
 @router.post("/assign")
