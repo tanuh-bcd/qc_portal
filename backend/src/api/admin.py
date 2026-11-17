@@ -16,7 +16,7 @@ from ..schemas.schemas import ( ClinicianOption,
 )
 from ..core.security import get_password_hash
 from ..core.email import send_template_email
-from .auth import get_current_user
+from .auth import get_current_user, get_current_user_header_or_query
 
 router = APIRouter()
 
@@ -48,6 +48,12 @@ def check_admin_role(current_user: dict = Depends(get_current_user), db: Session
     if hospital:
         current_user["hospital_name"] = hospital.qc_name
     return current_user
+
+def check_admin_role_for_download(current_user: dict = Depends(get_current_user_header_or_query),
+                                  db: Session = Depends(get_db)):
+    """check_admin_role's rules, but accepting the JWT via query param too — for GET download
+    links triggered by a plain browser navigation instead of an authenticated fetch()."""
+    return check_admin_role(current_user, db)
 
 def check_super_admin(current_user: dict = Depends(check_admin_role)):
     if current_user.get("hospital_name") != "Test":

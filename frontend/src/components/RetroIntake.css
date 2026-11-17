@@ -70,6 +70,8 @@
 .ri-pill { border: 1px solid var(--line); background: #fff; border-radius: 20px; padding: 6px 13px; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--muted); }
 .ri-pill.on { background: var(--teal); color: #fff; border-color: var(--teal); }
 .ri-pill:disabled { opacity: .4; cursor: not-allowed; }
+.ri-spin { width: 11px; height: 11px; border: 2px solid #d7dde0; border-top-color: var(--teal); border-radius: 50%; display: inline-block; vertical-align: -1px; margin-right: 5px; animation: ri-spin .8s linear infinite; }
+@keyframes ri-spin { to { transform: rotate(360deg); } }
 .ri-search { width: 240px; margin-left: 6px; padding: 7px 12px; }
 .ri-scroll { overflow-x: auto; }
 .ri-table { width: 100%; border-collapse: collapse; }

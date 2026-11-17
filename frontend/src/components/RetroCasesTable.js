@@ -14,13 +14,17 @@ const downloadAssignments = async () => {
   document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
 };
 const openCount = (t) => Object.entries(t.counts || {}).reduce((n, [k, v]) => (k === 'segmented' ? n : n + v), 0);
-const downloadTechMasksZip = async (tech) => {
-  const res = await fetch(`${API}/mammo-techs/${tech.id}/masks.zip`, { headers: authHeaders() });
-  if (!res.ok) { alert('No segmented cases with saved masks for this Mammo Tech yet'); return; }
-  const url = URL.createObjectURL(await res.blob());
+const downloadTechMasksZip = (tech) => {
+  // A plain navigation, not fetch()+blob: the browser shows its own native download progress
+  // the moment bytes start arriving, instead of the page looking frozen while the whole zip is
+  // built server-side and only then handed over as one blob. A download link can't send an
+  // Authorization header, so the token rides along as a one-off query param on this GET only.
+  const token = localStorage.getItem('token');
+  const name = `${(tech.name || `tech_${tech.id}`).replace(/\s+/g, '_')}_cases.zip`;
+  const url = `${API}/mammo-techs/${tech.id}/masks.zip?dl=${encodeURIComponent(token)}`;
   const a = document.createElement('a');
-  a.href = url; a.download = `${(tech.name || `tech_${tech.id}`).replace(/\s+/g, '_')}_cases.zip`;
-  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  a.href = url; a.download = name; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
 };
 
 // The one place cases are assigned: filter, tick, then use the action bar.
@@ -197,8 +201,11 @@ const RetroCasesTable = ({ tally, techs, statusFilter, setStatusFilter, reloadKe
             const t = techs.find((x) => String(x.id) === techFilter);
             const segmented = t?.counts?.segmented || 0;
             return (
-              <button className="ri-pill" disabled={!segmented} title={segmented ? `Download ${segmented} segmented case(s), each with its 4 views and masks, as one zip` : 'No segmented cases for this Mammo Tech yet'}
-                onClick={() => downloadTechMasksZip(t)}>⬇ All cases for {t?.name} (views + masks)</button>
+              <button className="ri-pill" disabled={!segmented}
+                title={segmented ? `Download ${segmented} segmented case(s), each with its 4 views and masks, as one zip. Can take a while to start for many cases — your browser will show its own download progress once it does.` : 'No segmented cases for this Mammo Tech yet'}
+                onClick={() => downloadTechMasksZip(t)}>
+                {`⬇ All cases for ${t?.name} (views + masks)`}
+              </button>
             );
           })()}
         </div>
