@@ -163,3 +163,21 @@ def test_mammo_tech_masks_zip_includes_views_and_masks(client, env):
 def test_mammo_tech_masks_zip_unknown_tech(client, env):
     admin = token("admin@test.com", "Admin")
     assert client.get(f"{B}/mammo-techs/999999/masks.zip", headers=admin).status_code == 404
+
+
+def test_mammo_tech_masks_zip_accepts_token_as_query_param(client, env):
+    """The download link is a plain browser navigation, which can't send an Authorization header,
+    so this endpoint also accepts the JWT via `?dl=` — admin auth rules still apply either way."""
+    case_id, _ = env
+    tech_id, tech_email = _fresh_mammo_tech()
+    admin, mt = token("admin@test.com", "Admin"), token(tech_email, "Mammo Tech")
+    _segment_and_complete(client, admin, mt, tech_id, case_id)
+
+    admin_jwt = admin["Authorization"].split(" ", 1)[1]
+    r = client.get(f"{B}/mammo-techs/{tech_id}/masks.zip?dl={admin_jwt}")
+    assert r.status_code == 200 and r.headers["content-type"] == "application/zip"
+
+    mt_jwt = mt["Authorization"].split(" ", 1)[1]
+    assert client.get(f"{B}/mammo-techs/{tech_id}/masks.zip?dl={mt_jwt}").status_code == 403  # admin only, still enforced
+
+    assert client.get(f"{B}/mammo-techs/{tech_id}/masks.zip").status_code == 401  # no token at all, neither header nor query

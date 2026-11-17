@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
@@ -8,14 +8,13 @@ from ..schemas.schemas import Token, LoginRequest, HospitalResponse, TokenData, 
 from ..core.security import verify_password, create_access_token, get_password_hash
 from ..core.email import send_template_email
 from ..core.config import settings
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/qc/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/qc/auth/login", auto_error=False)
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    # DEBUG: Validating token
+def _decode_token(token: str, db: Session):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -43,6 +42,28 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     except Exception:
         raise credentials_exception
     return token_data
+
+
+async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials",
+                            headers={"WWW-Authenticate": "Bearer"})
+    return _decode_token(token, db)
+
+
+async def get_current_user_header_or_query(token: Optional[str] = Depends(oauth2_scheme),
+                                           dl: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    """Like get_current_user, but also accepts the JWT as a `dl` query param.
+
+    Only for GET download endpoints triggered by a plain browser navigation (an <a>/location.href
+    click), which can't send an Authorization header — lets those show the browser's native
+    download progress immediately instead of waiting on a JS fetch() for the whole file first.
+    """
+    picked = token or dl
+    if not picked:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials",
+                            headers={"WWW-Authenticate": "Bearer"})
+    return _decode_token(picked, db)
 
 EXCLUDED_INSTITUTIONS = ('Tanuh Foundation',)
 

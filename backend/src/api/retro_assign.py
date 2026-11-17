@@ -19,7 +19,7 @@ from ..models.retro import (ASSIGN_AWAITING, ASSIGN_IN_PROGRESS, ASSIGN_SEGMENTE
                             RetroAssignment, RetroCase, RetroFile, RetroMask)
 from ..services import retro_mail
 from ..services import retro_intake as intake
-from .admin import check_admin_role, MAMMO_TECH_ROLE_NAME
+from .admin import check_admin_role, check_admin_role_for_download, MAMMO_TECH_ROLE_NAME
 from .retro import assignable, filtered_cases
 
 router = APIRouter()
@@ -75,7 +75,8 @@ def list_mammo_techs(db: Session = Depends(get_db), current_user: dict = Depends
 
 
 @router.get("/mammo-techs/{tech_id}/masks.zip")
-def download_tech_masks_zip(tech_id: int, db: Session = Depends(get_db), current_user: dict = Depends(check_admin_role)):
+def download_tech_masks_zip(tech_id: int, db: Session = Depends(get_db),
+                            current_user: dict = Depends(check_admin_role_for_download)):
     """Every segmented case for one tech, one folder per case (named by the original upload folder) holding that
     case's 4 view DICOMs plus the Mammo Tech's latest mask for each view."""
     tech = db.query(User).filter(User.qc_id == tech_id).first()
