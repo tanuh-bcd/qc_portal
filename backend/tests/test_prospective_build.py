@@ -96,6 +96,51 @@ def test_unknown_attachment_does_not_publish(tables):
 
 
 
+def test_run_build_requires_source_urls(monkeypatch):
+    from backend.src.services.prospective_build import run_build
+    monkeypatch.delenv("PROSPECTIVE_QUESTIONNAIRE_DATABASE_URL", raising=False)
+    monkeypatch.delenv("PROSPECTIVE_CLINICAL_DATABASE_URL", raising=False)
+    monkeypatch.delenv("PROSPECTIVE_PILOT_DATABASE_URL", raising=False)
+    with pytest.raises(ValueError, match="PROSPECTIVE_QUESTIONNAIRE_DATABASE_URL"):
+        run_build("gs://bucket/prospective")
+
+
+def test_run_build_extracts_builds_and_publishes(tables, tmp_path, monkeypatch):
+    from backend.src.services import prospective_build as pb
+    monkeypatch.setenv("PROSPECTIVE_QUESTIONNAIRE_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("PROSPECTIVE_CLINICAL_DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("PROSPECTIVE_PILOT_DATABASE_URL", "sqlite://")
+    monkeypatch.setattr(pb, "extract", lambda engines: tables)
+    result = pb.run_build(str(tmp_path))
+    assert result["rows"] > 0
+    assert result["manifest"] == str(tmp_path).rstrip("/") + "/current.json"
+
+
+def test_build_prospective_endpoint_requires_output(monkeypatch):
+    from fastapi import HTTPException
+    from backend.src.api import jobs
+    monkeypatch.delenv("PROSPECTIVE_BUILD_OUTPUT_URI", raising=False)
+    with pytest.raises(HTTPException) as exc_info:
+        jobs.trigger_build_prospective(_identity={"authentication": "shared-secret"})
+    assert exc_info.value.status_code == 503
+
+
+def test_build_prospective_endpoint_runs_build(monkeypatch, tmp_path):
+    from backend.src.api import jobs
+    monkeypatch.setenv("PROSPECTIVE_BUILD_OUTPUT_URI", str(tmp_path))
+    monkeypatch.setattr(jobs, "run_build", lambda output: {
+        "manifest": f"{output}/current.json", "rows": 3, "files": 5, "built_at": "2026-11-18T00:00:00+05:30", "report": {},
+    })
+    response = jobs.trigger_build_prospective(_identity={"authentication": "shared-secret"})
+    assert response == {
+        "success": True,
+        "manifest": f"{tmp_path}/current.json",
+        "rows": 3,
+        "files": 5,
+        "builtAt": "2026-11-18T00:00:00+05:30",
+    }
+
+
 def test_extractor_is_allowlisted_and_select_only():
     from sqlalchemy import create_engine, text
     from backend.src.services.prospective_build import SOURCE_COLUMNS, REQUIRED_SOURCE
