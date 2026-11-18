@@ -1,11 +1,12 @@
 """Cloud Scheduler entry points for backend cron jobs.
 
-Currently home to the pending-case reminder trigger only. The previously
-separate fortnightly-reminder cron endpoint and its own copy of this auth
-dependency were removed from the codebase in an earlier cleanup and are not
-part of this router.
+Home to the pending-case reminder trigger and the daily prospective-dataset
+build trigger. The previously separate fortnightly-reminder cron endpoint and
+its own copy of this auth dependency were removed from the codebase in an
+earlier cleanup and are not part of this router.
 """
 import logging
+import os
 import secrets
 from typing import Optional
 
@@ -18,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..core.config import settings
 from ..db.session import get_db
 from ..services.pending_case_reminders import send_due_reminders
+from ..services.prospective_build import run_build
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -103,3 +105,36 @@ def trigger_pending_case_reminders(
             detail=response,
         )
     return response
+
+
+@router.post("/build-prospective")
+def trigger_build_prospective(
+    _identity: dict = Depends(verify_cron_identity),
+):
+    """Cloud Scheduler entry point. Rebuilds and republishes the prospective CSV
+    pair that the dashboard's Prospective tab reads, so it no longer depends on
+    someone running backend/tools/build_prospective.py by hand. Reads the same
+    PROSPECTIVE_*_DATABASE_URL source vars as that CLI tool, and publishes to
+    PROSPECTIVE_BUILD_OUTPUT_URI (the folder whose current.json is PROSPECTIVE_MANIFEST_URI)."""
+    output = os.environ.get("PROSPECTIVE_BUILD_OUTPUT_URI", "").strip()
+    if not output:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="PROSPECTIVE_BUILD_OUTPUT_URI is not configured",
+        )
+    try:
+        result = run_build(output)
+    except Exception as exc:
+        reason = getattr(exc, "orig", None) or (str(exc) if isinstance(exc, ValueError) else type(exc).__name__)
+        logger.error("Prospective build failed: %s", reason)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Build failed: {reason}",
+        ) from exc
+    return {
+        "success": True,
+        "manifest": result["manifest"],
+        "rows": result["rows"],
+        "files": result["files"],
+        "builtAt": result["built_at"],
+    }

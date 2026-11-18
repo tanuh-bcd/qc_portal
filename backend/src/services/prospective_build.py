@@ -91,6 +91,28 @@ def latest(rows):
     return max(rows, key=lambda r: (value(r.get("created_at")), value(r.get("id")).zfill(20))) if rows else {}
 
 
+def run_build(output: str, version: str = VERSION) -> dict:
+    """Open read-only engines from PROSPECTIVE_*_DATABASE_URL, build and publish the
+    CSV pair to `output`, and return the publish report. Shared by the CLI tool
+    (backend/tools/build_prospective.py) and the Cloud Scheduler endpoint so both
+    paths behave identically."""
+    from sqlalchemy import create_engine
+    engines = {}
+    try:
+        for source in ("questionnaire", "clinical", "pilot"):
+            name = f"PROSPECTIVE_{source.upper()}_DATABASE_URL"
+            uri = os.environ.get(name)
+            if not uri:
+                raise ValueError(f"Set {name} to a read-only source database URL")
+            engines[source] = create_engine(uri, pool_pre_ping=True, connect_args={"connect_timeout": 15} if uri.startswith("mysql") else {})
+        rows, files, report, built_at = build(extract(engines), version)
+        manifest_path = publish(rows, files, report, built_at, output, version)
+        return {"manifest": manifest_path, "rows": len(rows), "files": len(files), "built_at": built_at, "report": report}
+    finally:
+        for engine in engines.values():
+            engine.dispose()
+
+
 def extract(engines):
     """SELECT only. Operators must supply SELECT-only database accounts."""
     from sqlalchemy import MetaData, Table, select
